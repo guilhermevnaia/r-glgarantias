@@ -1,0 +1,17 @@
+# Ignorar arquivos de ambiente
+.env
+
+# Ignorar módulos de node
+node_modules
+
+# Ignorar builds de frontend
+build
+dist
+
+# Ignorar logs
+*.log
+
+# Ignorar arquivos de sistema operacional
+.DS_Store
+thumbs.db
+
