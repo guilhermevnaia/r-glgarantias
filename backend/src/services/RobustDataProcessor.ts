@@ -130,6 +130,11 @@ class RobustDataProcessor {
   private validateRow(row: any, rowNumber: number, dateValidator: DateValidator): RowValidationResult {
     const errors: string[] = [];
 
+    // LOG: Valor original da data (apenas para primeiras 5 linhas)
+    if (rowNumber <= 7) {
+      console.log(`[Linha ${rowNumber}] Valor bruto de Data_OSv:`, row["Data_OSv"], `| Tipo:`, typeof row["Data_OSv"]);
+    }
+
     // VALIDAR CAMPOS OBRIGATÓRIOS
     const requiredFields = ["NOrdem_OSv", "Data_OSv", "Status_OSv"];
     for (const field of requiredFields) {
@@ -150,6 +155,10 @@ class RobustDataProcessor {
 
     // VALIDAR DATA
     const dateValidation = dateValidator.validateDate(row["Data_OSv"]);
+    // LOG: Resultado da validação de data (apenas para primeiras 5 linhas)
+    if (rowNumber <= 7) {
+      console.log(`[Linha ${rowNumber}] Resultado do DateValidator:`, dateValidation);
+    }
     if (!dateValidation.isValid) {
       errors.push(`Invalid date: ${dateValidation.error}`);
     } else if (!dateValidator.isDateAfter2019(dateValidation.date!)) {
@@ -177,8 +186,11 @@ class RobustDataProcessor {
     }
 
     const calculationVerified = Math.abs((partsTotal + laborTotal) - grandTotal) < 0.01;
+    
+    // REGRA DE NEGÓCIO: Cálculo incorreto deve ser WARNING, não erro que rejeita linha
     if (!calculationVerified) {
-      errors.push(`Calculation mismatch: (Parts: ${partsTotal} + Labor: ${laborTotal}) != Grand Total: ${grandTotal}`);
+      console.log(`⚠️  WARNING [Linha ${rowNumber}]: Calculation mismatch: (Parts: ${partsTotal} + Labor: ${laborTotal}) != Grand Total: ${grandTotal}`);
+      // NÃO adicionar aos errors - apenas registrar warning
     }
 
     if (errors.length > 0) {
