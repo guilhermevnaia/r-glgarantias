@@ -53,10 +53,20 @@ class RobustDataProcessor {
       throw new Error('A planilha deve conter uma aba chamada "Tabela"');
     }
 
-    const allRows = XLSX.utils.sheet_to_json(worksheet);
+    // Read data with header as first row to get exact header names
+    const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (allRows.length === 0) {
+      throw new Error("Planilha vazia ou sem dados.");
+    }
+
+    const headers = allRows[0] as string[];
+    const dataRows = allRows.slice(1);
+
+    console.log("Headers from Excel:", headers);
 
     const processingLog: ProcessingLog = {
-      totalRows: allRows.length,
+      totalRows: dataRows.length,
       processedRows: 0,
       validRows: 0,
       errors: [],
@@ -65,9 +75,15 @@ class RobustDataProcessor {
 
     const validData: any[] = [];
 
-    for (let i = 0; i < allRows.length; i++) {
-      const row = allRows[i];
-      const rowNumber = i + 2; // +2 porque Excel começa em 1 e tem header
+    for (let i = 0; i < dataRows.length; i++) {
+      const rowArray = dataRows[i] as any[];
+      const rowNumber = i + 2; // +2 because Excel starts at 1 and has header
+
+      // Map row array to an object using headers
+      const row: { [key: string]: any } = {};
+      headers.forEach((header, index) => {
+        row[header.toString().trim()] = rowArray[index];
+      });
 
       try {
         // VALIDAR CADA CAMPO INDIVIDUALMENTE
@@ -82,6 +98,7 @@ class RobustDataProcessor {
             data: row,
             errors: validationResult.errors || []
           });
+          console.log(`❌ Erro na linha ${rowNumber}:`, validationResult.errors);
         }
 
         processingLog.processedRows++;
@@ -92,15 +109,16 @@ class RobustDataProcessor {
           data: row,
           errors: [`Processing error: ${(error as Error).message}`]
         });
+        console.error(`Fatal error processing row ${rowNumber}:`, error);
       }
     }
 
     // 3. COMPARAR COM EXPECTATIVA
-    console.log('📈 RESULTADO FINAL:');
-    console.log(`Total no Excel: ${allRows.length}`);
+    console.log("📈 RESULTADO FINAL:");
+    console.log(`Total no Excel: ${processingLog.totalRows}`);
     console.log(`Processadas: ${processingLog.processedRows}`);
     console.log(`Válidas: ${processingLog.validRows}`);
-    console.log(`Perdidas: ${allRows.length - processingLog.validRows}`);
+    console.log(`Perdidas: ${processingLog.totalRows - processingLog.validRows}`);
 
     return {
       data: validData,
@@ -112,29 +130,55 @@ class RobustDataProcessor {
   private validateRow(row: any, rowNumber: number, dateValidator: DateValidator): RowValidationResult {
     const errors: string[] = [];
 
-    // VALIDAR DATA
-    const dateValidation = dateValidator.validateDate(row['Data_OSv']); // Nome exato da coluna
-    if (!dateValidation.isValid) {
-      errors.push(`Invalid date: ${dateValidation.error}`);
-    }
-
-    // VALIDAR STATUS
-    const status = row['Status_OSv']?.toString().trim().toUpperCase();
-    if (!['G', 'GO', 'GU'].includes(status)) {
-      errors.push(`Invalid status: ${status}`);
-    }
-
     // VALIDAR CAMPOS OBRIGATÓRIOS
-    const requiredFields = ['NOrdem_Osv', 'Data_OSv', 'Status_OSv'];
+    const requiredFields = ["NOrdem_OSv", "Data_OSv", "Status_OSv"];
     for (const field of requiredFields) {
-      if (!row[field] || row[field].toString().trim() === '') {
+      if (row[field] === undefined || row[field] === null || row[field].toString().trim() === "") {
         errors.push(`Missing required field: ${field}`);
       }
     }
 
-    // VALIDAR FILTRO DE DATA (>= 2019)
-    if (dateValidation.isValid && dateValidation.date && !dateValidator.isDateAfter2019(dateValidation.date)) {
-      errors.push(`Date before 2019: ${dateValidation.date}`);
+    // Se campos obrigatórios estiverem faltando, não prossiga com outras validações para evitar erros em cascata
+    if (errors.length > 0) {
+      return {
+        isValid: false,
+        errors: errors,
+        rowNumber: rowNumber,
+        originalData: row
+      };
+    }
+
+    // VALIDAR DATA
+    const dateValidation = dateValidator.validateDate(row["Data_OSv"]);
+    if (!dateValidation.isValid) {
+      errors.push(`Invalid date: ${dateValidation.error}`);
+    } else if (!dateValidator.isDateAfter2019(dateValidation.date!)) {
+      errors.push(`Date before 2019: ${dateValidation.date?.toISOString().split("T")[0]}`);
+    }
+
+    // VALIDAR STATUS
+    const status = row["Status_OSv"]?.toString().trim().toUpperCase();
+    if (!["G", "GO", "GU"].includes(status)) {
+      errors.push(`Invalid status: ${status}`);
+    }
+
+    // Validação de TotalProd_OSv, TotalServ_OSv, Total_OSv
+    const rawTotalProd = row["TotalProd_OSv"];
+    const rawTotalServ = row["TotalServ_OSv"];
+    const rawTotal = row["Total_OSv"];
+
+    const originalPartsValue = parseFloat(rawTotalProd) || 0;
+    const partsTotal = originalPartsValue / 2;
+    const laborTotal = parseFloat(rawTotalServ) || 0;
+    const grandTotal = parseFloat(rawTotal) || 0;
+
+    if (isNaN(originalPartsValue) || isNaN(laborTotal) || isNaN(grandTotal)) {
+      errors.push("Invalid numeric value for TotalProd_OSv, TotalServ_OSv, or Total_OSv");
+    }
+
+    const calculationVerified = Math.abs((partsTotal + laborTotal) - grandTotal) < 0.01;
+    if (!calculationVerified) {
+      errors.push(`Calculation mismatch: (Parts: ${partsTotal} + Labor: ${laborTotal}) != Grand Total: ${grandTotal}`);
     }
 
     if (errors.length > 0) {
@@ -154,27 +198,25 @@ class RobustDataProcessor {
   }
 
   private transformRow(row: any, validatedDate: Date): any {
-    // Aplicar regras de negócio
-    const originalPartsValue = parseFloat(row['TotalProd_OSv']) || 0;
-    const partsTotal = originalPartsValue / 2; // Dividir por 2
-    const laborTotal = parseFloat(row['TotalServ_OSv']) || 0;
-    const grandTotal = parseFloat(row['Total_OSv']) || 0;
+    const originalPartsValue = parseFloat(row["TotalProd_OSv"]) || 0;
+    const partsTotal = originalPartsValue / 2;
+    const laborTotal = parseFloat(row["TotalServ_OSv"]) || 0;
+    const grandTotal = parseFloat(row["Total_OSv"]) || 0;
 
-    // Verificar se a soma bate
-    const calculationVerified = Math.abs((partsTotal + laborTotal) - grandTotal) < 0.01; // Tolerância de 1 centavo
+    const calculationVerified = Math.abs((partsTotal + laborTotal) - grandTotal) < 0.01;
 
     return {
-      order_number: row['NOrdem_Osv']?.toString().trim(),
+      order_number: row["NOrdem_OSv"]?.toString().trim(),
       order_date: validatedDate,
-      engine_manufacturer: row['Fabricante_Mot']?.toString().trim() || null,
-      engine_description: row['Descricao_Mot']?.toString().trim() || null,
-      vehicle_model: row['ModeloVei_Osv']?.toString().trim() || null,
-      raw_defect_description: row['ObsCorpo_OSv']?.toString().trim() || null,
-      responsible_mechanic: row['RazaoSocial_Cli']?.toString().trim() || null,
+      engine_manufacturer: row["Fabricante_Mot"]?.toString().trim() || null,
+      engine_description: row["Descricao_Mot"]?.toString().trim() || null,
+      vehicle_model: row["ModeloVei_Osv"]?.toString().trim() || null,
+      raw_defect_description: row["ObsCorpo_OSv"]?.toString().trim() || null,
+      responsible_mechanic: row["RazaoSocial_Cli"]?.toString().trim() || null,
       parts_total: partsTotal,
       labor_total: laborTotal,
       grand_total: grandTotal,
-      order_status: row['Status_OSv']?.toString().trim().toUpperCase(),
+      order_status: row["Status_OSv"]?.toString().trim().toUpperCase(),
       original_parts_value: originalPartsValue,
       calculation_verified: calculationVerified
     };
@@ -182,4 +224,5 @@ class RobustDataProcessor {
 }
 
 export { RobustDataProcessor, ProcessingResult };
+
 
