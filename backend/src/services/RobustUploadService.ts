@@ -1,0 +1,261 @@
+import * as XLSX from 'xlsx';
+import { RobustDataProcessor, ProcessingResult } from './RobustDataProcessor';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+dotenv.config();
+
+interface UploadResult {
+  uploadId: string;
+  summary: {
+    fileName: string;
+    totalRowsInExcel: number;
+    rowsProcessed: number;
+    rowsValid: number;
+    rowsInserted: number;
+    rowsUpdated: number;
+    rowsRejected: number;
+  };
+  details: {
+    dateValidationIssues: any[];
+    statusValidationIssues: any[];
+    calculationIssues: any[];
+    missingDataIssues: any[];
+    otherErrors: any[];
+  };
+  processingTime: number;
+}
+
+class RobustUploadService {
+  private supabase: SupabaseClient;
+
+  constructor() {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error('Variáveis de ambiente SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas.');
+    }
+    this.supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  }
+
+  async processUpload(file: Express.Multer.File): Promise<UploadResult> {
+    const uploadId = this.generateUUID();
+    const startTime = Date.now();
+
+    try {
+      // 1. VALIDAÇÕES INICIAIS
+      this.validateFile(file);
+
+      // 2. CRIAR LOG DE TENTATIVA (no banco de dados)
+      await this.createUploadLog(uploadId, file.originalname, file.size, 'STARTED');
+
+      // 3. PROCESSAR COM TIMEOUT E RETRY
+      const processor = new RobustDataProcessor();
+      const processingResult = await this.processWithRetry(() => processor.processExcelData(file.buffer), uploadId);
+
+      // 4. SALVAR RESULTADO NO BANCO DE DADOS
+      const dbResult = await this.saveResultsToDatabase(processingResult.data, uploadId);
+
+      // 5. ATUALIZAR LOG DE SUCESSO
+      const processingTime = Date.now() - startTime;
+      await this.updateUploadLog(uploadId, 'SUCCESS', processingResult.log, processingResult.analysis, dbResult, processingTime);
+
+      return {
+        uploadId: uploadId,
+        summary: {
+          fileName: file.originalname,
+          totalRowsInExcel: processingResult.analysis.totalRows,
+          rowsProcessed: processingResult.log.processedRows,
+          rowsValid: processingResult.log.validRows,
+          rowsInserted: dbResult.inserted,
+          rowsUpdated: dbResult.updated,
+          rowsRejected: processingResult.log.errors.length,
+        },
+        details: {
+          dateValidationIssues: processingResult.log.errors.filter(e => e.errors.some(err => err.includes('date'))),
+          statusValidationIssues: processingResult.log.errors.filter(e => e.errors.some(err => err.includes('status'))),
+          calculationIssues: processingResult.log.errors.filter(e => e.errors.some(err => err.includes('calculation'))),
+          missingDataIssues: processingResult.log.errors.filter(e => e.errors.some(err => err.includes('Missing'))),
+          otherErrors: processingResult.log.errors.filter(e => !e.errors.some(err => err.includes('date') || err.includes('status') || err.includes('calculation') || err.includes('Missing'))),
+        },
+        processingTime: processingTime,
+      };
+
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      await this.updateUploadLog(uploadId, 'FAILED', { totalRows: 0, processedRows: 0, validRows: 0, errors: [], warnings: [] }, { totalRows: 0, rowsWithData: 0, rowsAfterDateFilter: 0, rowsAfterStatusFilter: 0, finalValidRows: 0, rowsWithInvalidDates: [], rowsWithInvalidStatus: [], rowsWithMissingData: [] }, { inserted: 0, updated: 0 }, processingTime, (error as Error).message);
+      throw error;
+    }
+  }
+
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  private validateFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new Error('Nenhum arquivo enviado');
+    }
+
+    if (file.size > 50 * 1024 * 1024) { // 50MB
+      throw new Error('Arquivo muito grande (máximo 50MB)');
+    }
+
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'application/octet-stream' // Adicionado para lidar com mimetypes genéricos de upload
+    ];
+
+    if (!allowedTypes.includes(file.mimetype) && !file.originalname.endsWith('.xlsx') && !file.originalname.endsWith('.xls')) {
+      throw new Error('Tipo de arquivo inválido. Apenas Excel (.xlsx, .xls)');
+    }
+
+    try {
+      const workbook = XLSX.read(file.buffer);
+      if (!workbook.SheetNames.includes('Tabela')) {
+        throw new Error('Planilha deve conter uma aba chamada "Tabela"');
+      }
+    } catch (error) {
+      throw new Error(`Arquivo Excel corrompido ou inválido: ${(error as Error).message}`);
+    }
+  }
+
+  private async processWithRetry<T>(fn: () => Promise<T>, uploadId: string): Promise<T> {
+    const maxRetries = 3;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Tentativa ${attempt}/${maxRetries} - Upload ${uploadId}`);
+        const result = await Promise.race([
+          fn(),
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Processamento excedeu o tempo limite')), 300000)) // 5 minutos timeout
+        ]);
+        return result;
+      } catch (error) {
+        lastError = error;
+        console.log(`❌ Tentativa ${attempt} falhou:`, (error as Error).message);
+        if (attempt < maxRetries) {
+          await this.delay(2000 * attempt);
+        }
+      }
+    }
+    throw new Error(`Upload failed after ${maxRetries} attempts: ${lastError.message}`);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async createUploadLog(uploadId: string, filename: string, fileSize: number, status: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('file_processing_logs')
+      .insert({
+        upload_id: uploadId,
+        filename: filename,
+        file_size: fileSize,
+        status: status,
+        processed_at: new Date().toISOString(),
+      });
+    if (error) throw error;
+  }
+
+  private async updateUploadLog(uploadId: string, status: string, log: any, analysis: any, dbResult: { inserted: number, updated: number }, processingTime: number, errorMessage?: string): Promise<void> {
+    const updateData: any = {
+      status: status,
+      processing_time_ms: processingTime,
+      total_rows_in_excel: analysis.totalRows,
+      rows_with_data: analysis.rowsWithData,
+      rows_after_date_filter: analysis.rowsAfterDateFilter,
+      rows_after_status_filter: analysis.rowsAfterStatusFilter,
+      final_valid_rows: analysis.finalValidRows,
+      rows_inserted: dbResult.inserted,
+      rows_updated: dbResult.updated,
+      rows_rejected: log.errors.length,
+      error_details: errorMessage ? { message: errorMessage } : null,
+      date_validation_errors: analysis.rowsWithInvalidDates.length > 0 ? analysis.rowsWithInvalidDates : null,
+      status_validation_errors: analysis.rowsWithInvalidStatus.length > 0 ? analysis.rowsWithInvalidStatus : null,
+      // calculation_errors: log.errors.filter(e => e.errors.some(err => err.includes('calculation'))).length > 0 ? log.errors.filter(e => e.errors.some(err => err.includes('calculation'))) : null,
+      // warnings: log.warnings.length > 0 ? log.warnings : null,
+    };
+
+    const { error } = await this.supabase
+      .from('file_processing_logs')
+      .update(updateData)
+      .eq('upload_id', uploadId);
+    if (error) throw error;
+
+    // Inserir erros detalhados na tabela processing_errors
+    if (log.errors.length > 0) {
+      const errorRecords = log.errors.map((err: any) => ({
+        upload_id: uploadId,
+        row_number: err.row,
+        excel_row_data: err.data,
+        error_type: err.errors[0].includes('date') ? 'DATE_INVALID' : (err.errors[0].includes('status') ? 'STATUS_INVALID' : (err.errors[0].includes('calculation') ? 'CALCULATION_ERROR' : 'OTHER_ERROR')),
+        error_message: err.errors.join('; '),
+        column_name: err.errors[0].includes('date') ? 'Data_OSv' : (err.errors[0].includes('status') ? 'Status_OSv' : null),
+        original_value: err.errors[0].includes('date') ? err.data['Data_OSv'] : (err.errors[0].includes('status') ? err.data['Status_OSv'] : null),
+      }));
+      const { error: insertErrors } = await this.supabase
+        .from('processing_errors')
+        .insert(errorRecords);
+      if (insertErrors) console.error('Erro ao inserir erros de processamento:', insertErrors);
+    }
+  }
+
+  private async saveResultsToDatabase(data: any[], uploadId: string): Promise<{ inserted: number, updated: number }> {
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const record of data) {
+      // Verificar se a OS já existe
+      const { data: existingOrder, error: selectError } = await this.supabase
+        .from('service_orders')
+        .select('id')
+        .eq('order_number', record.order_number)
+        .single();
+
+      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = No rows found
+        console.error(`Erro ao verificar ordem existente ${record.order_number}:`, selectError);
+        // Registrar erro na tabela processing_errors se necessário
+        continue;
+      }
+
+      if (existingOrder) {
+        // Atualizar ordem existente
+        const { error: updateError } = await this.supabase
+          .from('service_orders')
+          .update(record)
+          .eq('id', existingOrder.id);
+        if (updateError) {
+          console.error(`Erro ao atualizar ordem ${record.order_number}:`, updateError);
+          // Registrar erro na tabela processing_errors
+        } else {
+          updatedCount++;
+        }
+      } else {
+        // Inserir nova ordem
+        const { error: insertError } = await this.supabase
+          .from('service_orders')
+          .insert(record);
+        if (insertError) {
+          console.error(`Erro ao inserir ordem ${record.order_number}:`, insertError);
+          // Registrar erro na tabela processing_errors
+        } else {
+          insertedCount++;
+        }
+      }
+    }
+    return { inserted: insertedCount, updated: updatedCount };
+  }
+}
+
+export { RobustUploadService, UploadResult };
+
+
