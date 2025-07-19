@@ -135,7 +135,7 @@ class RobustUploadService {
         console.log(`🔄 Tentativa ${attempt}/${maxRetries} - Upload ${uploadId}`);
         const result = await Promise.race([
           fn(),
-          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Processamento excedeu o tempo limite')), 300000)) // 5 minutos timeout
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Processamento excedeu o tempo limite')), 900000)) // 15 minutos timeout para arquivos muito grandes
         ]);
         return result;
       } catch (error) {
@@ -212,8 +212,57 @@ class RobustUploadService {
   private async saveResultsToDatabase(data: any[], uploadId: string): Promise<{ inserted: number, updated: number }> {
     let insertedCount = 0;
     let updatedCount = 0;
+    const batchSize = 10; // Reduzido para evitar timeout e erro 520
+    
+    console.log(`💾 Iniciando inserção no banco: ${data.length} registros em lotes de ${batchSize}`);
+    
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize);
+      console.log(`📦 Processando lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(data.length/batchSize)} - ${batch.length} registros`);
+      
+      try {
+        // Processar lote com retry em caso de falha
+        const batchResult = await this.processBatchWithRetry(batch, uploadId);
+        insertedCount += batchResult.inserted;
+        updatedCount += batchResult.updated;
+        
+        // Pausa maior entre lotes para evitar sobrecarga
+        if (i + batchSize < data.length) {
+          await this.delay(500); // 500ms
+        }
+      } catch (error) {
+        console.error(`❌ Erro no lote ${Math.floor(i/batchSize) + 1} (registros ${i + 1} a ${i + batch.length}):`, error);
+        // Continuar com próximo lote mesmo se um falhar
+      }
+    }
+    
+    console.log(`✅ Inserção concluída: ${insertedCount} inseridos, ${updatedCount} atualizados`);
+    return { inserted: insertedCount, updated: updatedCount };
+  }
+  
+  private async processBatchWithRetry(batch: any[], uploadId: string): Promise<{ inserted: number, updated: number }> {
+    const maxRetries = 3;
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.processBatch(batch, uploadId);
+      } catch (error) {
+        lastError = error;
+        console.log(`⚠️ Tentativa ${attempt}/${maxRetries} do lote falhou:`, (error as Error).message);
+        if (attempt < maxRetries) {
+          await this.delay(1000 * attempt); // Backoff exponencial
+        }
+      }
+    }
+    throw new Error(`Lote falhou após ${maxRetries} tentativas: ${lastError.message}`);
+  }
+  
+  private async processBatch(batch: any[], uploadId: string): Promise<{ inserted: number, updated: number }> {
+    let insertedCount = 0;
+    let updatedCount = 0;
 
-    for (const record of data) {
+    for (const record of batch) {
       // Verificar se a OS já existe
       const { data: existingOrder, error: selectError } = await this.supabase
         .from('service_orders')
@@ -223,7 +272,6 @@ class RobustUploadService {
 
       if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = No rows found
         console.error(`Erro ao verificar ordem existente ${record.order_number}:`, selectError);
-        // Registrar erro na tabela processing_errors se necessário
         continue;
       }
 
@@ -235,7 +283,6 @@ class RobustUploadService {
           .eq('id', existingOrder.id);
         if (updateError) {
           console.error(`Erro ao atualizar ordem ${record.order_number}:`, updateError);
-          // Registrar erro na tabela processing_errors
         } else {
           updatedCount++;
         }
@@ -246,7 +293,6 @@ class RobustUploadService {
           .insert(record);
         if (insertError) {
           console.error(`Erro ao inserir ordem ${record.order_number}:`, insertError);
-          // Registrar erro na tabela processing_errors
         } else {
           insertedCount++;
         }

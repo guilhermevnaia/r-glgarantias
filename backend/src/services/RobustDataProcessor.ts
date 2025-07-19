@@ -119,6 +119,7 @@ class RobustDataProcessor {
     console.log(`Processadas: ${processingLog.processedRows}`);
     console.log(`Válidas: ${processingLog.validRows}`);
     console.log(`Perdidas: ${processingLog.totalRows - processingLog.validRows}`);
+    console.log(`Taxa de sucesso: ${((processingLog.validRows / processingLog.totalRows) * 100).toFixed(2)}%`);
 
     return {
       data: validData,
@@ -130,8 +131,8 @@ class RobustDataProcessor {
   private validateRow(row: any, rowNumber: number, dateValidator: DateValidator): RowValidationResult {
     const errors: string[] = [];
 
-    // LOG: Valor original da data (apenas para primeiras 5 linhas)
-    if (rowNumber <= 7) {
+    // LOG: Valor original da data (apenas para primeiras 5 linhas e a cada 1000 linhas para acompanhar progresso)
+    if (rowNumber <= 7 || rowNumber % 1000 === 0) {
       console.log(`[Linha ${rowNumber}] Valor bruto de Data_OSv:`, row["Data_OSv"], `| Tipo:`, typeof row["Data_OSv"]);
     }
 
@@ -155,8 +156,8 @@ class RobustDataProcessor {
 
     // VALIDAR DATA
     const dateValidation = dateValidator.validateDate(row["Data_OSv"]);
-    // LOG: Resultado da validação de data (apenas para primeiras 5 linhas)
-    if (rowNumber <= 7) {
+    // LOG: Resultado da validação de data (apenas para primeiras 5 linhas e a cada 1000 linhas)
+    if (rowNumber <= 7 || rowNumber % 1000 === 0) {
       console.log(`[Linha ${rowNumber}] Resultado do DateValidator:`, dateValidation);
     }
     if (!dateValidation.isValid) {

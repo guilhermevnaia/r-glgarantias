@@ -14,7 +14,12 @@
       "Bash(net stop:*)",
       "WebFetch(domain:njdmpdpglpidamparwtr.supabase.co)",
       "Bash(git add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)"
     ],
     "deny": []
   }

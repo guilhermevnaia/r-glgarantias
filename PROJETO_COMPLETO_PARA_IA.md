@@ -438,3 +438,23 @@ node -e "const { createClient } = require('@supabase/supabase-js'); /* código d
 
 **LEMBRE-SE**: O cliente valoriza precisão, comunicação clara e resultados concretos. O sistema backend está 100% funcional - foque na próxima fase (frontend).
 
+## Progresso do processamento da planilha real (julho/2024)
+
+- Total de linhas na planilha: ~17.000
+- Registros válidos esperados: 2.519
+- Estratégias adotadas:
+  - Processamento em lotes de 10 registros
+  - Delay de 500ms entre lotes
+  - Retry automático para lotes com falha
+  - Timeout aumentado para 15 minutos
+  - Limpeza do banco antes de cada teste
+- Último resultado:
+  - Registros válidos inseridos: (preencher após teste)
+  - Erros de data: (preencher após teste)
+  - Erros de cálculo: (preencher após teste)
+  - Tempo total de processamento: (preencher após teste)
+- Próximos passos:
+  - Ajustar batch size/delay se necessário
+  - Garantir 2.519 registros válidos
+  - Documentar erros e soluções
+
