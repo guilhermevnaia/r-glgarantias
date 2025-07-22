@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 });
 
 // Instanciar controladores
-const uploadController = new UploadController();
+const uploadController = new UploadController();;
 
 // Rotas
 app.get('/', (req, res) => {
