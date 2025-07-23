@@ -57,7 +57,7 @@ r-glgarantias/
 
 ### COLUNAS QUE DEVEM SER PROCESSADAS (11 colunas específicas):
 
-1. **`NOrdem_Osv`** → `order_number` (VARCHAR(50) UNIQUE)
+1. **`NOrdem_OSv`** → `order_number` (VARCHAR(50) UNIQUE)
    - Exemplo: `121051`
    - Função: Número único da Ordem de Serviço
    - Regra: Se duplicado, atualizar OS existente com dados mais recentes
@@ -244,7 +244,7 @@ CREATE TABLE system_settings (
 
 ### 3. VALIDAÇÃO LINHA POR LINHA
 Para cada linha:
-- **Campos obrigatórios**: `NOrdem_Osv`, `Data_OSv`, `Status_OSv`
+- **Campos obrigatórios**: `NOrdem_OSv`, `Data_OSv`, `Status_OSv`
 - **Validação de data**: Formato válido + >= 2019
 - **Validação de status**: Apenas 'G', 'GO', 'GU'
 - **Validação de cálculo**: `(TotalProd_OSv/2) + TotalServ_OSv = Total_OSv`

@@ -62,7 +62,7 @@ class ExcelAnalyzer {
 
     const hasRequiredData = (row: any) => {
       // Lógica para verificar se a linha tem dados mínimos
-      const requiredFields = ['NOrdem_Osv', 'Data_OSv', 'Status_OSv'];
+      const requiredFields = ['NOrdem_OSv', 'Data_OSv', 'Status_OSv'];
       return requiredFields.every(field => row[field] !== undefined && row[field] !== null && row[field].toString().trim() !== '');
     };
 
@@ -112,7 +112,7 @@ class ExcelAnalyzer {
   private mapColumns(headers: string[]): ColumnMapping {
     // Esta lógica será mais robusta quando lermos do system_settings
     const predefinedMapping: { [key: string]: string } = {
-      'NOrdem_Osv': 'order_number',
+      'NOrdem_OSv': 'order_number',
       'Data_OSv': 'order_date',
       'Fabricante_Mot': 'engine_manufacturer',
       'Descricao_Mot': 'engine_description',
