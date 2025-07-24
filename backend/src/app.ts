@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import { UploadController } from './controllers/UploadController';
+import { StatsController } from './controllers/StatsController';
 
 dotenv.config();
 
@@ -34,7 +35,8 @@ app.use((req, res, next) => {
 });
 
 // Instanciar controladores
-const uploadController = new UploadController();;
+const uploadController = new UploadController();
+const statsController = new StatsController();
 
 // Rotas
 app.get('/', (req, res) => {
@@ -56,6 +58,19 @@ app.get('/health', (req, res) => {
 // Rota de upload
 app.post('/api/v1/upload', upload.single('file'), (req, res) => {
   uploadController.uploadExcel(req, res);
+});
+
+// Rotas de estatísticas e dados
+app.get('/api/v1/stats', (req, res) => {
+  statsController.getStats(req, res);
+});
+
+app.get('/api/v1/service-orders', (req, res) => {
+  statsController.getServiceOrders(req, res);
+});
+
+app.get('/api/v1/upload-logs', (req, res) => {
+  statsController.getUploadLogs(req, res);
 });
 
 // Middleware de tratamento de erros

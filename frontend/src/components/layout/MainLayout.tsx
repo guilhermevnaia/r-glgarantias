@@ -19,37 +19,36 @@ export function MainLayout({ children, title, subtitle }: MainLayoutProps) {
     setSidebarOpen(false);
   };
 
-  const containerStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    backgroundColor: '#f9fafb',
-  };
-
-  const mainAreaStyle: React.CSSProperties = {
-    marginLeft: window.innerWidth >= 1024 ? '200px' : '0',
-    transition: 'margin-left 0.3s ease-in-out',
-  };
-
-  const contentStyle: React.CSSProperties = {
-    padding: '1.5rem',
-  };
-
   return (
-    <div style={containerStyle}>
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
-
+    <div className="min-h-screen bg-gradient-to-br from-background to-background-secondary flex">
+      {/* Sidebar - Desktop always visible, Mobile overlay */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={closeSidebar}>
+          <div className="w-sidebar transform animate-slide-in" onClick={(e) => e.stopPropagation()}>
+            <Sidebar />
+          </div>
+        </div>
+      )}
+      
       {/* Área principal */}
-      <div style={mainAreaStyle}>
+      <div className="flex-1 md:ml-sidebar min-h-screen flex flex-col">
         {/* Header */}
         <Header 
           title={title}
           subtitle={subtitle}
           onMenuClick={toggleSidebar}
         />
-
-        {/* Conteúdo principal */}
-        <main style={contentStyle}>
-          {children}
+        
+        {/* Conteúdo principal com gradiente sutil */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-gradient-to-b from-transparent to-background-secondary/20">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
+
 interface AlertProps {
   variant?: 'error' | 'success' | 'warning' | 'info';
   title?: string;
@@ -9,79 +11,47 @@ export function Alert({ variant = 'info', title, children }: AlertProps) {
     switch (variant) {
       case 'error':
         return {
-          background: '#fef2f2',
-          border: '#fecaca',
-          color: '#991b1b',
-          icon: '⚠️'
+          containerClass: 'bg-red-50 border-red-200 text-red-800',
+          iconClass: 'text-red-500',
+          icon: XCircle
         };
       case 'success':
         return {
-          background: '#f0fdf4',
-          border: '#bbf7d0',
-          color: '#166534',
-          icon: '✅'
+          containerClass: 'bg-green-50 border-green-200 text-green-800',
+          iconClass: 'text-green-500',
+          icon: CheckCircle
         };
       case 'warning':
         return {
-          background: '#fffbeb',
-          border: '#fde68a',
-          color: '#92400e',
-          icon: '⚠️'
+          containerClass: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+          iconClass: 'text-yellow-500',
+          icon: AlertTriangle
         };
       default:
         return {
-          background: '#eff6ff',
-          border: '#dbeafe',
-          color: '#1e40af',
-          icon: 'ℹ️'
+          containerClass: 'bg-blue-50 border-blue-200 text-blue-800',
+          iconClass: 'text-blue-500',
+          icon: Info
         };
     }
   };
 
   const config = getAlertConfig();
-
-  const alertStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '0.75rem',
-    padding: '1rem',
-    borderRadius: '0.5rem',
-    border: `1px solid ${config.border}`,
-    backgroundColor: config.background,
-    color: config.color,
-  };
-
-  const iconStyle: React.CSSProperties = {
-    fontSize: '1.25rem',
-    marginTop: '0.125rem',
-  };
-
-  const contentStyle: React.CSSProperties = {
-    flex: 1,
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontWeight: 'bold',
-    marginBottom: title ? '0.25rem' : 0,
-  };
-
-  const textStyle: React.CSSProperties = {
-    fontSize: '0.875rem',
-    margin: 0,
-  };
+  const IconComponent = config.icon;
 
   return (
-    <div style={alertStyle}>
-      <div style={iconStyle}>
-        {config.icon}
+    <div className={`flex gap-3 p-4 rounded-lg border ${config.containerClass}`}>
+      <div className="flex-shrink-0 mt-0.5">
+        <IconComponent size={20} className={config.iconClass} />
       </div>
       
-      <div style={contentStyle}>
+      <div className="flex-1">
         {title && (
-          <div style={titleStyle}>
+          <div className="font-bold mb-1">
             {title}
           </div>
         )}
-        <div style={textStyle}>
+        <div className="text-sm">
           {children}
         </div>
       </div>

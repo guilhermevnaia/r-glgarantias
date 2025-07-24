@@ -1,3 +1,5 @@
+import { Menu, RotateCw } from 'lucide-react';
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -11,108 +13,37 @@ export function Header({
   onMenuClick, 
   showMenuButton = true 
 }: HeaderProps) {
-  const headerStyle: React.CSSProperties = {
-    backgroundColor: 'white',
-    borderBottom: '1px solid #e5e7eb',
-    padding: '1rem 1.5rem',
-  };
-
-  const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  };
-
-  const leftSideStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  };
-
-  const menuButtonStyle: React.CSSProperties = {
-    display: window.innerWidth >= 1024 ? 'none' : 'block',
-    padding: '0.5rem',
-    borderRadius: '0.375rem',
-    border: 'none',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    fontSize: '1.25rem',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    color: '#111827',
-    margin: 0,
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    marginTop: '0.25rem',
-    margin: 0,
-  };
-
-  const updateButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.75rem',
-    color: '#6b7280',
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderRadius: '0.375rem',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-  };
-
   return (
-    <header style={headerStyle}>
-      <div style={containerStyle}>
+    <header className="bg-background-card/90 backdrop-blur-xl border-b border-border px-4 md:px-6 lg:px-8 py-6 shadow-xl">
+      <div className="flex items-center justify-between">
         {/* Lado esquerdo: Menu + Título */}
-        <div style={leftSideStyle}>
+        <div className="flex items-center gap-3 md:gap-4">
           {/* Botão do menu (apenas em mobile) */}
           {showMenuButton && (
             <button
-              style={menuButtonStyle}
+              className="md:hidden p-3 rounded-xl hover:bg-background-hover transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
               onClick={onMenuClick}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
             >
-              ☰
+              <Menu size={22} className="text-foreground" />
             </button>
           )}
-
-          {/* Título e subtítulo */}
           <div>
-            <h1 style={titleStyle}>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground-muted bg-clip-text text-transparent">
               {title}
             </h1>
             {subtitle && (
-              <p style={subtitleStyle}>
-                {subtitle}
-              </p>
+              <p className="text-sm text-foreground-muted mt-1 font-medium">{subtitle}</p>
             )}
           </div>
         </div>
-
+        
         {/* Lado direito: Botão de atualização */}
         <button 
-          style={updateButtonStyle}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#f9fafb';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }}
+          className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground-muted bg-gradient-to-r from-background to-background-secondary border border-border rounded-xl hover:from-background-hover hover:to-background-card hover:border-primary/30 hover:text-foreground hover:shadow-lg transition-all duration-300 hover:scale-105"
         >
-          <span style={{ fontSize: '0.75rem' }}>🔄</span>
-          <span>Atualizado agora</span>
+          <RotateCw size={16} className="animate-pulse" />
+          <span className="hidden sm:inline font-medium">Atualizado agora</span>
+          <span className="sm:hidden font-medium">Atualizado</span>
         </button>
       </div>
     </header>

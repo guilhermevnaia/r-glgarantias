@@ -40,6 +40,22 @@ class DateValidator {
         }
       }
     }
+    // NOVO: Tentar converter string numérica como serial Excel
+    if (typeof rawDate === 'string' && /^\d+$/.test(rawDate)) {
+      const serial = parseInt(rawDate, 10);
+      const parsed = this.tryParseDate(serial, 'excel-serial');
+      if (parsed.isValid && parsed.date) {
+        if (this.debugCount <= 5) {
+          console.log(`✅ Parsed as excel-serial (from string): ${parsed.date.toISOString().split('T')[0]}`);
+        }
+        return {
+          isValid: true,
+          date: parsed.date,
+          originalValue: rawDate,
+          detectedFormat: 'excel-serial-string'
+        };
+      }
+    }
 
     // TESTAR FORMATOS STRING se for string
     if (typeof rawDate === 'string') {
@@ -47,7 +63,11 @@ class DateValidator {
         'DD/MM/YYYY',
         'DD-MM-YYYY',
         'YYYY-MM-DD',
-        'MM/DD/YYYY'
+        'MM/DD/YYYY',
+        'YYYY/MM/DD',
+        'YYYYMMDD',
+        'DDMMYYYY',
+        'DD MMMM YYYY', // mês por extenso em português
       ];
       
       for (const format of formats) {
@@ -66,6 +86,19 @@ class DateValidator {
       }
     }
 
+    // NOVO: Aceitar objetos Date diretamente
+    if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+      if (this.debugCount <= 5) {
+        console.log(`✅ Parsed as Date object: ${rawDate.toISOString().split('T')[0]}`);
+      }
+      return {
+        isValid: true,
+        date: rawDate,
+        originalValue: rawDate,
+        detectedFormat: 'Date-object'
+      };
+    }
+
     if (this.debugCount <= 5) {
       console.log(`❌ Failed to parse date: ${rawDate}`);
     }
@@ -81,18 +114,13 @@ class DateValidator {
     try {
       if (format === 'excel-serial' && typeof value === 'number') {
         // CONVERSÃO UNIVERSAL DE DATAS EXCEL
-        // Usar a fórmula padrão: Unix epoch + diferença entre 1900-01-01 e 1970-01-01
-        // Excel: 1 = 1900-01-01, mas tem bug do ano bissexto 1900
         // Fórmula correta: (excel_value - 25569) * 86400 * 1000
         
         if (value < 1) {
           return { isValid: false, error: `Invalid Excel serial date: ${value} (must be >= 1)` };
         }
         
-        // Diferença entre 1900-01-01 e 1970-01-01 Unix epoch
-        // Fórmula universal para qualquer data Excel: (valor - 25568) * 86400 * 1000
-        // Esta fórmula funciona para qualquer ano: 1900, 2000, 2010, 2020, 2025, 2030, etc
-        const date = new Date((value - 25568) * 86400 * 1000);
+        const date = new Date((value - 25569) * 86400 * 1000);
         
         // Verificar se a data é válida
         if (!isNaN(date.getTime()) && date.getFullYear() >= 1900) {
@@ -106,7 +134,6 @@ class DateValidator {
       }
 
       if (typeof value === 'string') {
-        // Tentar diferentes formatos de string
         let date: Date | null = null;
 
         switch (format) {
@@ -136,6 +163,38 @@ class DateValidator {
             const mmddyyyy = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s{1,}\d{2}:\d{2}:\d{2})?/);
             if (mmddyyyy) {
               date = new Date(parseInt(mmddyyyy[3]), parseInt(mmddyyyy[1]) - 1, parseInt(mmddyyyy[2]));
+            }
+            break;
+          case 'YYYY/MM/DD':
+            const yyyyslashmmdd = value.match(/^\s*(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s{1,}\d{2}:\d{2}:\d{2})?/);
+            if (yyyyslashmmdd) {
+              date = new Date(parseInt(yyyyslashmmdd[1]), parseInt(yyyyslashmmdd[2]) - 1, parseInt(yyyyslashmmdd[3]));
+            }
+            break;
+          case 'YYYYMMDD':
+            const yyyymmddplain = value.match(/^(\d{4})(\d{2})(\d{2})$/);
+            if (yyyymmddplain) {
+              date = new Date(parseInt(yyyymmddplain[1]), parseInt(yyyymmddplain[2]) - 1, parseInt(yyyymmddplain[3]));
+            }
+            break;
+          case 'DDMMYYYY':
+            const ddmmyyyyplain = value.match(/^(\d{2})(\d{2})(\d{4})$/);
+            if (ddmmyyyyplain) {
+              date = new Date(parseInt(ddmmyyyyplain[3]), parseInt(ddmmyyyyplain[2]) - 1, parseInt(ddmmyyyyplain[1]));
+            }
+            break;
+          case 'DD MMMM YYYY':
+            // Aceita datas como '15 fevereiro 2007' (mês por extenso em português)
+            const ddmmmmyyyy = value.match(/^\s*(\d{1,2})\s+([a-zçãéíóúâêôûàèìòù]+)\s+(\d{4})/i);
+            if (ddmmmmyyyy) {
+              const meses = [
+                'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+              ];
+              const mesIndex = meses.findIndex(m => m === ddmmmmyyyy[2].toLowerCase());
+              if (mesIndex !== -1) {
+                date = new Date(parseInt(ddmmmmyyyy[3]), mesIndex, parseInt(ddmmmmyyyy[1]));
+              }
             }
             break;
         }

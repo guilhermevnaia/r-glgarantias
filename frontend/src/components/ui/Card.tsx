@@ -1,60 +1,67 @@
+import { cn } from '../../utils/cn';
+
 interface CardProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
   className?: string;
+  variant?: 'default' | 'elevated' | 'outlined';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
-export function Card({ children, title, subtitle, className }: CardProps) {
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: 'white',
-    borderRadius: '0.5rem',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-    border: '1px solid #e5e7eb',
-    overflow: 'hidden',
+export function Card({ 
+  children, 
+  title, 
+  subtitle, 
+  className, 
+  variant = 'default',
+  padding = 'lg'
+}: CardProps) {
+  const cardVariants = {
+    default: 'bg-gradient-to-br from-background-card to-background-card/90 border border-border shadow-lg backdrop-blur-sm',
+    elevated: 'bg-gradient-to-br from-background-card to-background-card/80 border border-border shadow-2xl backdrop-blur-md hover:shadow-3xl',
+    outlined: 'bg-gradient-to-br from-background-card/50 to-background-card/30 border-2 border-border shadow-lg backdrop-blur-sm'
   };
 
-  const headerStyle: React.CSSProperties = {
-    padding: '1.5rem',
-    borderBottom: '1px solid #e5e7eb',
+  const paddingVariants = {
+    none: '',
+    sm: 'p-3',
+    md: 'p-4',
+    lg: 'p-6'
   };
 
-  const titleStyle: React.CSSProperties = {
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    color: '#111827',
-    margin: 0,
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    marginTop: '0.25rem',
-    margin: 0,
-  };
-
-  const contentStyle: React.CSSProperties = {
-    padding: '1.5rem',
+  const contentPadding = {
+    none: '',
+    sm: 'p-3',
+    md: 'p-4', 
+    lg: 'p-6'
   };
 
   return (
-    <div style={cardStyle} className={className}>
+    <div className={cn(
+      'rounded-xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-[1.01] hover:border-primary/20',
+      cardVariants[variant],
+      !title && !subtitle && paddingVariants[padding],
+      className
+    )}>
       {(title || subtitle) && (
-        <div style={headerStyle}>
+        <div className="px-6 py-5 border-b border-border bg-gradient-to-r from-background-secondary/40 to-background-hover/20">
           {title && (
-            <h3 style={titleStyle}>
+            <h3 className="text-xl font-bold text-foreground leading-tight bg-gradient-to-r from-foreground to-foreground-muted bg-clip-text text-transparent">
               {title}
             </h3>
           )}
           {subtitle && (
-            <p style={subtitleStyle}>
+            <p className="text-sm text-foreground-muted mt-2 leading-relaxed font-medium">
               {subtitle}
             </p>
           )}
         </div>
       )}
       
-      <div style={contentStyle}>
+      <div className={cn(
+        (title || subtitle) && contentPadding[padding]
+      )}>
         {children}
       </div>
     </div>

@@ -3,11 +3,14 @@ import { MainLayout } from '../layout/MainLayout';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { uploadService } from '../../services/api';
+import type { UploadResult } from '../../services/types';
+import { FileText, Folder, Clock } from 'lucide-react';
 
 export function UploadExcel() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -36,21 +39,13 @@ export function UploadExcel() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('http://localhost:3004/api/v1/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erro no servidor');
-      }
-      
-      const result = await response.json();
+      // Usar o serviço de API
+      const result = await uploadService.uploadExcel(file);
       console.log('Upload concluído:', result);
       setUploadResult(result);
     } catch (err) {
       console.error('Erro no upload:', err);
-      setError('Erro ao processar arquivo. Verifique se o backend está rodando na porta 3004.');
+      setError('Erro ao processar arquivo. Verifique se o backend está rodando na porta 3006.');
     } finally {
       setIsUploading(false);
     }
@@ -83,116 +78,43 @@ export function UploadExcel() {
     }
   }, [handleFileSelect]);
 
-  const dropAreaStyle: React.CSSProperties = {
-    border: `2px dashed ${isDragging ? '#1e40af' : '#d1d5db'}`,
-    borderRadius: '0.5rem',
-    padding: '2rem',
-    textAlign: 'center',
-    backgroundColor: isDragging ? '#eff6ff' : 'transparent',
-    transition: 'all 0.2s ease',
-    cursor: 'pointer',
-  };
-
-  const iconStyle: React.CSSProperties = {
-    fontSize: '3rem',
-    color: isDragging ? '#1e40af' : '#9ca3af',
-    marginBottom: '1rem',
-  };
-
-  const mainTextStyle: React.CSSProperties = {
-    fontSize: '1.125rem',
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: '0.5rem',
-  };
-
-  const subTextStyle: React.CSSProperties = {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    marginBottom: '1.5rem',
-  };
-
-  const progressStyle: React.CSSProperties = {
-    width: '100%',
-    height: '8px',
-    backgroundColor: '#e5e7eb',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    marginTop: '1rem',
-  };
-
-  const progressBarStyle: React.CSSProperties = {
-    height: '100%',
-    backgroundColor: '#1e40af',
-    width: '100%',
-    animation: 'pulse 2s infinite',
-  };
-
-  const instructionStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-  };
-
-  const numberStyle: React.CSSProperties = {
-    width: '2rem',
-    height: '2rem',
-    backgroundColor: '#1e40af',
-    color: 'white',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '0.875rem',
-    fontWeight: 'bold',
-    flexShrink: 0,
-  };
-
-  const instructionTextStyle: React.CSSProperties = {
-    flex: 1,
-  };
-
-  const instructionTitleStyle: React.CSSProperties = {
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: '0.25rem',
-  };
-
-  const instructionDescStyle: React.CSSProperties = {
-    color: '#6b7280',
-    fontSize: '0.875rem',
-    margin: 0,
-  };
 
   return (
     <MainLayout 
       title="Upload Excel" 
       subtitle="Enviar planilhas Excel"
     >
-      <div style={{ maxWidth: '1024px', margin: '0 auto' }}>
+      <div className="max-w-4xl mx-auto space-y-8">
         {/* Card principal de upload */}
         <Card 
-          title="📤 Upload de Planilha Excel"
+          title="Upload de Planilha Excel"
           subtitle="Faça o upload da planilha GLú-Garantias.xlsx para processamento automático"
+          variant="elevated" 
         >
           {/* Área de drag & drop */}
           <div
-            style={dropAreaStyle}
+            className={`
+              border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer
+              ${isDragging 
+                ? 'border-primary bg-primary-50 scale-[1.02]' 
+                : 'border-border bg-background-secondary hover:border-primary hover:bg-primary-50/50'
+              }
+            `}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => document.getElementById('file-input')?.click()}
           >
             {/* Ícone central */}
-            <div style={iconStyle}>
-              📄
+            <div className={`mb-6 transition-colors duration-200 ${isDragging ? 'text-primary scale-110' : 'text-foreground-muted'}`}>
+              <FileText size={64} className="mx-auto" />
             </div>
 
             {/* Texto principal */}
-            <div style={mainTextStyle}>
+            <div className={`text-xl font-semibold mb-2 transition-colors duration-200 ${isDragging ? 'text-primary' : 'text-foreground'}`}>
               Arraste e solte sua planilha aqui
             </div>
-            <div style={subTextStyle}>
+            <div className="text-sm text-foreground-muted mb-8">
               ou clique no botão abaixo para selecionar
             </div>
 
@@ -201,8 +123,9 @@ export function UploadExcel() {
               variant="primary" 
               size="lg"
               disabled={isUploading}
+              className="shadow-lg hover:shadow-xl transition-shadow duration-200"
             >
-              <span style={{ fontSize: '1.125rem' }}>📁</span>
+              <Folder className="h-5 w-5 mr-2" />
               {isUploading ? 'Processando...' : 'Selecionar Arquivo'}
             </Button>
             
@@ -211,34 +134,34 @@ export function UploadExcel() {
               type="file"
               accept=".xlsx,.xls"
               onChange={handleInputChange}
-              style={{ display: 'none' }}
+              className="hidden"
             />
           </div>
 
           {/* Barra de progresso */}
           {isUploading && (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Processando arquivo...</span>
-                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>⏳</span>
+            <div className="mt-6 p-4 bg-primary-50 rounded-lg border border-primary-100">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-foreground">Processando arquivo...</span>
+                <Clock className="h-5 w-5 text-primary animate-spin" />
               </div>
-              <div style={progressStyle}>
-                <div style={progressBarStyle}></div>
+              <div className="w-full bg-white rounded-full h-3 shadow-inner overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-primary-600 rounded-full animate-pulse"></div>
               </div>
             </div>
           )}
 
           {/* Resultado do upload */}
           {uploadResult && (
-            <div style={{ marginTop: '1rem' }}>
+            <div className="mt-6">
               <Alert variant="success" title="Upload Concluído com Sucesso!">
-                <div style={{ marginTop: '0.5rem' }}>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Arquivo:</strong> {uploadResult.summary?.fileName}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Linhas processadas:</strong> {uploadResult.summary?.rowsProcessed}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Linhas válidas:</strong> {uploadResult.summary?.rowsValid}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Linhas inseridas:</strong> {uploadResult.summary?.rowsInserted}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Linhas atualizadas:</strong> {uploadResult.summary?.rowsUpdated}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Tempo:</strong> {uploadResult.processingTime ? (uploadResult.processingTime / 1000).toFixed(1) + 's' : 'N/A'}</p>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div><span className="font-semibold">Arquivo:</span> {uploadResult.summary?.fileName}</div>
+                  <div><span className="font-semibold">Linhas processadas:</span> {uploadResult.summary?.rowsProcessed}</div>
+                  <div><span className="font-semibold">Linhas válidas:</span> {uploadResult.summary?.rowsValid}</div>
+                  <div><span className="font-semibold">Linhas inseridas:</span> {uploadResult.summary?.rowsInserted}</div>
+                  <div><span className="font-semibold">Linhas atualizadas:</span> {uploadResult.summary?.rowsUpdated}</div>
+                  <div><span className="font-semibold">Tempo:</span> {uploadResult.processingTime ? (uploadResult.processingTime / 1000).toFixed(1) + 's' : 'N/A'}</div>
                 </div>
               </Alert>
             </div>
@@ -246,7 +169,7 @@ export function UploadExcel() {
 
           {/* Erro */}
           {error && (
-            <div style={{ marginTop: '1rem' }}>
+            <div className="mt-6">
               <Alert variant="error" title="Erro no Upload">
                 {error}
               </Alert>
@@ -255,42 +178,70 @@ export function UploadExcel() {
         </Card>
 
         {/* Seção de Instruções */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <Card title="Instruções">
+        <Card 
+          title="Como usar" 
+          subtitle="Siga os passos abaixo para um upload bem-sucedido"
+          variant="elevated"
+        >
+          <div className="space-y-6">
             {/* Instrução 1 */}
-            <div style={instructionStyle}>
-              <div style={numberStyle}>1</div>
-              <div style={instructionTextStyle}>
-                <div style={instructionTitleStyle}>Prepare sua planilha</div>
-                <p style={instructionDescStyle}>
-                  Certifique-se de que o arquivo Excel contém a planilha oculta 'Tabela' com os dados das ordens de serviço
+            <div className="flex gap-4 group">
+              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                1
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Prepare sua planilha</div>
+                <p className="text-foreground-muted text-sm leading-relaxed">
+                  Certifique-se de que o arquivo Excel contém a aba 'Tabela' com os dados das ordens de serviço
                 </p>
               </div>
             </div>
 
             {/* Instrução 2 */}
-            <div style={instructionStyle}>
-              <div style={numberStyle}>2</div>
-              <div style={instructionTextStyle}>
-                <div style={instructionTitleStyle}>Faça o upload</div>
-                <p style={instructionDescStyle}>
+            <div className="flex gap-4 group">
+              <div className="w-10 h-10 bg-success rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                2
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Faça o upload</div>
+                <p className="text-foreground-muted text-sm leading-relaxed">
                   Selecione ou arraste o arquivo Excel. Arquivos de até 100MB são suportados
                 </p>
               </div>
             </div>
 
             {/* Instrução 3 */}
-            <div style={instructionStyle}>
-              <div style={numberStyle}>3</div>
-              <div style={instructionTextStyle}>
-                <div style={instructionTitleStyle}>Aguarde o processamento</div>
-                <p style={instructionDescStyle}>
-                  O sistema irá ler os dados, classificar os defeitos automaticamente e salvar no banco de dados
+            <div className="flex gap-4 group">
+              <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+                3
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-foreground mb-1">Aguarde o processamento</div>
+                <p className="text-foreground-muted text-sm leading-relaxed">
+                  O sistema irá ler os dados, validar e salvar automaticamente no banco de dados
                 </p>
               </div>
             </div>
-          </Card>
-        </div>
+          </div>
+          
+          {/* Informações adicionais */}
+          <div className="mt-8 pt-6 border-t border-border">
+            <div className="flex items-center space-x-6 text-sm text-foreground-muted">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-success rounded-full"></div>
+                <span>Formatos: .xlsx, .xls</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <span>Tamanho máximo: 100MB</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-warning rounded-full"></div>
+                <span>Processamento automático</span>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     </MainLayout>
   );

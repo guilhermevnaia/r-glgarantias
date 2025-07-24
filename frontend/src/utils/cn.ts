@@ -1,4 +1,7 @@
-// Utilitário para combinar classes CSS (versão simplificada)
-export function cn(...classes: (string | undefined | null | false)[]): string {
+/**
+ * Utility function to combine CSS classes efficiently
+ * Optimized for performance with strict type checking
+ */
+export function cn(...classes: (string | undefined | null | false | 0 | "")[]): string {
   return classes.filter(Boolean).join(' ');
 }
