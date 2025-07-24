@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '../layout/MainLayout';
 import { Alert } from '../ui/Alert';
-import { Card } from '../ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { uploadService } from '../../services/api';
 import type { Stats } from '../../services/types';
 import { BarChart3, Users, Calendar, TrendingUp } from 'lucide-react';
@@ -99,70 +99,65 @@ export function Dashboard() {
     >
       {/* Cards de estatísticas principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card variant="elevated" padding="md" className="group hover:scale-[1.02] transition-all duration-300 bg-gradient-to-br from-background-card to-background-card/80 border-primary/20 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground-muted">Total de Ordens</p>
-              <p className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">
-                {stats.totalOrders.toLocaleString()}
-              </p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-lg group-hover:shadow-xl group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-300">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-          </div>
+        <Card className="hover:shadow-soft transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total de Ordens</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalOrders.toLocaleString()}</div>
+            <p className="text-xs text-success flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              8.5%
+            </p>
+          </CardContent>
         </Card>
 
-        <Card variant="elevated" padding="md" className="group hover:scale-[1.02] transition-all duration-300 bg-gradient-to-br from-background-card to-background-card/80 border-success/20 hover:border-success/40 hover:shadow-2xl hover:shadow-success/10">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground-muted">Fabricantes</p>
-              <p className="text-3xl font-bold text-foreground group-hover:text-success transition-colors duration-300">
-                {stats.topManufacturers.length}
-              </p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-success/20 to-success/10 rounded-xl shadow-lg group-hover:shadow-xl group-hover:from-success/30 group-hover:to-success/20 transition-all duration-300">
-              <Users className="h-8 w-8 text-success" />
-            </div>
-          </div>
+        <Card className="hover:shadow-soft transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Fabricantes</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.topManufacturers.length}</div>
+            <p className="text-xs text-success flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" />
+              5.2%
+            </p>
+          </CardContent>
         </Card>
 
-        <Card variant="elevated" padding="md" className="group hover:scale-[1.02] transition-all duration-300 bg-gradient-to-br from-background-card to-background-card/80 border-warning/20 hover:border-warning/40 hover:shadow-2xl hover:shadow-warning/10">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground-muted">Período</p>
-              <p className="text-3xl font-bold text-foreground group-hover:text-warning transition-colors duration-300">
-                2019-2025
-              </p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-warning/20 to-warning/10 rounded-xl shadow-lg group-hover:shadow-xl group-hover:from-warning/30 group-hover:to-warning/20 transition-all duration-300">
-              <Calendar className="h-8 w-8 text-warning" />
-            </div>
-          </div>
+        <Card className="hover:shadow-soft transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Período</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2019-2025</div>
+            <p className="text-xs text-muted-foreground">7 anos</p>
+          </CardContent>
         </Card>
 
-        <Card variant="elevated" padding="md" className="group hover:scale-[1.02] transition-all duration-300 bg-gradient-to-br from-background-card to-background-card/80 border-accent/20 hover:border-accent/40 hover:shadow-2xl hover:shadow-accent/10">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground-muted">Taxa Garantia</p>
-              <p className="text-3xl font-bold text-foreground group-hover:text-accent transition-colors duration-300">
-                90%
-              </p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-accent/20 to-accent/10 rounded-xl shadow-lg group-hover:shadow-xl group-hover:from-accent/30 group-hover:to-accent/20 transition-all duration-300">
-              <TrendingUp className="h-8 w-8 text-accent" />
-            </div>
-          </div>
+        <Card className="hover:shadow-soft transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taxa Garantia</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">90%</div>
+            <p className="text-xs text-success">Acima da média</p>
+          </CardContent>
         </Card>
       </div>
 
       {/* Distribuição por Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <Card 
-          title="Distribuição por Status" 
-          subtitle="Análise dos tipos de garantia processados"
-          variant="elevated"
-        >
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição por Status</CardTitle>
+            <CardDescription>Análise dos tipos de garantia processados</CardDescription>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-4">
             {Object.entries(stats.statusDistribution).map(([status, count]) => {
               const percentage = ((count / stats.totalOrders) * 100).toFixed(1);
@@ -200,13 +195,15 @@ export function Dashboard() {
               );
             })}
           </div>
+          </CardContent>
         </Card>
 
-        <Card 
-          title="Top Fabricantes" 
-          subtitle="Principais marcas de motores processadas"
-          variant="elevated"
-        >
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Fabricantes</CardTitle>
+            <CardDescription>Principais marcas de motores processadas</CardDescription>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-4">
             {stats.topManufacturers.map((manufacturer, index) => {
               const percentage = ((manufacturer.count / stats.totalOrders) * 100).toFixed(1);
@@ -248,15 +245,17 @@ export function Dashboard() {
               );
             })}
           </div>
+          </CardContent>
         </Card>
       </div>
 
       {/* Distribuição por Ano */}
-      <Card 
-        title="Distribuição por Ano" 
-        subtitle="Timeline de ordens de serviço processadas"
-        variant="elevated"
-      >
+      <Card>
+        <CardHeader>
+          <CardTitle>Distribuição por Ano</CardTitle>
+          <CardDescription>Timeline de ordens de serviço processadas</CardDescription>
+        </CardHeader>
+        <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {Object.entries(stats.yearDistribution).map(([year, count]) => {
             const percentage = ((count / stats.totalOrders) * 100).toFixed(1);
@@ -300,6 +299,7 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+        </CardContent>
       </Card>
     </MainLayout>
   );

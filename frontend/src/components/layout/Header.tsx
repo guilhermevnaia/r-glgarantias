@@ -14,37 +14,31 @@ export function Header({
   showMenuButton = true 
 }: HeaderProps) {
   return (
-    <header className="bg-background-card/90 backdrop-blur-xl border-b border-border px-4 md:px-6 lg:px-8 py-6 shadow-xl">
-      <div className="flex items-center justify-between">
-        {/* Lado esquerdo: Menu + Título */}
-        <div className="flex items-center gap-3 md:gap-4">
-          {/* Botão do menu (apenas em mobile) */}
-          {showMenuButton && (
-            <button
-              className="md:hidden p-3 rounded-xl hover:bg-background-hover transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-              onClick={onMenuClick}
-            >
-              <Menu size={22} className="text-foreground" />
-            </button>
+    <header className="h-16 flex items-center justify-between px-6 border-b border-border bg-card/50 backdrop-blur-sm">
+      <div className="flex items-center gap-4">
+        {/* Botão do menu (apenas em mobile) */}
+        {showMenuButton && (
+          <button
+            className="md:hidden p-2 rounded-md hover:bg-accent transition-colors"
+            onClick={onMenuClick}
+          >
+            <Menu size={20} className="text-foreground" />
+          </button>
+        )}
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          {subtitle && (
+            <>
+              <span className="text-sm text-muted-foreground">•</span>
+              <span className="text-sm text-muted-foreground">{subtitle}</span>
+            </>
           )}
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground-muted bg-clip-text text-transparent">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="text-sm text-foreground-muted mt-1 font-medium">{subtitle}</p>
-            )}
-          </div>
         </div>
-        
-        {/* Lado direito: Botão de atualização */}
-        <button 
-          className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground-muted bg-gradient-to-r from-background to-background-secondary border border-border rounded-xl hover:from-background-hover hover:to-background-card hover:border-primary/30 hover:text-foreground hover:shadow-lg transition-all duration-300 hover:scale-105"
-        >
-          <RotateCw size={16} className="animate-pulse" />
-          <span className="hidden sm:inline font-medium">Atualizado agora</span>
-          <span className="sm:hidden font-medium">Atualizado</span>
-        </button>
+      </div>
+      
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <RotateCw className="h-4 w-4" />
+        <span>Atualizado agora</span>
       </div>
     </header>
   );

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { MainLayout } from '../layout/MainLayout';
-import { Card } from '../ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { uploadService } from '../../services/api';
@@ -86,11 +86,12 @@ export function UploadExcel() {
     >
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Card principal de upload */}
-        <Card 
-          title="Upload de Planilha Excel"
-          subtitle="Faça o upload da planilha GLú-Garantias.xlsx para processamento automático"
-          variant="elevated" 
-        >
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload de Planilha Excel</CardTitle>
+            <CardDescription>Faça o upload da planilha GLú-Garantias.xlsx para processamento automático</CardDescription>
+          </CardHeader>
+          <CardContent>
           {/* Área de drag & drop */}
           <div
             className={`
@@ -175,14 +176,16 @@ export function UploadExcel() {
               </Alert>
             </div>
           )}
+          </CardContent>
         </Card>
 
         {/* Seção de Instruções */}
-        <Card 
-          title="Como usar" 
-          subtitle="Siga os passos abaixo para um upload bem-sucedido"
-          variant="elevated"
-        >
+        <Card>
+          <CardHeader>
+            <CardTitle>Como usar</CardTitle>
+            <CardDescription>Siga os passos abaixo para um upload bem-sucedido</CardDescription>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-6">
             {/* Instrução 1 */}
             <div className="flex gap-4 group">
@@ -241,6 +244,7 @@ export function UploadExcel() {
               </div>
             </div>
           </div>
+          </CardContent>
         </Card>
       </div>
     </MainLayout>

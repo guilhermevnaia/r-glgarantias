@@ -1,65 +1,88 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ["class"],
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
+  prefix: "",
   theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        '2xl': '1400px'
+      }
+    },
     extend: {
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-secondary': 'var(--gradient-secondary)',
+      },
+      boxShadow: {
+        'elegant': 'var(--shadow-lg)',
+        'soft': 'var(--shadow-soft)',
+        'subtle': 'var(--shadow-sm)',
+      },
       colors: {
-        // Tema LÚCIO Dark - Moderno e Sofisticado
-        background: {
-          DEFAULT: '#0f0f23',
-          secondary: '#1c1c1c',
-          card: '#1a1a2e',
-          hover: '#2d2d4a'
-        },
-        foreground: {
-          DEFAULT: '#ffffff',
-          muted: '#a1a1aa',
-          secondary: '#d4d4d8'
-        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#3b82f6',
-          50: '#1e3a8a',
-          100: '#1d4ed8',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          foreground: '#ffffff',
-          hover: '#60a5fa'
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+          light: 'hsl(var(--primary-light))',
+          dark: 'hsl(var(--primary-dark))'
         },
         secondary: {
-          DEFAULT: '#27272a',
-          foreground: '#ffffff'
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))'
         },
-        accent: {
-          DEFAULT: '#0ea5e9',
-          foreground: '#ffffff'
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))'
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))'
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))'
         },
         muted: {
-          DEFAULT: '#27272a',
-          foreground: '#a1a1aa'
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))'
         },
-        border: '#3f3f46',
-        input: '#1a1a2e',
-        ring: '#3b82f6',
-        success: '#10b981',
-        warning: '#f59e0b',
-        destructive: '#ef4444',
-        // Gradientes modernos
-        gradient: {
-          from: '#0f0f23',
-          to: '#1c1c1c'
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))'
         },
-        // Cores LÚCIO Dark
-        lucio: {
-          blue: '#3b82f6',
-          'blue-light': '#60a5fa',
-          gray: '#1a1a2e',
-          'gray-light': '#27272a'
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))'
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))'
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))'
         }
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)'
       },
       spacing: {
         'sidebar': '256px'
@@ -68,16 +91,23 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace']
       },
-      borderRadius: {
-        lg: '0.5rem',
-        md: '0.375rem',
-        sm: '0.25rem'
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.3s ease-in-out',
-        'slide-in': 'slideIn 0.2s ease-out'
-      },
       keyframes: {
+        'accordion-down': {
+          from: {
+            height: '0'
+          },
+          to: {
+            height: 'var(--radix-accordion-content-height)'
+          }
+        },
+        'accordion-up': {
+          from: {
+            height: 'var(--radix-accordion-content-height)'
+          },
+          to: {
+            height: '0'
+          }
+        },
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' }
@@ -86,6 +116,12 @@ export default {
           '0%': { transform: 'translateY(-10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' }
         }
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'slide-in': 'slideIn 0.2s ease-out'
       }
     }
   },

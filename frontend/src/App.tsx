@@ -1,20 +1,25 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Dashboard } from './components/pages/Dashboard';
-import { UploadExcel } from './components/pages/UploadExcel';
-import { ServiceOrders } from './components/pages/ServiceOrders';
-import NotFound from './pages/NotFound';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Layout } from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import Upload from "./pages/Upload";
+import NotFound from "./pages/NotFound";
 
-function App() {
-  return (
-    <Router>
+const App = () => (
+  <BrowserRouter>
+    <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/upload" element={<UploadExcel />} />
-        <Route path="/orders" element={<ServiceOrders />} />
+        <Route path="/upload" element={<Upload />} />
+        <Route path="/orders" element={<div>Ordens de Serviço (Em desenvolvimento)</div>} />
+        <Route path="/analysis" element={<div>Análises (Em desenvolvimento)</div>} />
+        <Route path="/defects" element={<div>Defeitos (Em desenvolvimento)</div>} />
+        <Route path="/mechanics" element={<div>Mecânicos (Em desenvolvimento)</div>} />
+        <Route path="/reports" element={<div>Relatórios (Em desenvolvimento)</div>} />
+        <Route path="/settings" element={<div>Configurações (Em desenvolvimento)</div>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Router>
-  );
-}
+    </Layout>
+  </BrowserRouter>
+);
 
 export default App;
