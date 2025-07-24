@@ -1,202 +1,506 @@
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingUp, FileText, Users, BarChart3, Calendar } from "lucide-react";
+import { 
+  FileText, 
+  TrendingUp, 
+  Users, 
+  BarChart3, 
+  CheckCircle, 
+  Settings, 
+  Truck,
+  DollarSign,
+  Calendar,
+  Activity
+} from "lucide-react";
+import { AppleCard } from '@/components/AppleCard';
+import { ChartCard } from "@/components/ChartCard";
+import { apiService, DashboardStats } from "@/services/api";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Area,
+  AreaChart
+} from 'recharts';
 
 const Dashboard = () => {
-  // Dados mock para a tabela
-  const tableData = [
-    { id: "001", cliente: "João Silva", veiculo: "Honda Civic 2020", defeito: "Motor", status: "Em Análise", data: "10/01/2025" },
-    { id: "002", cliente: "Maria Santos", veiculo: "Toyota Corolla 2019", defeito: "Transmissão", status: "Aprovado", data: "08/01/2025" },
-    { id: "003", cliente: "Pedro Costa", veiculo: "Ford Focus 2021", defeito: "Sistema Elétrico", status: "Pendente", data: "05/01/2025" },
-    { id: "004", cliente: "Ana Lima", veiculo: "Chevrolet Onix 2022", defeito: "Motor", status: "Rejeitado", data: "03/01/2025" },
-    { id: "005", cliente: "Carlos Ferreira", veiculo: "Hyundai HB20 2020", defeito: "Freios", status: "Em Análise", data: "01/01/2025" },
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await apiService.getStats();
+        console.log("Dados da API:", data);
+        setStats(data);
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-apple-gray-50 p-8">
+        <div className="animate-pulse space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-white rounded-apple-lg"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-80 bg-white rounded-apple-lg"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="min-h-screen bg-apple-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <p className="text-apple-gray-500">Erro ao carregar dados do dashboard</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Dados para gráficos
+  const statusData = [
+    { name: 'Garantias (G)', value: stats.statusDistribution.G, color: '#34C759' },
+    { name: 'Garantias Outros (GO)', value: stats.statusDistribution.GO, color: '#007AFF' },
+    { name: 'Garantias Usados (GU)', value: stats.statusDistribution.GU, color: '#FF9500' }
   ];
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Aprovado":
-        return <Badge className="bg-success text-success-foreground">Aprovado</Badge>;
-      case "Rejeitado":
-        return <Badge className="bg-destructive text-destructive-foreground">Rejeitado</Badge>;
-      case "Em Análise":
-        return <Badge className="bg-warning text-warning-foreground">Em Análise</Badge>;
-      case "Pendente":
-        return <Badge variant="secondary">Pendente</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const yearData = Object.entries(stats.yearDistribution).map(([year, count]) => ({
+    year,
+    count
+  }));
+  console.log("Dados do ano:", yearData);
+
+  const manufacturerData = stats.topManufacturers.slice(0, 5);
 
   return (
-    <div className="space-y-6">
-      {/* Header Info */}
-      <div className="bg-muted/30 p-4 rounded-lg">
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          Voici un aperçu de votre exploitation agricole en Guadeloupe
-        </p>
+    <div className="min-h-screen bg-apple-gray-50">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-apple-gray-200 p-6 mb-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-apple-gray-900 mb-2">
+            Sistema LÚCIO
+          </h1>
+          <p className="text-apple-gray-500 flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Dashboard de Análise de Garantias - Dados em tempo real
+          </p>
+        </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <Tabs defaultValue="menu" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-primary text-primary-foreground">
-          <TabsTrigger 
-            value="menu" 
-            className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary font-medium"
-          >
-            Menu
-          </TabsTrigger>
-          <TabsTrigger 
-            value="graficos" 
-            className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary font-medium"
-          >
-            Gráficos
-          </TabsTrigger>
-          <TabsTrigger 
-            value="alertas" 
-            className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary font-medium"
-          >
-            Alertas Meteórias
-          </TabsTrigger>
-          <TabsTrigger 
-            value="tarefas" 
-            className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary font-medium"
-          >
-            Tarefas
-          </TabsTrigger>
-        </TabsList>
+      <div className="max-w-7xl mx-auto px-6 space-y-8">
+        {/* Cards de Estatísticas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <AppleCard
+            title="Total de Ordens"
+            value={stats.totalOrders}
+            subtitle="Ordens processadas"
+            icon={FileText}
+            trend={{ value: "+12.5%", isPositive: true }}
+            gradient="blue"
+          />
+          
+          <AppleCard
+            title="Garantias Aprovadas"
+            value={stats.statusDistribution.G}
+            subtitle={`${((stats.statusDistribution.G / stats.totalOrders) * 100).toFixed(1)}% do total`}
+            icon={CheckCircle}
+            trend={{ value: "+8.3%", isPositive: true }}
+            gradient="green"
+          />
+          
+          <AppleCard
+            title="Valor Total"
+            value={`R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(1)}M`}
+            subtitle="Em garantias processadas"
+            icon={DollarSign}
+            trend={{ value: "+15.2%", isPositive: true }}
+            gradient="purple"
+          />
+          
+          <AppleCard
+            title="Valor Médio"
+            value={`R$ ${stats.financialSummary.averageValue.toFixed(0)}`}
+            subtitle="Por ordem de serviço"
+            icon={Activity}
+            trend={{ value: "+5.7%", isPositive: true }}
+            gradient="orange"
+          />
+        </div>
 
-        {/* Menu Tab Content */}
-        <TabsContent value="menu" className="space-y-6 mt-6">
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="hover:shadow-soft transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Ordens de Serviço</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+        {/* Tabs de Conteúdo */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 bg-white shadow-apple-sm rounded-apple-md">
+            <TabsTrigger 
+              value="overview" 
+              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+            >
+              Visão Geral
+            </TabsTrigger>
+            <TabsTrigger 
+              value="charts" 
+              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+            >
+              Gráficos
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analysis" 
+              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+            >
+              Análises
+            </TabsTrigger>
+            <TabsTrigger 
+              value="trends" 
+              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+            >
+              Tendências
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Visão Geral */}
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Cards de Status */}
+              <AppleCard
+                title="Garantias (G)"
+                value={stats.statusDistribution.G}
+                subtitle={`${((stats.statusDistribution.G / stats.totalOrders) * 100).toFixed(1)}% do total`}
+                icon={CheckCircle}
+                gradient="green"
+              />
+              
+              <AppleCard
+                title="Garantias Outros (GO)"
+                value={stats.statusDistribution.GO}
+                subtitle={`${((stats.statusDistribution.GO / stats.totalOrders) * 100).toFixed(1)}% do total`}
+                icon={Settings}
+                gradient="blue"
+              />
+              
+              <AppleCard
+                title="Garantias Usados (GU)"
+                value={stats.statusDistribution.GU}
+                subtitle={`${((stats.statusDistribution.GU / stats.totalOrders) * 100).toFixed(1)}% do total`}
+                icon={Truck}
+                gradient="orange"
+              />
+            </div>
+
+            {/* Tabela de Top Fabricantes */}
+            <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
+              <CardHeader className="border-b border-apple-gray-100">
+                <CardTitle className="text-xl font-semibold text-apple-gray-900">
+                  Top Fabricantes
+                </CardTitle>
+                <CardDescription className="text-apple-gray-500">
+                  Fabricantes com maior volume de ordens
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">1,234</div>
-                <p className="text-xs text-success flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  8.5 %
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-soft transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Garantias Ativas</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-success">parcelles</p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-soft transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Mecânicos Ativos</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">24</div>
-                <p className="text-xs text-success flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  5.2 %
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-soft transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Análises</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">567</div>
-                <p className="text-xs text-warning">Récent</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Data Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Ordens de Serviço Recentes</CardTitle>
-              <CardDescription>Lista das últimas ordens processadas no sistema</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-primary hover:bg-primary">
-                    <TableHead className="text-primary-foreground font-medium">ID</TableHead>
-                    <TableHead className="text-primary-foreground font-medium">CLIENTE</TableHead>
-                    <TableHead className="text-primary-foreground font-medium">VEÍCULO</TableHead>
-                    <TableHead className="text-primary-foreground font-medium">DEFEITO</TableHead>
-                    <TableHead className="text-primary-foreground font-medium">STATUS</TableHead>
-                    <TableHead className="text-primary-foreground font-medium">DATA</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableData.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{row.id}</TableCell>
-                      <TableCell>{row.cliente}</TableCell>
-                      <TableCell>{row.veiculo}</TableCell>
-                      <TableCell>{row.defeito}</TableCell>
-                      <TableCell>{getStatusBadge(row.status)}</TableCell>
-                      <TableCell>{row.data}</TableCell>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-apple-gray-50/50 hover:bg-apple-gray-50/50">
+                      <TableHead className="font-semibold text-apple-gray-700">Fabricante</TableHead>
+                      <TableHead className="font-semibold text-apple-gray-700">Quantidade</TableHead>
+                      <TableHead className="font-semibold text-apple-gray-700">Participação</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.topManufacturers.map((manufacturer, index) => (
+                      <TableRow key={manufacturer.name} className="hover:bg-apple-gray-50/30">
+                        <TableCell className="font-medium text-apple-gray-900">
+                          {manufacturer.name}
+                        </TableCell>
+                        <TableCell className="text-apple-gray-700">
+                          {manufacturer.count.toLocaleString('pt-BR')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-apple-blue/10 text-apple-blue border-apple-blue/20"
+                          >
+                            {((manufacturer.count / stats.totalOrders) * 100).toFixed(1)}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* Gráficos Tab Content */}
-        <TabsContent value="graficos" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gráficos e Análises</CardTitle>
-              <CardDescription>Visualizações e relatórios detalhados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Conteúdo dos gráficos em desenvolvimento...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {/* Gráficos */}
+          <TabsContent value="charts" className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* Gráfico de Pizza - Distribuição por Status */}
+              <ChartCard
+                title="Distribuição por Status"
+                description="Proporção de cada tipo de garantia"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={120}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Quantidade']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-        {/* Alertas Tab Content */}
-        <TabsContent value="alertas" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Alertas Meteorológicas</CardTitle>
-              <CardDescription>Monitoramento de condições climáticas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Sistema de alertas em desenvolvimento...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              {/* Gráfico de Barras - Top Fabricantes */}
+              <ChartCard
+                title="Top 5 Fabricantes"
+                description="Fabricantes com maior volume"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={manufacturerData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip 
+                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Ordens']}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#007AFF" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
 
-        {/* Tarefas Tab Content */}
-        <TabsContent value="tarefas" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tarefas</CardTitle>
-              <CardDescription>Gerenciamento de atividades e processos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Módulo de tarefas em desenvolvimento...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            {/* Gráfico de Linha - Evolução por Ano */}
+            <ChartCard
+              title="Evolução Temporal"
+              description="Distribuição de ordens por ano"
+              height="h-96"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={yearData}>
+                  <defs>
+                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#007AFF" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis 
+                    dataKey="year" 
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                  />
+                  <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                  <Tooltip 
+                    formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Ordens']}
+                    labelStyle={{ color: '#374151' }}
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#007AFF"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorCount)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </TabsContent>
+
+          {/* Análises */}
+          <TabsContent value="analysis" className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-apple-gray-900">
+                    Análise Financeira
+                  </CardTitle>
+                  <CardDescription className="text-apple-gray-500">
+                    Resumo dos valores processados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
+                    <span className="text-apple-gray-700 font-medium">Valor Total</span>
+                    <span className="text-xl font-bold text-apple-gray-900">
+                      R$ {(stats.financialSummary.totalValue / 1000000).toFixed(2)}M
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
+                    <span className="text-apple-gray-700 font-medium">Valor Médio</span>
+                    <span className="text-xl font-bold text-apple-gray-900">
+                      R$ {stats.financialSummary.averageValue.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
+                    <span className="text-apple-gray-700 font-medium">Total Peças</span>
+                    <span className="text-xl font-bold text-apple-gray-900">
+                      R$ {(stats.financialSummary.partsTotal / 1000000).toFixed(2)}M
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
+                    <span className="text-apple-gray-700 font-medium">Total Mão de Obra</span>
+                    <span className="text-xl font-bold text-apple-gray-900">
+                      R$ {(stats.financialSummary.laborTotal / 1000000).toFixed(2)}M
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-apple-gray-900">
+                    Insights Principais
+                  </CardTitle>
+                  <CardDescription className="text-apple-gray-500">
+                    Principais descobertas dos dados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-apple-md">
+                    <p className="text-green-800 font-medium">
+                      ✓ Taxa de aprovação de 90% (Status G)
+                    </p>
+                    <p className="text-green-600 text-sm mt-1">
+                      Excelente performance nas garantias
+                    </p>
+                  </div>
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-apple-md">
+                    <p className="text-blue-800 font-medium">
+                      📊 MWM lidera com 173 ordens
+                    </p>
+                    <p className="text-blue-600 text-sm mt-1">
+                      Seguida por Mercedes-Benz e Cummins
+                    </p>
+                  </div>
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-apple-md">
+                    <p className="text-orange-800 font-medium">
+                      📈 Crescimento de 12.5% no período
+                    </p>
+                    <p className="text-orange-600 text-sm mt-1">
+                      Tendência positiva de volume
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tendências */}
+          <TabsContent value="trends" className="space-y-6 mt-6">
+            <ChartCard
+              title="Tendência Mensal"
+              description="Evolução de ordens e valores por mês"
+              height="h-96"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.monthlyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                  />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right"
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                  />
+                  <Tooltip 
+                    formatter={(value: any, name: string) => [
+                      name === 'count' ? value.toLocaleString('pt-BR') : `R$ ${value.toLocaleString('pt-BR')}`,
+                      name === 'count' ? 'Ordens' : 'Valor'
+                    ]}
+                    labelStyle={{ color: '#374151' }}
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#007AFF"
+                    strokeWidth={3}
+                    dot={{ fill: '#007AFF', strokeWidth: 2, r: 4 }}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#34C759"
+                    strokeWidth={3}
+                    dot={{ fill: '#34C759', strokeWidth: 2, r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

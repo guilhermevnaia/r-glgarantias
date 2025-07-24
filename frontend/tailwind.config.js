@@ -25,71 +25,106 @@ export default {
         'subtle': 'var(--shadow-sm)',
       },
       colors: {
+        // Apple Style Colors
+        'apple-blue': '#007AFF',
+        'apple-purple': '#5856D6',
+        'apple-green': '#34C759',
+        'apple-orange': '#FF9500',
+        'apple-red': '#FF3B30',
+        'apple-gray': {
+          50: '#FAFAFA',
+          100: '#F5F5F7',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+          400: '#9CA3AF',
+          500: '#6B7280',
+          600: '#4B5563',
+          700: '#374151',
+          800: '#1F2937',
+          900: '#111827'
+        },
+        
+        // Original shadcn colors
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-          light: 'hsl(var(--primary-light))',
-          dark: 'hsl(var(--primary-dark))'
+          DEFAULT: '#007AFF',
+          foreground: '#FFFFFF',
+          light: '#4DA3FF',
+          dark: '#0056CC'
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))'
+          DEFAULT: '#5856D6',
+          foreground: '#FFFFFF'
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
+          DEFAULT: '#FF3B30',
+          foreground: '#FFFFFF'
         },
         warning: {
-          DEFAULT: 'hsl(var(--warning))',
-          foreground: 'hsl(var(--warning-foreground))'
+          DEFAULT: '#FF9500',
+          foreground: '#FFFFFF'
         },
         success: {
-          DEFAULT: 'hsl(var(--success))',
-          foreground: 'hsl(var(--success-foreground))'
+          DEFAULT: '#34C759',
+          foreground: '#FFFFFF'
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
+          DEFAULT: '#F5F5F7',
+          foreground: '#6B7280'
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
+          DEFAULT: '#F5F5F7',
+          foreground: '#374151'
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))'
+          DEFAULT: '#FFFFFF',
+          foreground: '#374151'
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
+          DEFAULT: '#FFFFFF',
+          foreground: '#374151'
         },
         sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))'
+          DEFAULT: 'rgba(255, 255, 255, 0.8)',
+          foreground: '#374151',
+          primary: '#007AFF',
+          'primary-foreground': '#FFFFFF',
+          accent: '#F5F5F7',
+          'accent-foreground': '#374151',
+          border: 'rgba(0, 0, 0, 0.06)',
+          ring: '#007AFF'
         }
       },
       borderRadius: {
+        'apple-sm': '6px',
+        'apple-md': '12px',
+        'apple-lg': '16px',
+        'apple-xl': '24px',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
       },
       spacing: {
-        'sidebar': '256px'
+        'sidebar': '280px',
+        '18': '4.5rem',
+        '22': '5.5rem'
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace']
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'monospace']
+      },
+      boxShadow: {
+        'apple-sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
+        'apple-md': '0 4px 8px rgba(0, 0, 0, 0.04), 0 0 2px rgba(0, 0, 0, 0.06)',
+        'apple-lg': '0 8px 16px rgba(0, 0, 0, 0.04), 0 0 4px rgba(0, 0, 0, 0.08)',
+        'apple-xl': '0 16px 32px rgba(0, 0, 0, 0.06), 0 0 8px rgba(0, 0, 0, 0.10)',
+        'elegant': 'var(--shadow-lg)',
+        'soft': 'var(--shadow-soft)',
+        'subtle': 'var(--shadow-sm)',
       },
       keyframes: {
         'accordion-down': {

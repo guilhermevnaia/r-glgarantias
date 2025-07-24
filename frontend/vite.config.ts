@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     strictPort: true,
     allowedHosts: [
-      "8080-i9wvb387k52vmcjczku3r-0cf01204.manusvm.computer"
+      "8080-ik6dp2fvn7ehl2ikq25i9-33e278d5.manusvm.computer"
     ],
   },
   plugins: [
