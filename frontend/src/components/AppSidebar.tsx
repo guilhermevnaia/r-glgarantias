@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Home,
@@ -8,7 +9,10 @@ import {
   Users,
   FileBarChart,
   Settings,
+  Menu,
+  X
 } from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -19,7 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "./ui/sidebar";
+} from "@/components/ui/sidebar";
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
@@ -36,42 +40,40 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  
   const isCollapsed = state === "collapsed";
+
+  const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive
-      ? "bg-primary text-primary-foreground font-medium shadow-soft border-2 border-primary"
+    isActive 
+      ? "bg-primary text-primary-foreground font-medium shadow-soft border-2 border-primary" 
       : "hover:bg-secondary/80 hover:text-foreground transition-colors border-2 border-transparent";
 
   return (
-    <Sidebar className="border-r border-border bg-card" collapsible="icon">
+    <Sidebar
+      className="border-r border-border bg-card"
+      collapsible="icon"
+    >
       <SidebarContent className="p-4">
         {/* Logo */}
-        <div className="mb-8 flex items-center gap-3">
-          {!isCollapsed && (
-            <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-foreground">Retífica LÚCIO</h1>
-              <p className="text-xs text-muted-foreground">Sistema de Análises</p>
-            </div>
-          )}
-          {isCollapsed && (
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">G</span>
-            </div>
-          )}
+        <div className="mb-8 flex items-center justify-center">
+          <img src="/images/logo.png" alt="Retífica GLÚCIO Logo" className="h-12" />
         </div>
+
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground text-xs uppercase tracking-wider mb-4">
             {!isCollapsed && "Menu Principal"}
           </SidebarGroupLabel>
+
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className={({ isActive }) =>
+                    <NavLink 
+                      to={item.url} 
+                      end 
+                      className={({ isActive }) => 
                         `flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${getNavCls({ isActive })}`
                       }
                     >
