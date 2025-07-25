@@ -4,7 +4,7 @@ import { LucideIcon } from 'lucide-react';
 
 interface AppleCardProps {
   title: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   subtitle?: string;
   icon: LucideIcon;
   trend?: {
@@ -12,15 +12,16 @@ interface AppleCardProps {
     isPositive: boolean;
   };
   gradient?: 'blue' | 'green' | 'orange' | 'purple' | 'red';
+  status?: 'good' | 'warning' | 'bad' | 'neutral';
   className?: string;
 }
 
 const gradientClasses = {
-  blue: 'from-blue-50 to-cyan-50 border-blue-100',
-  green: 'from-green-50 to-emerald-50 border-green-100',
-  orange: 'from-orange-50 to-amber-50 border-orange-100',
-  purple: 'from-purple-50 to-violet-50 border-purple-100',
-  red: 'from-red-50 to-rose-50 border-red-100'
+  blue: 'bg-white border-black',
+  green: 'bg-white border-black',
+  orange: 'bg-white border-black',
+  purple: 'bg-white border-black',
+  red: 'bg-white border-black'
 };
 
 const iconClasses = {
@@ -32,19 +33,26 @@ const iconClasses = {
 };
 
 const textClasses = {
-  blue: 'text-blue-600',
-  green: 'text-green-600',
-  orange: 'text-orange-600',
-  purple: 'text-purple-600',
-  red: 'text-red-600'
+  blue: 'text-black',
+  green: 'text-black',
+  orange: 'text-black',
+  purple: 'text-black',
+  red: 'text-black'
 };
 
 const valueClasses = {
-  blue: 'text-blue-900',
-  green: 'text-green-900',
-  orange: 'text-orange-900',
-  purple: 'text-purple-900',
-  red: 'text-red-900'
+  blue: 'text-black',
+  green: 'text-black',
+  orange: 'text-black',
+  purple: 'text-black',
+  red: 'text-black'
+};
+
+const statusIndicators = {
+  good: { emoji: '🟢', color: 'text-green-600' },
+  warning: { emoji: '🟡', color: 'text-yellow-600' },
+  bad: { emoji: '🔴', color: 'text-red-600' },
+  neutral: { emoji: '⚫', color: 'text-gray-600' }
 };
 
 export const AppleCard: React.FC<AppleCardProps> = ({
@@ -54,15 +62,16 @@ export const AppleCard: React.FC<AppleCardProps> = ({
   icon: Icon,
   trend,
   gradient = 'blue',
+  status = 'neutral',
   className = ''
 }) => {
   return (
     <Card className={`
-      bg-gradient-to-br ${gradientClasses[gradient]} 
-      shadow-apple-md hover:shadow-apple-lg 
+      ${gradientClasses[gradient]} 
+      shadow-md hover:shadow-lg 
       transition-all duration-300 ease-out
       hover:-translate-y-1
-      border-0
+      border-2
       ${className}
     `}>
       <CardContent className="p-6">
@@ -71,9 +80,9 @@ export const AppleCard: React.FC<AppleCardProps> = ({
             <p className={`text-sm font-medium ${textClasses[gradient]} mb-1`}>
               {title}
             </p>
-            <p className={`text-3xl font-bold ${valueClasses[gradient]} mb-1`}>
+            <div className={`text-3xl font-bold ${valueClasses[gradient]} mb-1`}>
               {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
-            </p>
+            </div>
             {subtitle && (
               <p className={`text-sm ${textClasses[gradient]}`}>
                 {subtitle}
@@ -92,7 +101,7 @@ export const AppleCard: React.FC<AppleCardProps> = ({
           </div>
           <div className={`
             p-3 rounded-xl ${iconClasses[gradient]}
-            shadow-apple-sm
+            shadow-sm
           `}>
             <Icon className="h-6 w-6" />
           </div>

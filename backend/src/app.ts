@@ -60,6 +60,11 @@ app.post('/api/v1/upload', upload.single('file'), (req, res) => {
   uploadController.uploadExcel(req, res);
 });
 
+// Rota de teste simples
+app.get('/api/v1/test', (req, res) => {
+  res.json({ message: 'API funcionando', timestamp: new Date().toISOString() });
+});
+
 // Rotas de estatísticas e dados
 app.get('/api/v1/stats', (req, res) => {
   statsController.getStats(req, res);

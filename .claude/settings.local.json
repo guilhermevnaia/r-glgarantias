@@ -43,7 +43,23 @@
       "Bash(node -e \"\nconst { createClient } = require(''@supabase/supabase-js'');\nrequire(''dotenv'').config();\nconst supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);\n\nasync function clearDatabase() {\n  console.log(''=== LIMPANDO BANCO DE DADOS ==='');\n  \n  // Contar registros antes\n  const { count: beforeCount } = await supabase\n    .from(''service_orders'')\n    .select(''*'', { count: ''exact'', head: true });\n  \n  console.log(''Registros antes da limpeza:'', beforeCount);\n  \n  // Limpar tabela service_orders\n  const { error: deleteError } = await supabase\n    .from(''service_orders'')\n    .delete()\n    .neq(''id'', 0); // Deleta todos\n  \n  if (deleteError) {\n    console.error(''Erro na limpeza:'', deleteError);\n    return;\n  }\n  \n  // Verificar limpeza\n  const { count: afterCount } = await supabase\n    .from(''service_orders'')\n    .select(''*'', { count: ''exact'', head: true });\n  \n  console.log(''Registros após limpeza:'', afterCount);\n  console.log(''Banco limpo com sucesso!'');\n}\n\nclearDatabase();\n\")",
       "Bash(curl -X POST -F \"file=@S:/comp-glgarantias/r-glgarantias/GLú-Garantias.xlsx\" http://localhost:3005/api/v1/upload --max-time 1200)",
       "Bash(pip install:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(git pull:*)",
+      "Bash(timeout 5 npm run dev)",
+      "Bash(timeout 3 npm run dev)",
+      "Bash(timeout 10 npx vite --port 3001)",
+      "Bash(npx vite:*)",
+      "Bash(/dev/null)",
+      "Bash(pkill:*)",
+      "Bash(Start-Process -WindowStyle Hidden -FilePath \"taskkill\" -ArgumentList \"/F\",\"/PID\",\"10512\")",
+      "Bash(PORT=3007 npm start)",
+      "Bash(time curl:*)",
+      "Bash(find:*)",
+      "Bash(PORT=3008 npm start)",
+      "Bash(npm test:*)",
+      "Bash(timeout:*)",
+      "Bash(cp:*)",
+      "Bash(git stash push:*)"
     ],
     "deny": []
   }

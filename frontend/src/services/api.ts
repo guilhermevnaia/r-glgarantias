@@ -1,10 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://3006-ik6dp2fvn7ehl2ikq25i9-33e278d5.manusvm.computer';
+const API_BASE_URL = 'http://localhost:3008';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  }
 });
 
 export interface ServiceOrder {
@@ -47,6 +51,20 @@ export interface DashboardStats {
     count: number;
     value: number;
   }>;
+  mechanicsCount: number;
+  defectsCount: number;
+  orders: Array<{
+    order_number: string;
+    engine_manufacturer: string;
+    engine_description: string;
+    vehicle_model: string;
+    raw_defect_description: string;
+    responsible_mechanic: string;
+    parts_total: number;
+    labor_total: number;
+    original_parts_value: number;
+    order_date: string;
+  }>;
 }
 
 export interface ServiceOrdersResponse {
@@ -61,46 +79,60 @@ export interface ServiceOrdersResponse {
 
 export const apiService = {
   // Buscar estatísticas do dashboard
-  async getStats(): Promise<DashboardStats> {
+  async getStats(month?: number, year?: number): Promise<DashboardStats> {
     try {
-      const response = await api.get('/api/v1/stats');
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error);
-      // Retorna dados mock em caso de erro
+      const params: any = {};
+      if (month) params.month = month;
+      if (year) params.year = year;
+      
+      console.log("🚀 apiService.getStats chamado");
+      console.log("📝 Parâmetros:", params);
+      console.log("🔗 URL:", `${API_BASE_URL}/api/v1/stats`);
+      
+      const response = await api.get('/api/v1/stats', { params });
+      console.log("📡 Resposta recebida:", response.status, response.statusText);
+      console.log("📦 Dados brutos:", response.data);
+      const data = response.data;
+      
+      // Garantir que todos os campos necessários existam
       return {
-        totalOrders: 2519,
-        statusDistribution: { G: 2268, GO: 191, GU: 60 },
-        yearDistribution: {
-          '2019': 405,
-          '2020': 457,
-          '2021': 388,
-          '2022': 325,
-          '2023': 378,
-          '2024': 346,
-          '2025': 220
+        totalOrders: data.totalOrders || 0,
+        statusDistribution: data.statusDistribution || { G: 0, GO: 0, GU: 0 },
+        yearDistribution: data.yearDistribution || {},
+        topManufacturers: data.topManufacturers || [],
+        financialSummary: data.financialSummary || {
+          totalValue: 0,
+          averageValue: 0,
+          partsTotal: 0,
+          laborTotal: 0
         },
-        topManufacturers: [
-          { name: 'MWM', count: 173 },
-          { name: 'Mercedes-Benz', count: 153 },
-          { name: 'Cummins', count: 151 },
-          { name: 'Perkins', count: 75 },
-          { name: 'Volkswagen', count: 56 }
-        ],
+        monthlyTrend: data.monthlyTrend || [],
+        mechanicsCount: data.mechanicsCount || 0,
+        defectsCount: data.defectsCount || 0,
+        orders: data.orders || []
+      };
+    } catch (error) {
+      console.error('❌ ERRO CRÍTICO ao buscar estatísticas:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem:', error?.message);
+      console.error('❌ Status:', error?.response?.status);
+      console.error('❌ URL tentada:', `${API_BASE_URL}/api/v1/stats`);
+      // Retorna dados padrão em caso de erro
+      return {
+        totalOrders: 0,
+        statusDistribution: { G: 0, GO: 0, GU: 0 },
+        yearDistribution: {},
+        topManufacturers: [],
         financialSummary: {
-          totalValue: 2847392.50,
-          averageValue: 1130.00,
-          partsTotal: 1423696.25,
-          laborTotal: 1423696.25
+          totalValue: 0,
+          averageValue: 0,
+          partsTotal: 0,
+          laborTotal: 0
         },
-        monthlyTrend: [
-          { month: 'Jan', count: 210, value: 237300 },
-          { month: 'Fev', count: 195, value: 220350 },
-          { month: 'Mar', count: 225, value: 254250 },
-          { month: 'Abr', count: 180, value: 203400 },
-          { month: 'Mai', count: 240, value: 271200 },
-          { month: 'Jun', count: 205, value: 231650 }
-        ]
+        monthlyTrend: [],
+        mechanicsCount: 0,
+        defectsCount: 0,
+        orders: []
       };
     }
   },

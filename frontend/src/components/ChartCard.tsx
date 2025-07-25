@@ -20,7 +20,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     <Card className={`
       bg-white/80 backdrop-blur-sm 
       border-apple-gray-200 
-      shadow-apple-md hover:shadow-apple-lg
+      shadow-sm hover:shadow-md
       transition-all duration-300 ease-out
       ${className}
     `}>

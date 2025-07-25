@@ -77,3 +77,18 @@ All colors MUST be HSL.
   }
 }
 
+/* Sidebar colapsado - ícones mais próximos */
+[data-state="collapsed"] [data-sidebar="menu"] {
+  gap: 0 !important;
+}
+
+[data-state="collapsed"] [data-sidebar="menu-item"] {
+  margin-bottom: 0 !important;
+}
+
+[data-state="collapsed"] [data-sidebar="menu-button"] {
+  margin-bottom: 2px !important;
+  padding: 4px !important;
+  height: auto !important;
+}
+

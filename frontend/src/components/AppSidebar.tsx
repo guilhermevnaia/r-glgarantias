@@ -44,40 +44,38 @@ export function AppSidebar() {
   const isCollapsed = state === "collapsed";
 
   const isActive = (path: string) => currentPath === path;
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-primary text-primary-foreground font-medium shadow-soft border-2 border-primary" 
-      : "hover:bg-secondary/80 hover:text-foreground transition-colors border-2 border-transparent";
 
   return (
     <Sidebar
       className="border-r border-border bg-card"
       collapsible="icon"
     >
-      <SidebarContent className="p-4">
-        {/* Logo */}
-        <div className="mb-8 flex items-center justify-center">
-          <img src="/images/logo.png" alt="Retífica GLÚCIO Logo" className="h-12" />
-        </div>
-
+      <SidebarContent className={isCollapsed ? "p-2" : "p-4"}>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground text-xs uppercase tracking-wider mb-4">
-            {!isCollapsed && "Menu Principal"}
-          </SidebarGroupLabel>
+          <div className="flex flex-col items-center mb-4 px-2">
+            {isCollapsed ? (
+              <img src="/images/logo%20compacta.png" alt="Retífica GLÚCIO Logo" className="h-12 w-12" />
+            ) : (
+              <img src="/images/logo.png" alt="Retífica GLÚCIO Logo" className="h-20 object-contain mx-auto mb-2" />
+            )}
+            {!isCollapsed && (
+              <span className="text-foreground text-base font-semibold text-center">
+                Menu Principal
+              </span>
+            )}
+          </div>
 
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-2">
+            <SidebarMenu className={isCollapsed ? "!gap-0 !space-y-0" : "gap-1"}>
               {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                <SidebarMenuItem key={item.title} className={isCollapsed ? "!mb-0" : ""}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink 
                       to={item.url} 
                       end 
-                      className={({ isActive }) => 
-                        `flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 ${getNavCls({ isActive })}`
-                      }
+                      className={`flex items-center gap-3 rounded-lg transition-all duration-200 ${isCollapsed ? 'justify-center px-1 py-1' : 'px-3 py-3'}`}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className={`${isCollapsed ? 'h-6 w-6' : 'h-6 w-6'} flex-shrink-0`} />
                       {!isCollapsed && (
                         <span className="text-sm font-medium">{item.title}</span>
                       )}

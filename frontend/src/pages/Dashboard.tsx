@@ -35,25 +35,42 @@ import {
   AreaChart
 } from 'recharts';
 
-const Dashboard = () => {
+interface DashboardProps {
+  selectedMonth?: number;
+  selectedYear?: number;
+  onMonthChange?: (month: number) => void;
+  onYearChange?: (year: number) => void;
+}
+
+const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await apiService.getStats();
-        console.log("Dados da API:", data);
-        setStats(data);
-      } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const currentMonth = selectedMonth || new Date().getMonth() + 1;
+  const currentYear = selectedYear || new Date().getFullYear();
 
-    fetchStats();
-  }, []);
+  const fetchStats = async (month?: number, year?: number) => {
+    console.log("🔄 fetchStats chamado com:", { month, year, selectedMonth, selectedYear });
+    setLoading(true);
+    try {
+      console.log("🌐 Fazendo chamada para API...");
+      const data = await apiService.getStats(month, year);
+      console.log("✅ Dados recebidos da API:", data);
+      console.log("📈 Total de ordens:", data?.totalOrdens);
+      setStats(data);
+    } catch (error) {
+      console.error('❌ ERRO ao carregar estatísticas:', error);
+      console.error('❌ Detalhes do erro:', error.message, error.stack);
+    } finally {
+      console.log("🏁 Loading finalizado");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Sempre começar com mês e ano atual
+    fetchStats(currentMonth, currentYear);
+  }, [currentMonth, currentYear, selectedMonth, selectedYear]);
 
   if (loading) {
     return (
@@ -102,158 +119,247 @@ const Dashboard = () => {
   const manufacturerData = stats.topManufacturers.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-apple-gray-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-apple-gray-200 p-6 mb-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-apple-gray-900 mb-2">
-            Sistema LÚCIO
-          </h1>
-          <p className="text-apple-gray-500 flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Dashboard de Análise de Garantias - Dados em tempo real
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 space-y-8">
-        {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <AppleCard
-            title="Total de Ordens"
-            value={stats.totalOrders}
-            subtitle="Ordens processadas"
-            icon={FileText}
-            trend={{ value: "+12.5%", isPositive: true }}
-            gradient="blue"
-          />
-          
-          <AppleCard
-            title="Garantias Aprovadas"
-            value={stats.statusDistribution.G}
-            subtitle={`${((stats.statusDistribution.G / stats.totalOrders) * 100).toFixed(1)}% do total`}
-            icon={CheckCircle}
-            trend={{ value: "+8.3%", isPositive: true }}
-            gradient="green"
-          />
-          
-          <AppleCard
-            title="Valor Total"
-            value={`R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(1)}M`}
-            subtitle="Em garantias processadas"
-            icon={DollarSign}
-            trend={{ value: "+15.2%", isPositive: true }}
-            gradient="purple"
-          />
-          
-          <AppleCard
-            title="Valor Médio"
-            value={`R$ ${stats.financialSummary.averageValue.toFixed(0)}`}
-            subtitle="Por ordem de serviço"
-            icon={Activity}
-            trend={{ value: "+5.7%", isPositive: true }}
-            gradient="orange"
-          />
-        </div>
-
-        {/* Tabs de Conteúdo */}
+    <div className="space-y-8">
+        {/* Tabs de Conteúdo - Movido para cima dos cards */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-white shadow-apple-sm rounded-apple-md">
+          <div className="flex justify-center">
+          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
               Visão Geral
             </TabsTrigger>
             <TabsTrigger 
               value="charts" 
-              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
               Gráficos
             </TabsTrigger>
             <TabsTrigger 
               value="analysis" 
-              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
               Análises
             </TabsTrigger>
             <TabsTrigger 
               value="trends" 
-              className="data-[state=active]:bg-apple-blue data-[state=active]:text-white font-medium rounded-apple-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
               Tendências
             </TabsTrigger>
           </TabsList>
+        </div>
+
+        {/* Cards de Estatísticas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <AppleCard
+            title="Total de OS"
+            value={stats.totalOrders}
+            subtitle="Ordens processadas"
+            icon={FileText}
+            gradient="blue"
+          />
+          
+          <AppleCard
+            title="Valor Total"
+            value={stats.financialSummary ? (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">
+                  Peças: {stats.financialSummary.partsTotal >= 1000000 ? 
+                    `R$ ${(stats.financialSummary.partsTotal / 1000000).toFixed(1)}M` : 
+                    stats.financialSummary.partsTotal >= 1000 ?
+                      `R$ ${(stats.financialSummary.partsTotal / 1000).toFixed(1)}K` :
+                      `R$ ${stats.financialSummary.partsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  }
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Serviços: {stats.financialSummary.laborTotal >= 1000000 ? 
+                    `R$ ${(stats.financialSummary.laborTotal / 1000000).toFixed(1)}M` : 
+                    stats.financialSummary.laborTotal >= 1000 ?
+                      `R$ ${(stats.financialSummary.laborTotal / 1000).toFixed(1)}K` :
+                      `R$ ${stats.financialSummary.laborTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  }
+                </div>
+                <div className="text-lg font-bold">
+                  {stats.financialSummary.totalValue >= 1000000 ? 
+                    `R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(1)}M` : 
+                    stats.financialSummary.totalValue >= 1000 ?
+                      `R$ ${(stats.financialSummary.totalValue / 1000).toFixed(1)}K` :
+                      `R$ ${stats.financialSummary.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  }
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Peças: R$ 0,00</div>
+                <div className="text-xs text-muted-foreground">Serviços: R$ 0,00</div>
+                <div className="text-lg font-bold">R$ 0,00</div>
+              </div>
+            )}
+            subtitle="Detalhamento financeiro"
+            icon={DollarSign}
+            gradient="purple"
+          />
+          
+          <AppleCard
+            title="Mecânicos Ativos"
+            value={stats.mechanicsCount || 0}
+            subtitle="Profissionais ativas"
+            icon={Users}
+            gradient="orange"
+          />
+          
+          <AppleCard
+            title="Total de Defeitos"
+            value={stats.defectsCount || 0}
+            subtitle="Tipos catalogados"
+            icon={Settings}
+            gradient="red"
+          />
+          
+          <AppleCard
+            title="Status OS"
+            value={
+              <div className="space-y-1">
+                <div className="text-xs">G: {stats.statusDistribution.G}</div>
+                <div className="text-xs">GO: {stats.statusDistribution.GO}</div>
+                <div className="text-xs">GU: {stats.statusDistribution.GU}</div>
+              </div>
+            }
+            subtitle="Distribuição"
+            icon={BarChart3}
+            gradient="green"
+          />
+        </div>
 
           {/* Visão Geral */}
           <TabsContent value="overview" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Cards de Status */}
-              <AppleCard
-                title="Garantias (G)"
-                value={stats.statusDistribution.G}
-                subtitle={`${((stats.statusDistribution.G / stats.totalOrders) * 100).toFixed(1)}% do total`}
-                icon={CheckCircle}
-                gradient="green"
-              />
-              
-              <AppleCard
-                title="Garantias Outros (GO)"
-                value={stats.statusDistribution.GO}
-                subtitle={`${((stats.statusDistribution.GO / stats.totalOrders) * 100).toFixed(1)}% do total`}
-                icon={Settings}
-                gradient="blue"
-              />
-              
-              <AppleCard
-                title="Garantias Usados (GU)"
-                value={stats.statusDistribution.GU}
-                subtitle={`${((stats.statusDistribution.GU / stats.totalOrders) * 100).toFixed(1)}% do total`}
-                icon={Truck}
-                gradient="orange"
-              />
-            </div>
+            {/* Tabela de Ordens de Serviço */}
+            <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
+              <CardHeader className="border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl font-semibold text-foreground">
+                      Ordens de Serviço - {(() => {
+                        const dateString = new Date(currentYear, currentMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+                        return dateString.charAt(0).toUpperCase() + dateString.slice(1);
+                      })()}
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Lista das ordens de serviço do período filtrado
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Filtros:</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={selectedMonth || currentMonth} 
+                        onChange={(e) => {
+                          const month = parseInt(e.target.value);
+                          const year = selectedYear || currentYear;
+                          fetchStats(month, year);
+                        }}
+                        className="w-32 h-8 text-sm border rounded px-2"
+                      >
+                        <option value={1}>Janeiro</option>
+                        <option value={2}>Fevereiro</option>
+                        <option value={3}>Março</option>
+                        <option value={4}>Abril</option>
+                        <option value={5}>Maio</option>
+                        <option value={6}>Junho</option>
+                        <option value={7}>Julho</option>
+                        <option value={8}>Agosto</option>
+                        <option value={9}>Setembro</option>
+                        <option value={10}>Outubro</option>
+                        <option value={11}>Novembro</option>
+                        <option value={12}>Dezembro</option>
+                      </select>
 
-            {/* Tabela de Top Fabricantes */}
-            <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
-              <CardHeader className="border-b border-apple-gray-100">
-                <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                  Top Fabricantes
-                </CardTitle>
-                <CardDescription className="text-apple-gray-500">
-                  Fabricantes com maior volume de ordens
-                </CardDescription>
+                      <select 
+                        value={selectedYear || currentYear} 
+                        onChange={(e) => {
+                          const year = parseInt(e.target.value);
+                          const month = selectedMonth || currentMonth;
+                          fetchStats(month, year);
+                        }}
+                        className="w-20 h-8 text-sm border rounded px-2"
+                      >
+                        {[2025, 2024, 2023, 2022, 2021, 2020, 2019].map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="h-4 w-px bg-gray-300" />
+
+                    <button 
+                      onClick={() => console.log('Exportar dados')}
+                      className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100"
+                    >
+                      Exportar
+                    </button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-apple-gray-50/50 hover:bg-apple-gray-50/50">
-                      <TableHead className="font-semibold text-apple-gray-700">Fabricante</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Quantidade</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Participação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stats.topManufacturers.map((manufacturer, index) => (
-                      <TableRow key={manufacturer.name} className="hover:bg-apple-gray-50/30">
-                        <TableCell className="font-medium text-apple-gray-900">
-                          {manufacturer.name}
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          {manufacturer.count.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant="secondary" 
-                            className="bg-apple-blue/10 text-apple-blue border-apple-blue/20"
-                          >
-                            {((manufacturer.count / stats.totalOrders) * 100).toFixed(1)}%
-                          </Badge>
-                        </TableCell>
+                <div className="max-h-96 overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="font-semibold text-foreground">OS</TableHead>
+                        <TableHead className="font-semibold text-foreground">Data</TableHead>
+                        <TableHead className="font-semibold text-foreground">Fabricante</TableHead>
+                        <TableHead className="font-semibold text-foreground">Motor</TableHead>
+                        <TableHead className="font-semibold text-foreground">Modelo</TableHead>
+                        <TableHead className="font-semibold text-foreground">Defeito</TableHead>
+                        <TableHead className="font-semibold text-foreground">Mecânico Montador</TableHead>
+                        <TableHead className="font-semibold text-foreground">Total</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {stats.orders && Array.isArray(stats.orders) && stats.orders.length > 0 ? (
+                        stats.orders.map((order, index) => (
+                          <TableRow key={order.order_number || index} className="hover:bg-muted/30">
+                            <TableCell className="font-medium text-foreground">
+                              {order.order_number || `OS-${(index + 1).toString().padStart(4, '0')}`}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : '-'}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.engine_manufacturer || '-'}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.engine_description || '-'}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.vehicle_model || '-'}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.raw_defect_description || '-'}
+                            </TableCell>
+                            <TableCell className="text-foreground">
+                              {order.responsible_mechanic || '-'}
+                            </TableCell>
+                            <TableCell className="font-semibold text-foreground">
+                              R$ {((order.original_parts_value || order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                            Nenhuma ordem de serviço encontrada para o período selecionado.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -368,7 +474,7 @@ const Dashboard = () => {
           {/* Análises */}
           <TabsContent value="analysis" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
+              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-xl font-semibold text-apple-gray-900">
                     Análise Financeira
@@ -381,31 +487,46 @@ const Dashboard = () => {
                   <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
                     <span className="text-apple-gray-700 font-medium">Valor Total</span>
                     <span className="text-xl font-bold text-apple-gray-900">
-                      R$ {(stats.financialSummary.totalValue / 1000000).toFixed(2)}M
+                      {stats.financialSummary.totalValue >= 1000000 ? 
+                        `R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(2)}M` : 
+                        stats.financialSummary.totalValue >= 1000 ?
+                          `R$ ${(stats.financialSummary.totalValue / 1000).toFixed(1)}K` :
+                          `R$ ${stats.financialSummary.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
                     <span className="text-apple-gray-700 font-medium">Valor Médio</span>
                     <span className="text-xl font-bold text-apple-gray-900">
-                      R$ {stats.financialSummary.averageValue.toLocaleString('pt-BR')}
+                      R$ {stats.financialSummary.averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
                     <span className="text-apple-gray-700 font-medium">Total Peças</span>
                     <span className="text-xl font-bold text-apple-gray-900">
-                      R$ {(stats.financialSummary.partsTotal / 1000000).toFixed(2)}M
+                      {stats.financialSummary.partsTotal >= 1000000 ? 
+                        `R$ ${(stats.financialSummary.partsTotal / 1000000).toFixed(2)}M` : 
+                        stats.financialSummary.partsTotal >= 1000 ?
+                          `R$ ${(stats.financialSummary.partsTotal / 1000).toFixed(1)}K` :
+                          `R$ ${stats.financialSummary.partsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
                     <span className="text-apple-gray-700 font-medium">Total Mão de Obra</span>
                     <span className="text-xl font-bold text-apple-gray-900">
-                      R$ {(stats.financialSummary.laborTotal / 1000000).toFixed(2)}M
+                      {stats.financialSummary.laborTotal >= 1000000 ? 
+                        `R$ ${(stats.financialSummary.laborTotal / 1000000).toFixed(2)}M` : 
+                        stats.financialSummary.laborTotal >= 1000 ?
+                          `R$ ${(stats.financialSummary.laborTotal / 1000).toFixed(1)}K` :
+                          `R$ ${stats.financialSummary.laborTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
                     </span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-apple-md">
+              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-xl font-semibold text-apple-gray-900">
                     Insights Principais
@@ -500,7 +621,6 @@ const Dashboard = () => {
             </ChartCard>
           </TabsContent>
         </Tabs>
-      </div>
     </div>
   );
 };
