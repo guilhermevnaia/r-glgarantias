@@ -31,11 +31,8 @@ const ServiceOrders = () => {
   const [modelFilter, setModelFilter] = useState("all");
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
-  const ordersPerPage = 20;
 
   // Lista de anos únicos
   const availableYears = ["2019", "2020", "2021", "2022", "2023", "2024", "2025"];
@@ -72,25 +69,21 @@ const ServiceOrders = () => {
     return models.sort();
   }, [serviceOrders]);
 
-  const fetchServiceOrders = async (page: number = 1) => {
+  const fetchServiceOrders = async () => {
     setLoading(true);
     try {
+      // Para dados brutos, buscar TODOS os registros sem paginação
       const params: any = {
-        page,
-        limit: ordersPerPage
+        limit: 10000 // Limite alto para garantir que pegue todos os dados
       };
-      
-      if (searchTerm) params.search = searchTerm;
-      if (statusFilter !== "all") params.status = statusFilter;
 
-      console.log("🔄 Buscando ordens de serviço:", params);
+      console.log("🔄 Buscando TODAS as ordens de serviço (dados brutos):", params);
       const response: ServiceOrdersResponse = await apiService.getServiceOrders(params);
       console.log("✅ Ordens recebidas:", response);
+      console.log(`📊 Total de registros carregados: ${response.data?.length || 0}`);
       
       setServiceOrders(response.data || []);
-      setTotalPages(response.pagination?.totalPages || 1);
-      setTotalRecords(response.pagination?.total || 0);
-      setCurrentPage(response.pagination?.page || 1);
+      setTotalRecords(response.data?.length || 0);
     } catch (error) {
       console.error("❌ Erro ao buscar ordens:", error);
       setServiceOrders([]);
@@ -100,22 +93,14 @@ const ServiceOrders = () => {
   };
 
   useEffect(() => {
-    fetchServiceOrders(1);
+    fetchServiceOrders();
   }, []);
 
   // Calcular hasActiveFilters antes de usar no useEffect
   const hasActiveFilters = statusFilter !== "all" || yearFilter !== "all" || monthFilter !== "all" || 
                           manufacturerFilter !== "all" || mechanicFilter !== "all" || modelFilter !== "all" || searchTerm;
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm || hasActiveFilters) {
-        setCurrentPage(1);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter, hasActiveFilters]);
+  // Para dados brutos, não precisamos de paginação - todos os filtros são feitos no frontend
 
   const filteredOrders = useMemo(() => {
     return serviceOrders.filter(order => {
@@ -159,7 +144,6 @@ const ServiceOrders = () => {
     setManufacturerFilter("all");
     setMechanicFilter("all");
     setModelFilter("all");
-    setCurrentPage(1);
   };
 
   const exportToCSV = () => {
@@ -233,13 +217,6 @@ const ServiceOrders = () => {
     document.body.removeChild(link);
     
     console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-      fetchServiceOrders(newPage);
-    }
   };
 
   return (
@@ -503,15 +480,12 @@ const ServiceOrders = () => {
                 </Table>
               </div>
               
-              {/* Paginação Local para dados filtrados */}
-              {filteredOrders.length > ordersPerPage && (
-                <div className="flex items-center justify-between px-6 py-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {Math.min(filteredOrders.length, ordersPerPage)} de {filteredOrders.length} ordens filtradas
+              {/* Resumo de filtros aplicados */}
+              {hasActiveFilters && (
+                <div className="flex items-center justify-center px-6 py-3 border-t bg-blue-50">
+                  <div className="text-sm text-blue-700">
+                    📊 {filteredOrders.length} registros encontrados com {[statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter].filter(f => f !== 'all').length} filtro(s) aplicado(s)
                   </div>  
-                  <div className="text-sm text-muted-foreground">
-                    Filtros aplicados: {[statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter].filter(f => f !== 'all').length}
-                  </div>
                 </div>
               )}
             </>
