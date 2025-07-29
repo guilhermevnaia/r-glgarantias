@@ -74,7 +74,8 @@ const ServiceOrders = () => {
     try {
       // Para dados brutos, buscar TODOS os registros sem paginação
       const params: any = {
-        limit: 10000 // Limite alto para garantir que pegue todos os dados
+        limit: 10000, // Limite alto para garantir que pegue todos os dados
+        page: 1
       };
 
       console.log("🔄 Buscando TODAS as ordens de serviço (dados brutos):", params);
