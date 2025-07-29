@@ -1,12 +1,12 @@
 const http = require('http');
 
-const API_BASE = 'http://localhost:3007';
+const API_BASE = 'http://localhost:3008';
 
 async function makeRequest(method, path, body = null) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: 'localhost',
-            port: 3007,
+            port: 3008,
             path: path,
             method: method,
             headers: {
