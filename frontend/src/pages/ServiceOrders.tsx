@@ -103,6 +103,10 @@ const ServiceOrders = () => {
     fetchServiceOrders(1);
   }, []);
 
+  // Calcular hasActiveFilters antes de usar no useEffect
+  const hasActiveFilters = statusFilter !== "all" || yearFilter !== "all" || monthFilter !== "all" || 
+                          manufacturerFilter !== "all" || mechanicFilter !== "all" || modelFilter !== "all" || searchTerm;
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm || hasActiveFilters) {
@@ -157,9 +161,6 @@ const ServiceOrders = () => {
     setModelFilter("all");
     setCurrentPage(1);
   };
-
-  const hasActiveFilters = statusFilter !== "all" || yearFilter !== "all" || monthFilter !== "all" || 
-                          manufacturerFilter !== "all" || mechanicFilter !== "all" || modelFilter !== "all" || searchTerm;
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
