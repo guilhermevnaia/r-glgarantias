@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download, Shield, AlertTriangle } from "lucide-react";
 import { apiService, ServiceOrder, ServiceOrdersResponse } from "@/services/api";
+import { useDataIntegrity, useRecordCountVerification } from "@/hooks/useDataIntegrity";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   "G": "outline",
@@ -33,6 +34,10 @@ const ServiceOrders = () => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Hooks de integridade de dados
+  const { integrityStatus, isLoading: integrityLoading, error: integrityError, checkIntegrity } = useDataIntegrity();
+  const { isValid: isCountValid, actualCount, isChecking, verifyCount } = useRecordCountVerification(serviceOrders.length);
 
   // Lista de anos únicos
   const availableYears = ["2019", "2020", "2021", "2022", "2023", "2024", "2025"];
@@ -269,6 +274,41 @@ const ServiceOrders = () => {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Exportar ({filteredOrders.length})
+              </Button>
+
+              {/* Indicador de Integridade */}
+              <Button 
+                variant="outline" 
+                onClick={checkIntegrity}
+                disabled={integrityLoading}
+                className={`${
+                  integrityStatus?.isHealthy === true 
+                    ? 'bg-green-50 border-green-200 text-green-700' 
+                    : integrityStatus?.hasRecentErrors 
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                }`}
+                title={
+                  integrityStatus?.isHealthy 
+                    ? 'Sistema íntegro' 
+                    : integrityStatus?.hasRecentErrors 
+                      ? 'Problemas detectados' 
+                      : 'Verificando...'
+                }
+              >
+                {integrityLoading ? (
+                  <div className="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                ) : integrityStatus?.isHealthy ? (
+                  <Shield className="h-4 w-4 mr-2" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                )}
+                Integridade
+                {isCountValid === false && (
+                  <span className="ml-1 text-xs bg-red-200 text-red-800 px-1 rounded">
+                    {actualCount}/{serviceOrders.length}
+                  </span>
+                )}
               </Button>
             </div>
           </div>

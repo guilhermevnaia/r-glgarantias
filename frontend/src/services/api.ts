@@ -193,6 +193,46 @@ export const apiService = {
       console.error('API não está disponível:', error);
       return false;
     }
+  },
+
+  // Métodos de integridade de dados
+  async checkDataIntegrity(): Promise<any> {
+    console.log('🔍 apiService.checkDataIntegrity chamado');
+    
+    try {
+      const response = await api.post('/api/v1/integrity/check/complete');
+      console.log('✅ Verificação de integridade concluída:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao verificar integridade:', error);
+      throw error;
+    }
+  },
+
+  async getIntegrityHealth(): Promise<any> {
+    console.log('💚 apiService.getIntegrityHealth chamado');
+    
+    try {
+      const response = await api.get('/api/v1/integrity/health');
+      console.log('✅ Status de integridade recebido:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar status de integridade:', error);
+      throw error;
+    }
+  },
+
+  async getIntegrityLogs(limit: number = 50): Promise<any[]> {
+    console.log('📋 apiService.getIntegrityLogs chamado');
+    
+    try {
+      const response = await api.get(`/api/v1/integrity/logs?limit=${limit}`);
+      console.log('✅ Logs de integridade recebidos:', response.data);
+      return response.data.data?.logs || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar logs de integridade:', error);
+      throw error;
+    }
   }
 };
 

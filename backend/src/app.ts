@@ -3,6 +3,8 @@ import multer from 'multer';
 import dotenv from 'dotenv';
 import { UploadController } from './controllers/UploadController';
 import { StatsController } from './controllers/StatsController';
+import { IntegrityController } from './controllers/IntegrityController';
+import { continuousMonitoring } from './services/ContinuousMonitoringService';
 
 dotenv.config();
 
@@ -37,6 +39,7 @@ app.use((req, res, next) => {
 // Instanciar controladores
 const uploadController = new UploadController();
 const statsController = new StatsController();
+const integrityController = new IntegrityController();
 
 // Rotas
 app.get('/', (req, res) => {
@@ -78,6 +81,31 @@ app.get('/api/v1/upload-logs', (req, res) => {
   statsController.getUploadLogs(req, res);
 });
 
+// Rotas de integridade de dados
+app.get('/api/v1/integrity/health', (req, res) => {
+  integrityController.healthCheck(req, res);
+});
+
+app.post('/api/v1/integrity/check/complete', (req, res) => {
+  integrityController.runCompleteCheck(req, res);
+});
+
+app.get('/api/v1/integrity/logs', (req, res) => {
+  integrityController.getIntegrityLogs(req, res);
+});
+
+app.post('/api/v1/integrity/check/total-records', (req, res) => {
+  integrityController.checkTotalRecords(req, res);
+});
+
+app.post('/api/v1/integrity/check/date-range', (req, res) => {
+  integrityController.checkDateRange(req, res);
+});
+
+app.post('/api/v1/integrity/check/financial', (req, res) => {
+  integrityController.checkFinancialCalculations(req, res);
+});
+
 // Middleware de tratamento de erros
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Erro não tratado:', error);
@@ -94,6 +122,13 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`📊 API disponível em http://localhost:${port}`);
   console.log(`🔗 Health check: http://localhost:${port}/health`);
   console.log(`📤 Upload endpoint: http://localhost:${port}/api/v1/upload`);
+  console.log(`🔍 Integridade: http://localhost:${port}/api/v1/integrity/health`);
+  
+  // Iniciar monitoramento contínuo após 30 segundos (dar tempo para o servidor estabilizar)
+  setTimeout(() => {
+    console.log('🔄 Iniciando sistema de monitoramento contínuo...');
+    continuousMonitoring.startMonitoring(30); // Verificar a cada 30 minutos
+  }, 30000);
 });
 
 export default app;

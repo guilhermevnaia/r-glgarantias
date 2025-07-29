@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-load_dotenv("/home/ubuntu/r-glgarantias/backend/.env")
+load_dotenv("S:/comp-glgarantias/r-glgarantias/backend/.env")
 
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")

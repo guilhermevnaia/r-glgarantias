@@ -45,7 +45,7 @@ export function Layout({ children }: LayoutProps) {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+          <main className="flex-1 p-6 mx-auto w-full">
             {isDashboard ? (
               React.cloneElement(children as React.ReactElement, {
                 selectedMonth,
