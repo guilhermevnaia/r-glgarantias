@@ -59,7 +59,18 @@
       "Bash(npm test:*)",
       "Bash(timeout:*)",
       "Bash(cp:*)",
-      "Bash(git stash push:*)"
+      "Bash(git stash push:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)",
+      "Bash(wmic:*)",
+      "Bash(start \"S:\\comp-glgarantias\\r-glgarantias\\test-api.html\")",
+      "Bash(PORT=3005 npm start)",
+      "Bash(PORT=3007 timeout 3 npm start)",
+      "Bash(start \"Backend Server\" cmd /k \"npm run dev\")",
+      "Bash(set PORT=3007)",
+      "Bash(git commit:*)",
+      "Bash(PORT=3007 npm run dev)",
+      "Bash(PORT=3008 npm run dev)"
     ],
     "deny": []
   }
