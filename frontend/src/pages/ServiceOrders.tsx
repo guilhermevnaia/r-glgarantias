@@ -180,9 +180,9 @@ const ServiceOrders = () => {
         `"${order.vehicle_model || ''}"`,
         `"${order.raw_defect_description || ''}"`,
         `"${order.responsible_mechanic || ''}"`,
-        `"R$ ${(order.original_parts_value || order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
         `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
-        `"R$ ${((order.original_parts_value || order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
+        `"R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
       ].join(","))
     ].join("\n");
 
@@ -441,13 +441,13 @@ const ServiceOrders = () => {
                             {order.responsible_mechanic || '-'}
                           </TableCell>
                           <TableCell className="text-foreground font-semibold text-right">
-                            R$ {(order.original_parts_value || order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-foreground font-semibold text-right">
                             R$ {(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-foreground font-bold text-right bg-blue-50">
-                            R$ {((order.original_parts_value || order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>

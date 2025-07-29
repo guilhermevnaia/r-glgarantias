@@ -363,7 +363,7 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                               {order.responsible_mechanic || '-'}
                             </TableCell>
                             <TableCell className="font-semibold text-foreground">
-                              R$ {((order.original_parts_value || order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              R$ {(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                           </TableRow>
                         ))

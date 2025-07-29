@@ -137,12 +137,12 @@ export class StatsController {
       };
 
       const totalValue = orders.reduce((sum, order) => {
-        const parts = parseFloat(order.original_parts_value || order.parts_total || 0);
+        const parts = parseFloat(order.original_parts_value || order.parts_total || 0) / 2; // Dividir peças por 2
         const labor = parseFloat(order.labor_total || 0);
         return sum + parts + labor;
       }, 0);
 
-      const partsTotal = orders.reduce((sum, order) => sum + parseFloat(order.original_parts_value || order.parts_total || 0), 0);
+      const partsTotal = orders.reduce((sum, order) => sum + (parseFloat(order.original_parts_value || order.parts_total || 0) / 2), 0); // Dividir peças por 2
       const laborTotal = orders.reduce((sum, order) => sum + parseFloat(order.labor_total || 0), 0);
 
       const manufacturerCount: Record<string, number> = {};
@@ -182,7 +182,7 @@ export class StatsController {
           }
           
           monthlyData[monthKey].count++;
-          const parts = parseFloat(order.original_parts_value || order.parts_total || 0);
+          const parts = parseFloat(order.original_parts_value || order.parts_total || 0) / 2; // Dividir peças por 2
           const labor = parseFloat(order.labor_total || 0);
           monthlyData[monthKey].value += parts + labor;
         }
