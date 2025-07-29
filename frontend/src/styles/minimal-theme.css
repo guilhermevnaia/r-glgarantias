@@ -1,0 +1,97 @@
+/* Minimal Black & White Theme */
+:root {
+  /* Grayscale Colors */
+  --minimal-white: #ffffff;
+  --minimal-gray-50: #f9fafb;
+  --minimal-gray-100: #f3f4f6;
+  --minimal-gray-200: #e5e7eb;
+  --minimal-gray-300: #d1d5db;
+  --minimal-gray-400: #9ca3af;
+  --minimal-gray-500: #6b7280;
+  --minimal-gray-600: #4b5563;
+  --minimal-gray-700: #374151;
+  --minimal-gray-800: #1f2937;
+  --minimal-gray-900: #111827;
+  --minimal-black: #000000;
+
+  /* Accent Colors (only for icons/symbols) */
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #f97316;
+
+  /* Shadows */
+  --minimal-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --minimal-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --minimal-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Border Radius */
+  --minimal-radius: 0.75rem;
+  --minimal-radius-sm: 0.5rem;
+  --minimal-radius-lg: 1rem;
+}
+
+/* Utility Classes for Minimal Theme */
+.minimal-card {
+  background-color: var(--minimal-white);
+  border: 1px solid var(--minimal-gray-200);
+  border-radius: var(--minimal-radius);
+  box-shadow: var(--minimal-shadow);
+  transition: all 0.2s ease;
+}
+
+.minimal-card:hover {
+  box-shadow: var(--minimal-shadow-md);
+}
+
+.minimal-bg {
+  background-color: var(--minimal-gray-50);
+}
+
+.minimal-text-primary {
+  color: var(--minimal-gray-900);
+}
+
+.minimal-text-secondary {
+  color: var(--minimal-gray-600);
+}
+
+.minimal-text-muted {
+  color: var(--minimal-gray-500);
+}
+
+.minimal-border {
+  border-color: var(--minimal-gray-200);
+}
+
+.minimal-tabs {
+  background-color: var(--minimal-white);
+  border: 1px solid var(--minimal-gray-200);
+  border-radius: var(--minimal-radius-sm);
+}
+
+.minimal-tab-active {
+  background-color: var(--minimal-black);
+  color: var(--minimal-white);
+}
+
+.minimal-tab-inactive {
+  background-color: transparent;
+  color: var(--minimal-gray-600);
+}
+
+.minimal-tab-inactive:hover {
+  background-color: var(--minimal-gray-100);
+  color: var(--minimal-gray-900);
+}
+
+/* Icon Colors */
+.icon-blue { color: var(--accent-blue); }
+.icon-green { color: var(--accent-green); }
+.icon-yellow { color: var(--accent-yellow); }
+.icon-red { color: var(--accent-red); }
+.icon-purple { color: var(--accent-purple); }
+.icon-orange { color: var(--accent-orange); }
+

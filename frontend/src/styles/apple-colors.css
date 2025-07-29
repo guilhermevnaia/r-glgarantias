@@ -1,0 +1,85 @@
+/* Apple Design System Colors */
+:root {
+  /* Apple Gray Scale */
+  --apple-gray-50: #f9fafb;
+  --apple-gray-100: #f3f4f6;
+  --apple-gray-200: #e5e7eb;
+  --apple-gray-300: #d1d5db;
+  --apple-gray-400: #9ca3af;
+  --apple-gray-500: #6b7280;
+  --apple-gray-600: #4b5563;
+  --apple-gray-700: #374151;
+  --apple-gray-800: #1f2937;
+  --apple-gray-900: #111827;
+
+  /* Apple Blue */
+  --apple-blue: #007AFF;
+  --apple-blue-light: #5AC8FA;
+  --apple-blue-dark: #0051D5;
+
+  /* Apple Green */
+  --apple-green: #34C759;
+  --apple-green-light: #30D158;
+  --apple-green-dark: #248A3D;
+
+  /* Apple Orange */
+  --apple-orange: #FF9500;
+  --apple-orange-light: #FF9F0A;
+  --apple-orange-dark: #D2691E;
+
+  /* Apple Red */
+  --apple-red: #FF3B30;
+  --apple-red-light: #FF453A;
+  --apple-red-dark: #D70015;
+
+  /* Apple Purple */
+  --apple-purple: #AF52DE;
+  --apple-purple-light: #BF5AF2;
+  --apple-purple-dark: #8E44AD;
+
+  /* Apple Yellow */
+  --apple-yellow: #FFCC00;
+  --apple-yellow-light: #FFD60A;
+  --apple-yellow-dark: #F1C40F;
+
+  /* Apple Shadows */
+  --apple-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --apple-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --apple-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --apple-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Apple Border Radius */
+  --apple-radius-sm: 0.375rem;
+  --apple-radius-md: 0.5rem;
+  --apple-radius-lg: 0.75rem;
+  --apple-radius-xl: 1rem;
+}
+
+/* Utility Classes */
+.bg-apple-gray-50 { background-color: var(--apple-gray-50); }
+.bg-apple-gray-100 { background-color: var(--apple-gray-100); }
+.bg-apple-gray-200 { background-color: var(--apple-gray-200); }
+
+.text-apple-gray-500 { color: var(--apple-gray-500); }
+.text-apple-gray-600 { color: var(--apple-gray-600); }
+.text-apple-gray-700 { color: var(--apple-gray-700); }
+.text-apple-gray-800 { color: var(--apple-gray-800); }
+.text-apple-gray-900 { color: var(--apple-gray-900); }
+
+.text-apple-blue { color: var(--apple-blue); }
+.text-apple-green { color: var(--apple-green); }
+.text-apple-orange { color: var(--apple-orange); }
+.text-apple-red { color: var(--apple-red); }
+.text-apple-purple { color: var(--apple-purple); }
+
+.border-apple-gray-100 { border-color: var(--apple-gray-100); }
+.border-apple-gray-200 { border-color: var(--apple-gray-200); }
+
+.shadow-apple-sm { box-shadow: var(--apple-shadow-sm); }
+.shadow-apple-md { box-shadow: var(--apple-shadow-md); }
+.shadow-apple-lg { box-shadow: var(--apple-shadow-lg); }
+
+.rounded-apple-sm { border-radius: var(--apple-radius-sm); }
+.rounded-apple-md { border-radius: var(--apple-radius-md); }
+.rounded-apple-lg { border-radius: var(--apple-radius-lg); }
+
