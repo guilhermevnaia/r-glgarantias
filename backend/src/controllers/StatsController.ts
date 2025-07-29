@@ -229,15 +229,39 @@ export class StatsController {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = (page - 1) * limit;
 
-      // Buscar todos os dados e filtrar por anos válidos (2019-2025)
-      const { data: allOrders, error: fetchError } = await supabase
-        .from('service_orders')
-        .select('*')
-        .order('order_date', { ascending: false });
+      // Buscar todos os dados em múltiplas requisições (Supabase limita a 1000 por requisição)
+      console.log('🔄 Buscando todos os registros em múltiplas páginas...');
+      let allOrders: any[] = [];
+      let supabasePage = 0;
+      const pageSize = 1000;
+      
+      while (true) {
+        const { data: pageData, error: fetchError } = await supabase
+          .from('service_orders')
+          .select('*')
+          .order('order_date', { ascending: false })
+          .range(supabasePage * pageSize, (supabasePage + 1) * pageSize - 1);
 
-      if (fetchError) {
-        return res.status(500).json({ error: 'Erro ao buscar ordens' });
+        if (fetchError) {
+          console.error('❌ Erro ao buscar página:', supabasePage, fetchError);
+          return res.status(500).json({ error: 'Erro ao buscar ordens' });
+        }
+
+        if (!pageData || pageData.length === 0) {
+          break; // Não há mais dados
+        }
+
+        allOrders = allOrders.concat(pageData);
+        console.log(`📄 Página ${supabasePage + 1}: ${pageData.length} registros (total: ${allOrders.length})`);
+        
+        if (pageData.length < pageSize) {
+          break; // Última página
+        }
+        
+        supabasePage++;
       }
+      
+      console.log(`✅ Total de registros carregados: ${allOrders.length}`);
 
       // Filtrar apenas dados de 2019-2025
       const validOrders = (allOrders || []).filter(order => {
