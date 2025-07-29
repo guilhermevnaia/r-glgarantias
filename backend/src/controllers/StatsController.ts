@@ -270,23 +270,12 @@ export class StatsController {
         return orderYear >= 2019 && orderYear <= 2025;
       });
 
-      // Se limit for muito alto (>=5000), retornar todos os dados sem paginação
-      let finalOrders;
-      let finalPage;
-      let finalTotalPages;
+      // Aplicar paginação normal
+      const finalOrders = validOrders.slice(offset, offset + limit);
+      const finalPage = page;
+      const finalTotalPages = Math.ceil(validOrders.length / limit);
       
-      if (limit >= 5000) {
-        finalOrders = validOrders; // Todos os dados
-        finalPage = 1;
-        finalTotalPages = 1;
-        console.log(`📋 Service Orders: Retornando TODOS os ${validOrders.length} registros válidos (2019-2025) sem paginação`);
-      } else {
-        // Aplicar paginação normal
-        finalOrders = validOrders.slice(offset, offset + limit);
-        finalPage = page;
-        finalTotalPages = Math.ceil(validOrders.length / limit);
-        console.log(`📋 Service Orders: ${validOrders.length} válidas (2019-2025), página ${page} com ${finalOrders.length} registros`);
-      }
+      console.log(`📋 Service Orders: ${validOrders.length} válidas (2019-2025), página ${page} com ${finalOrders.length} registros`);
 
       const totalCount = validOrders.length;
 
@@ -294,7 +283,7 @@ export class StatsController {
         data: finalOrders,
         total: totalCount,
         page: finalPage,
-        limit: finalOrders.length,
+        limit: limit,
         totalPages: finalTotalPages,
         pagination: {
           total: totalCount,

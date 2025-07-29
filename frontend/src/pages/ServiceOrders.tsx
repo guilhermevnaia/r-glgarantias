@@ -34,6 +34,9 @@ const ServiceOrders = () => {
   const [loading, setLoading] = useState(true);
   const [totalRecords, setTotalRecords] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const recordsPerPage = 50; // Registros por página
 
   // Hooks de integridade de dados
   const { integrityStatus, isLoading: integrityLoading, error: integrityError, checkIntegrity } = useDataIntegrity();
@@ -74,25 +77,34 @@ const ServiceOrders = () => {
     return models.sort();
   }, [serviceOrders]);
 
-  const fetchServiceOrders = async () => {
+  const fetchServiceOrders = async (page: number = 1) => {
     setLoading(true);
     try {
-      // Para dados brutos, buscar TODOS os registros sem paginação
       const params: any = {
-        limit: 10000, // Limite alto para garantir que pegue todos os dados
-        page: 1
+        page: page,
+        limit: recordsPerPage
       };
 
-      console.log("🔄 Buscando TODAS as ordens de serviço (dados brutos):", params);
+      // Aplicar filtros de busca se existirem
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== "all") params.status = statusFilter;
+
+      console.log("🔄 Buscando ordens de serviço paginadas:", params);
       const response: ServiceOrdersResponse = await apiService.getServiceOrders(params);
       console.log("✅ Ordens recebidas:", response);
-      console.log(`📊 Total de registros carregados: ${response.data?.length || 0}`);
       
       setServiceOrders(response.data || []);
-      setTotalRecords(response.data?.length || 0);
+      setTotalRecords(response.pagination?.total || response.total || 0);
+      setCurrentPage(response.pagination?.page || page);
+      setTotalPages(response.pagination?.totalPages || Math.ceil((response.total || 0) / recordsPerPage));
+
+      console.log(`📊 Página ${page}: ${response.data?.length || 0} registros de ${response.pagination?.total || response.total || 0} totais`);
     } catch (error) {
       console.error("❌ Erro ao buscar ordens:", error);
       setServiceOrders([]);
+      setTotalRecords(0);
+      setCurrentPage(1);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -106,41 +118,40 @@ const ServiceOrders = () => {
   const hasActiveFilters = statusFilter !== "all" || yearFilter !== "all" || monthFilter !== "all" || 
                           manufacturerFilter !== "all" || mechanicFilter !== "all" || modelFilter !== "all" || searchTerm;
 
-  // Para dados brutos, não precisamos de paginação - todos os filtros são feitos no frontend
+  // Recarregar dados quando filtros mudarem
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Voltar para página 1 quando filtros mudarem
+      setCurrentPage(1);
+      fetchServiceOrders(1);
+    }, 500);
 
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter]);
+
+  // Aplicar filtros locais (frontend) sobre os dados da página atual
   const filteredOrders = useMemo(() => {
     return serviceOrders.filter(order => {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
-        order.order_number.toLowerCase().includes(searchLower) ||
-        (order.engine_manufacturer && order.engine_manufacturer.toLowerCase().includes(searchLower)) ||
-        (order.vehicle_model && order.vehicle_model.toLowerCase().includes(searchLower)) ||
-        (order.responsible_mechanic && order.responsible_mechanic.toLowerCase().includes(searchLower)) ||
-        (order.raw_defect_description && order.raw_defect_description.toLowerCase().includes(searchLower));
-      
-      const matchesStatus = statusFilter === "all" || order.order_status === statusFilter;
-      
-      // Filtro por ano
+      // Filtro por ano (local)
       const orderYear = order.order_date ? new Date(order.order_date).getFullYear().toString() : "";
       const matchesYear = yearFilter === "all" || orderYear === yearFilter;
       
-      // Filtro por mês  
+      // Filtro por mês (local)
       const orderMonth = order.order_date ? (new Date(order.order_date).getMonth() + 1).toString() : "";
       const matchesMonth = monthFilter === "all" || orderMonth === monthFilter;
       
-      // Filtro por fabricante
+      // Filtro por fabricante (local)
       const matchesManufacturer = manufacturerFilter === "all" || order.engine_manufacturer === manufacturerFilter;
       
-      // Filtro por mecânico
+      // Filtro por mecânico (local)
       const matchesMechanic = mechanicFilter === "all" || order.responsible_mechanic === mechanicFilter;
       
-      // Filtro por modelo
+      // Filtro por modelo (local)
       const matchesModel = modelFilter === "all" || order.vehicle_model === modelFilter;
 
-      return matchesSearch && matchesStatus && matchesYear && matchesMonth && 
-             matchesManufacturer && matchesMechanic && matchesModel;
+      return matchesYear && matchesMonth && matchesManufacturer && matchesMechanic && matchesModel;
     });
-  }, [serviceOrders, searchTerm, statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
+  }, [serviceOrders, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -150,15 +161,48 @@ const ServiceOrders = () => {
     setManufacturerFilter("all");
     setMechanicFilter("all");
     setModelFilter("all");
+    setCurrentPage(1);
+    fetchServiceOrders(1);
   };
 
-  const exportToCSV = () => {
-    const dataToExport = filteredOrders;
-    
-    if (dataToExport.length === 0) {
-      alert("Não há dados para exportar com os filtros aplicados.");
-      return;
-    }
+  const exportToCSV = async () => {
+    try {
+      // Para exportação, buscar todos os dados com os filtros aplicados
+      console.log("📤 Buscando todos os dados para exportação...");
+      
+      const exportParams: any = {
+        limit: 10000, // Buscar muitos registros para exportação
+        page: 1
+      };
+
+      // Aplicar os mesmos filtros da busca
+      if (searchTerm) exportParams.search = searchTerm;
+      if (statusFilter !== "all") exportParams.status = statusFilter;
+
+      const response = await apiService.getServiceOrders(exportParams);
+      const allData = response.data || [];
+      
+      // Aplicar filtros locais também
+      const dataToExport = allData.filter(order => {
+        const orderYear = order.order_date ? new Date(order.order_date).getFullYear().toString() : "";
+        const matchesYear = yearFilter === "all" || orderYear === yearFilter;
+        
+        const orderMonth = order.order_date ? (new Date(order.order_date).getMonth() + 1).toString() : "";
+        const matchesMonth = monthFilter === "all" || orderMonth === monthFilter;
+        
+        const matchesManufacturer = manufacturerFilter === "all" || order.engine_manufacturer === manufacturerFilter;
+        const matchesMechanic = mechanicFilter === "all" || order.responsible_mechanic === mechanicFilter;
+        const matchesModel = modelFilter === "all" || order.vehicle_model === modelFilter;
+
+        return matchesYear && matchesMonth && matchesManufacturer && matchesMechanic && matchesModel;
+      });
+      
+      if (dataToExport.length === 0) {
+        alert("Não há dados para exportar com os filtros aplicados.");
+        return;
+      }
+
+      console.log(`📤 Exportando ${dataToExport.length} registros...`);
 
     // Definir cabeçalhos do CSV
     const headers = [
@@ -222,7 +266,18 @@ const ServiceOrders = () => {
     link.click();
     document.body.removeChild(link);
     
-    console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
+      console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
+    } catch (error) {
+      console.error("❌ Erro durante exportação:", error);
+      alert("Erro ao exportar dados. Tente novamente.");
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+      fetchServiceOrders(newPage);
+    }
   };
 
   return (
@@ -273,7 +328,7 @@ const ServiceOrders = () => {
                 className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Exportar ({filteredOrders.length})
+                Exportar (Todos os dados)
               </Button>
 
               {/* Indicador de Integridade */}
@@ -422,17 +477,22 @@ const ServiceOrders = () => {
             </div>
           ) : (
             <>
-              {/* Contador de resultados */}
+              {/* Contador de resultados e paginação */}
               <div className="px-6 py-3 bg-gray-50 border-b text-sm text-gray-600 flex justify-between items-center">
                 <div>
-                  Mostrando {filteredOrders.length} de {serviceOrders.length} ordens de serviço
+                  Mostrando {((currentPage - 1) * recordsPerPage) + 1} a {Math.min(currentPage * recordsPerPage, totalRecords)} de {totalRecords.toLocaleString('pt-BR')} ordens de serviço
                   {hasActiveFilters && " (filtrado)"}
                 </div>
-                {hasActiveFilters && (
-                  <div className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
-                    📤 Dados filtrados prontos para exportação
+                <div className="flex items-center gap-3">
+                  {hasActiveFilters && (
+                    <div className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                      📤 Dados filtrados prontos para exportação
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500">
+                    Página {currentPage} de {totalPages}
                   </div>
-                )}
+                </div>
               </div>
               
               <div className="max-h-[70vh] overflow-y-auto">
@@ -521,14 +581,81 @@ const ServiceOrders = () => {
                 </Table>
               </div>
               
-              {/* Resumo de filtros aplicados */}
-              {hasActiveFilters && (
-                <div className="flex items-center justify-center px-6 py-3 border-t bg-blue-50">
-                  <div className="text-sm text-blue-700">
-                    📊 {filteredOrders.length} registros encontrados com {[statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter].filter(f => f !== 'all').length} filtro(s) aplicado(s)
-                  </div>  
+              {/* Controles de Paginação */}
+              <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
+                <div className="flex items-center text-sm text-gray-600">
+                  {hasActiveFilters && (
+                    <div className="text-blue-700 mr-4">
+                      📊 {[statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter].filter(f => f !== 'all').length} filtro(s) aplicado(s)
+                    </div>
+                  )}
+                  Exibindo {recordsPerPage} registros por página
                 </div>
-              )}
+
+                {/* Navegação de páginas */}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    «
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    ‹
+                  </Button>
+
+                  <div className="flex items-center space-x-1">
+                    {/* Mostrar páginas próximas */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                      if (pageNumber <= totalPages) {
+                        return (
+                          <Button
+                            key={pageNumber}
+                            variant={currentPage === pageNumber ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNumber)}
+                            className="h-8 w-8 p-0"
+                          >
+                            {pageNumber}
+                          </Button>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    ›
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8 p-0"
+                  >
+                    »
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </CardContent>
