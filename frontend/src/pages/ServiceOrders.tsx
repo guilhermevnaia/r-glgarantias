@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download } from "lucide-react";
 import { apiService, ServiceOrder, ServiceOrdersResponse } from "@/services/api";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
@@ -162,6 +162,79 @@ const ServiceOrders = () => {
     setCurrentPage(1);
   };
 
+  const exportToCSV = () => {
+    const dataToExport = filteredOrders;
+    
+    if (dataToExport.length === 0) {
+      alert("Não há dados para exportar com os filtros aplicados.");
+      return;
+    }
+
+    // Definir cabeçalhos do CSV
+    const headers = [
+      "OS",
+      "Data",
+      "Fabricante",
+      "Motor",
+      "Modelo", 
+      "Defeito",
+      "Mecânico Montador",
+      "Total Peças",
+      "Total Serviços",
+      "Total"
+    ];
+
+    // Converter dados para formato CSV
+    const csvContent = [
+      headers.join(","),
+      ...dataToExport.map(order => [
+        `"${order.order_number || ''}"`,
+        `"${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : ''}"`,
+        `"${order.engine_manufacturer || ''}"`,
+        `"${order.engine_description || ''}"`,
+        `"${order.vehicle_model || ''}"`,
+        `"${order.raw_defect_description || ''}"`,
+        `"${order.responsible_mechanic || ''}"`,
+        `"R$ ${(order.original_parts_value || order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${((order.original_parts_value || order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
+      ].join(","))
+    ].join("\n");
+
+    // Criar e baixar arquivo
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    
+    // Nome do arquivo com filtros aplicados
+    let fileName = "ordens_servico";
+    const activeFilters = [];
+    
+    if (statusFilter !== "all") activeFilters.push(`status_${statusFilter}`);
+    if (yearFilter !== "all") activeFilters.push(`ano_${yearFilter}`);
+    if (monthFilter !== "all") activeFilters.push(`mes_${monthFilter}`);
+    if (manufacturerFilter !== "all") activeFilters.push(`fabricante_${manufacturerFilter.replace(/\s+/g, '_')}`);
+    if (mechanicFilter !== "all") activeFilters.push(`mecanico_${mechanicFilter.replace(/\s+/g, '_')}`);
+    if (modelFilter !== "all") activeFilters.push(`modelo_${modelFilter.replace(/\s+/g, '_')}`);
+    if (searchTerm) activeFilters.push("pesquisa");
+    
+    if (activeFilters.length > 0) {
+      fileName += `_filtrado_${activeFilters.join('_')}`;
+    }
+    
+    fileName += `_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    link.setAttribute("download", fileName);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
+  };
+
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
@@ -210,6 +283,15 @@ const ServiceOrders = () => {
                   Limpar Filtros
                 </Button>
               )}
+
+              <Button 
+                variant="outline" 
+                onClick={exportToCSV}
+                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar ({filteredOrders.length})
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -323,9 +405,16 @@ const ServiceOrders = () => {
           ) : (
             <>
               {/* Contador de resultados */}
-              <div className="px-6 py-3 bg-gray-50 border-b text-sm text-gray-600">
-                Mostrando {filteredOrders.length} de {serviceOrders.length} ordens de serviço
-                {hasActiveFilters && " (filtrado)"}
+              <div className="px-6 py-3 bg-gray-50 border-b text-sm text-gray-600 flex justify-between items-center">
+                <div>
+                  Mostrando {filteredOrders.length} de {serviceOrders.length} ordens de serviço
+                  {hasActiveFilters && " (filtrado)"}
+                </div>
+                {hasActiveFilters && (
+                  <div className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                    📤 Dados filtrados prontos para exportação
+                  </div>
+                )}
               </div>
               
               <div className="max-h-[70vh] overflow-y-auto">
