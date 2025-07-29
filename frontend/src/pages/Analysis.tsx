@@ -213,7 +213,7 @@ const Analysis = () => {
 
         {/* KPIs Principais */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <AppleCard
+          <MinimalCard
             title="Total de Ordens"
             value={stats.totalOrders}
             subtitle="Ordens processadas"
@@ -221,7 +221,7 @@ const Analysis = () => {
             gradient="blue"
           />
           
-          <AppleCard
+          <MinimalCard
             title="Taxa de Aprovação"
             value={`${approvalRate.toFixed(1)}%`}
             subtitle="Garantias aprovadas"
@@ -229,7 +229,7 @@ const Analysis = () => {
             gradient="green"
           />
           
-          <AppleCard
+          <MinimalCard
             title="Receita Total"
             value={`R$ ${(totalRevenue / 1000000).toFixed(1)}M`}
             subtitle="Em garantias processadas"
@@ -237,7 +237,7 @@ const Analysis = () => {
             gradient="purple"
           />
           
-          <AppleCard
+          <MinimalCard
             title="Ticket Médio"
             value={`R$ ${avgOrderValue.toFixed(0)}`}
             subtitle="Por ordem de serviço"
@@ -320,12 +320,15 @@ const Analysis = () => {
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Quantidade'                    </Tooltip>
+                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Quantidade']}
+                    />
                   </RechartsPieChart>
                 </ResponsiveContainer>
                 </CardContent>
               </Card>
-            </d            {/* Cards de Métricas */}
+            </div>
+
+            {/* Cards de Métricas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               {performanceMetrics.map((metric, index) => (
                 <Card key={index} className="bg-white border-2 border-black shadow-md">
@@ -350,7 +353,7 @@ const Analysis = () => {
           <TabsContent value="financial" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {/* Evolução da Receita */}
-              <ChartCard
+              <MinimalChartCard
                 title="Evolução da Receita"
                 description="Tendência mensal de faturamento"
               >
@@ -387,10 +390,10 @@ const Analysis = () => {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </ChartCard>
+              </MinimalChartCard>
 
               {/* Análise de Margem */}
-              <ChartCard
+              <MinimalChartCard
                 title="Análise de Margem"
                 description="Receita vs Custo por período"
               >
@@ -439,7 +442,7 @@ const Analysis = () => {
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </ChartCard>
+              </MinimalChartCard>
             </div>
 
             {/* Resumo Financeiro */}
@@ -491,7 +494,7 @@ const Analysis = () => {
           <TabsContent value="trends" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {/* Correlação Volume vs Valor */}
-              <ChartCard
+              <MinimalChartCard
                 title="Correlação Volume vs Valor"
                 description="Relação entre quantidade e valor médio por fabricante"
               >
@@ -528,10 +531,10 @@ const Analysis = () => {
                     />
                   </ScatterChart>
                 </ResponsiveContainer>
-              </ChartCard>
+              </MinimalChartCard>
 
               {/* Evolução Temporal */}
-              <ChartCard
+              <MinimalChartCard
                 title="Evolução Temporal"
                 description="Distribuição de ordens por ano"
               >
@@ -562,7 +565,7 @@ const Analysis = () => {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </ChartCard>
+              </MinimalChartCard>
             </div>
 
             {/* Top Fabricantes */}
@@ -732,7 +735,6 @@ const Analysis = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
     </div>
   );
 };

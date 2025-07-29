@@ -91,7 +91,8 @@ class UploadController {
             statusDistribution: result.summary.statusDistribution,
             yearDistribution: result.summary.yearDistribution,
             removedByStatus: result.summary.removedByStatus,
-            removedByDate: result.summary.removedByDate
+            removedByInvalidDate: result.summary.removedByInvalidDate,
+            removedByYearRange: result.summary.removedByYearRange
           }
         });
 
@@ -105,7 +106,8 @@ class UploadController {
           statusDistribution: result.summary.statusDistribution,
           yearDistribution: result.summary.yearDistribution,
           removedByStatus: result.summary.removedByStatus,
-          removedByDate: result.summary.removedByDate,
+          removedByInvalidDate: result.summary.removedByInvalidDate,
+          removedByYearRange: result.summary.removedByYearRange,
           dateValidationIssues: [],
           statusValidationIssues: [],
           calculationIssues: [],

@@ -14,6 +14,18 @@ export class StatsController {
       const month = req.query.month ? parseInt(req.query.month as string) : null;
       const year = req.query.year ? parseInt(req.query.year as string) : null;
       
+      // Validar range de anos permitidos
+      if (year && (year < 2019 || year > 2025)) {
+        console.log(`❌ Ano inválido solicitado: ${year}`);
+        return res.status(400).json({ error: 'Ano deve estar entre 2019 e 2025' });
+      }
+      
+      // Validar mês
+      if (month && (month < 1 || month > 12)) {
+        console.log(`❌ Mês inválido solicitado: ${month}`);
+        return res.status(400).json({ error: 'Mês deve estar entre 1 e 12' });
+      }
+      
       console.log(`📊 Carregando dados completos...`);
       
       // Buscar contagem total primeiro
@@ -55,20 +67,51 @@ export class StatsController {
         return res.status(500).json({ error: 'Erro ao buscar dados' });
       }
 
+      // Aplicar filtro base: apenas dados de 2019-2025
+      const validYearOrders = allOrders.filter(order => {
+        if (!order.order_date) return false;
+        const orderYear = new Date(order.order_date).getFullYear();
+        return orderYear >= 2019 && orderYear <= 2025;
+      });
+
+      console.log(`🗓️ Dados filtrados por ano (2019-2025): ${validYearOrders.length} registros`);
+
       // Aplicar filtro se necessário
-      let orders = allOrders;
+      let orders = validYearOrders;
       
       if (month && year) {
+        // Filtro por mês e ano específicos
         const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
         const endDate = `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
         
-        orders = allOrders.filter(order => {
+        orders = validYearOrders.filter(order => {
           if (!order.order_date) return false;
           const orderDate = order.order_date.split('T')[0];
           return orderDate >= startDate && orderDate <= endDate;
         });
         
         console.log(`🔍 Filtrado para ${month}/${year}: ${orders.length} registros`);
+      } else if (year) {
+        // Filtro apenas por ano
+        const startDate = `${year}-01-01`;
+        const endDate = `${year}-12-31`;
+        
+        orders = validYearOrders.filter(order => {
+          if (!order.order_date) return false;
+          const orderDate = order.order_date.split('T')[0];
+          return orderDate >= startDate && orderDate <= endDate;
+        });
+        
+        console.log(`🔍 Filtrado para ano ${year}: ${orders.length} registros`);
+      } else if (month) {
+        // Filtro apenas por mês (todos os anos)
+        orders = validYearOrders.filter(order => {
+          if (!order.order_date) return false;
+          const orderMonth = new Date(order.order_date).getMonth() + 1;
+          return orderMonth === month;
+        });
+        
+        console.log(`🔍 Filtrado para mês ${month}: ${orders.length} registros`);
       }
 
       if (orders.length === 0) {
@@ -118,18 +161,18 @@ export class StatsController {
       const uniqueMechanics = new Set(orders.map(o => o.responsible_mechanic).filter(Boolean));
       const uniqueDefects = new Set(orders.map(o => o.raw_defect_description).filter(Boolean));
 
-      // Distribuição por ano (baseado em TODOS os dados)
+      // Distribuição por ano (baseado nos dados FILTRADOS)
       const yearDistribution: Record<string, number> = {};
-      allOrders.forEach(order => {
+      orders.forEach(order => {
         if (order.order_date) {
           const orderYear = new Date(order.order_date).getFullYear().toString();
           yearDistribution[orderYear] = (yearDistribution[orderYear] || 0) + 1;
         }
       });
 
-      // Tendência mensal
+      // Tendência mensal (baseado nos dados FILTRADOS)
       const monthlyData: Record<string, { count: number; value: number }> = {};
-      allOrders.forEach(order => {
+      orders.forEach(order => {
         if (order.order_date) {
           const orderDate = new Date(order.order_date);
           const monthKey = `${orderDate.getMonth() + 1}/${orderDate.getFullYear()}`;
@@ -186,29 +229,39 @@ export class StatsController {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = (page - 1) * limit;
 
-      const { count } = await supabase
-        .from('service_orders')
-        .select('*', { count: 'exact', head: true });
-
-      const { data: orders, error } = await supabase
+      // Buscar todos os dados e filtrar por anos válidos (2019-2025)
+      const { data: allOrders, error: fetchError } = await supabase
         .from('service_orders')
         .select('*')
-        .order('order_date', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .order('order_date', { ascending: false });
 
-      if (error) {
+      if (fetchError) {
         return res.status(500).json({ error: 'Erro ao buscar ordens' });
       }
 
+      // Filtrar apenas dados de 2019-2025
+      const validOrders = (allOrders || []).filter(order => {
+        if (!order.order_date) return false;
+        const orderYear = new Date(order.order_date).getFullYear();
+        return orderYear >= 2019 && orderYear <= 2025;
+      });
+
+      // Aplicar paginação
+      const paginatedOrders = validOrders.slice(offset, offset + limit);
+      const totalCount = validOrders.length;
+
+      console.log(`📋 Service Orders: ${totalCount} válidas (2019-2025), página ${page} com ${paginatedOrders.length} registros`);
+
       res.json({
-        data: orders || [],
-        total: count || 0,
+        data: paginatedOrders,
+        total: totalCount,
         page,
         limit,
-        totalPages: Math.ceil((count || 0) / limit)
+        totalPages: Math.ceil(totalCount / limit)
       });
 
     } catch (error) {
+      console.error('❌ Erro no getServiceOrders:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

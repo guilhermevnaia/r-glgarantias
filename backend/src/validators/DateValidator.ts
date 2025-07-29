@@ -116,21 +116,21 @@ class DateValidator {
         // CONVERSÃO UNIVERSAL DE DATAS EXCEL
         // Fórmula correta: (excel_value - 25569) * 86400 * 1000
         
-        if (value < 1) {
-          return { isValid: false, error: `Invalid Excel serial date: ${value} (must be >= 1)` };
+        if (value < 30000) { // Datas antes de ~1982 são improváveis
+          return { isValid: false, error: `Invalid Excel serial date: ${value} (must be a plausible number)` };
         }
         
         const date = new Date((value - 25569) * 86400 * 1000);
         
-        // Verificar se a data é válida
-        if (!isNaN(date.getTime()) && date.getFullYear() >= 1900) {
+        // Verificar se a data é válida e plausível
+        if (!isNaN(date.getTime()) && date.getFullYear() >= 1980) {
           if (this.debugCount <= 5) {
             console.log(`📅 Excel serial ${value} -> ${date.toISOString().split('T')[0]}`);
           }
           return { isValid: true, date };
         }
         
-        return { isValid: false, error: `Invalid Excel serial date: ${value}` };
+        return { isValid: false, error: `Invalid or implausible Excel serial date: ${value}` };
       }
 
       if (typeof value === 'string') {
@@ -138,10 +138,16 @@ class DateValidator {
 
         switch (format) {
           case 'DD/MM/YYYY':
-            // Aceita também datas com hora: 'DD/MM/YYYY HH:mm:ss' (um ou mais espaços)
-            const ddmmyyyy = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s{1,}\d{2}:\d{2}:\d{2})?/);
+            // Aceita datas com ano completo ou abreviado: 'DD/MM/YYYY' ou 'DD/MM/YY'
+            const ddmmyyyy = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+[\d:]+)?/);
             if (ddmmyyyy) {
-              date = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
+              let year = parseInt(ddmmyyyy[3]);
+              // Se ano tem 2 dígitos, assumir século baseado no contexto do negócio
+              if (year < 100) {
+                // Para datas de OS: anos 00-23 = 2000-2023, anos 24-99 = 1924-1999
+                year = year <= 23 ? 2000 + year : 1900 + year;
+              }
+              date = new Date(year, parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
             }
             break;
           case 'DD-MM-YYYY':
@@ -159,10 +165,16 @@ class DateValidator {
             }
             break;
           case 'MM/DD/YYYY':
-            // Aceita também datas com hora: 'MM/DD/YYYY HH:mm:ss'
-            const mmddyyyy = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s{1,}\d{2}:\d{2}:\d{2})?/);
+            // Aceita datas com ano completo ou abreviado: 'MM/DD/YYYY' ou 'MM/DD/YY'
+            const mmddyyyy = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+[\d:]+)?/);
             if (mmddyyyy) {
-              date = new Date(parseInt(mmddyyyy[3]), parseInt(mmddyyyy[1]) - 1, parseInt(mmddyyyy[2]));
+              let year = parseInt(mmddyyyy[3]);
+              // Se ano tem 2 dígitos, assumir século baseado no contexto do negócio
+              if (year < 100) {
+                // Para datas de OS: anos 00-23 = 2000-2023, anos 24-99 = 1924-1999
+                year = year <= 23 ? 2000 + year : 1900 + year;
+              }
+              date = new Date(year, parseInt(mmddyyyy[1]) - 1, parseInt(mmddyyyy[2]));
             }
             break;
           case 'YYYY/MM/DD':

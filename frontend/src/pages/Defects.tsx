@@ -408,12 +408,6 @@ const Defects = () => {
                     <XAxis
                       dataKey="category"
                       tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />Axis 
-                      dataKey="category" 
-                      tick={{ fontSize: 11, fill: '#6B7280' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
                     />
                     <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#6B7280' }} />
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#6B7280' }} />
@@ -782,7 +776,6 @@ const Defects = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
     </div>
   );
 };

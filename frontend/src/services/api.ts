@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3008';
+const API_BASE_URL = 'http://localhost:3006';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -87,11 +87,14 @@ export const apiService = {
       
       console.log("🚀 apiService.getStats chamado");
       console.log("📝 Parâmetros:", params);
-      console.log("🔗 URL:", `${API_BASE_URL}/api/v1/stats`);
+      console.log("🔗 URL completa:", `${API_BASE_URL}/api/v1/stats`);
       
+      console.log("🌐 Fazendo requisição axios...");
       const response = await api.get('/api/v1/stats', { params });
       console.log("📡 Resposta recebida:", response.status, response.statusText);
-      console.log("📦 Dados brutos:", response.data);
+      console.log("📦 Total Orders na resposta:", response.data?.totalOrders);
+      console.log("📦 Orders array length:", response.data?.orders?.length);
+      console.log("📦 Primeiros 3 orders:", response.data?.orders?.slice(0, 3));
       const data = response.data;
       
       // Garantir que todos os campos necessários existam

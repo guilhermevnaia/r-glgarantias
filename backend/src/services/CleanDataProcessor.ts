@@ -7,7 +7,8 @@ interface ProcessingResult {
     totalRows: number;
     validRows: number;
     removedByStatus: number;
-    removedByDate: number;
+    removedByInvalidDate: number;
+    removedByYearRange: number;
     statusDistribution: Record<string, number>;
     yearDistribution: Record<string, number>;
   };
@@ -19,14 +20,38 @@ class CleanDataProcessor {
     console.log('🔧 Iniciando processamento OTIMIZADO da planilha...');
     const startTime = Date.now();
     
-    // 1. LER PLANILHA (OTIMIZADO)
-    const workbook = XLSX.read(buffer, { type: 'buffer', bookSheets: true });
+    // 1. VALIDAR BUFFER
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Arquivo vazio ou corrompido');
+    }
+    
+    console.log(`📁 Tamanho do arquivo: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    
+    // 2. LER PLANILHA (OTIMIZADO)
+    let workbook;
+    try {
+      workbook = XLSX.read(buffer, { type: 'buffer' });
+    } catch (error) {
+      console.error('❌ Erro ao ler planilha:', error);
+      throw new Error('Erro ao processar arquivo Excel - arquivo pode estar corrompido');
+    }
+    
+    // 3. VALIDAR ESTRUTURA
+    if (!workbook || !workbook.Sheets) {
+      throw new Error('Erro ao ler estrutura da planilha - arquivo pode estar corrompido');
+    }
+    
+    console.log('📋 Abas encontradas:', workbook.SheetNames.join(', '));
     
     if (!workbook.SheetNames.includes('Tabela')) {
-      throw new Error('Aba "Tabela" não encontrada');
+      throw new Error(`Aba "Tabela" não encontrada. Abas disponíveis: ${workbook.SheetNames.join(', ')}`);
     }
     
     const worksheet = workbook.Sheets['Tabela'];
+    
+    if (!worksheet) {
+      throw new Error('Planilha "Tabela" está vazia ou corrompida');
+    }
     
     // 2. CONVERTER PARA ARRAY (MAIS EFICIENTE)
     const allRows = XLSX.utils.sheet_to_json(worksheet, { 
@@ -97,7 +122,8 @@ class CleanDataProcessor {
     const validRows: any[] = [];
     const yearDistribution: Record<string, number> = {};
     
-    let removedByDate = 0;
+    let removedByInvalidDate = 0;
+    let removedByYearRange = 0;
     
     for (const row of rowsWithValidStatus as any[]) {
       const dateValue = row[colIndexMap.orderDate];
@@ -106,22 +132,22 @@ class CleanDataProcessor {
       if (dateValidation.isValid && dateValidation.date) {
         const year = dateValidation.date.getFullYear();
         
-        // Aplicar filtro >= 2019 (mesmo que Python)
-        if (year >= 2019) {
+        // Aplicar filtro para anos válidos (2019-2025 apenas)
+        if (year >= 2019 && year <= 2025) {
           yearDistribution[year.toString()] = (yearDistribution[year.toString()] || 0) + 1;
           
           // Transformar dados
           const transformedRow = this.transformRow(row, colIndexMap, dateValidation.date);
           validRows.push(transformedRow);
         } else {
-          removedByDate++;
+          removedByYearRange++;
         }
       } else {
-        removedByDate++;
+        removedByInvalidDate++;
       }
     }
     
-    console.log(`   Após filtro de data >= 2019: ${validRows.length} (removidos: ${removedByDate})`);
+    console.log(`   Após filtro de data: ${validRows.length} (removidos por data inválida: ${removedByInvalidDate}, removidos por ano fora do range: ${removedByYearRange})`);
     
     // Distribuição final por status
     const finalStatusDist: Record<string, number> = {};
@@ -150,7 +176,8 @@ class CleanDataProcessor {
         totalRows: dataRows.length,
         validRows: validRows.length,
         removedByStatus,
-        removedByDate,
+        removedByInvalidDate,
+        removedByYearRange,
         statusDistribution: finalStatusDist,
         yearDistribution
       }

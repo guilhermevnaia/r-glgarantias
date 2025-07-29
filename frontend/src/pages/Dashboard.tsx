@@ -42,12 +42,11 @@ interface DashboardProps {
   onYearChange?: (year: number) => void;
 }
 
-const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
+const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: DashboardProps) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const currentMonth = selectedMonth || new Date().getMonth() + 1;
-  const currentYear = selectedYear || new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || 1);
+  const [selectedYear, setSelectedYear] = useState<number>(initialYear || 2024);
 
   const fetchStats = async (month?: number, year?: number) => {
     console.log("🔄 fetchStats chamado com:", { month, year, selectedMonth, selectedYear });
@@ -55,12 +54,18 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
     try {
       console.log("🌐 Fazendo chamada para API...");
       const data = await apiService.getStats(month, year);
-      console.log("✅ Dados recebidos da API:", data);
-      console.log("📈 Total de ordens:", data?.totalOrdens);
+      console.log("✅ Dados recebidos da API no Dashboard:", data);
+      console.log("📈 Total de ordens recebido:", data?.totalOrders);
+      console.log("📈 Orders array recebido:", data?.orders?.length);
+      console.log("📈 Status distribution:", data?.statusDistribution);
+      console.log("📈 Financial summary:", data?.financialSummary);
       setStats(data);
+      console.log("📊 Stats setado no estado");
     } catch (error) {
-      console.error('❌ ERRO ao carregar estatísticas:', error);
-      console.error('❌ Detalhes do erro:', error.message, error.stack);
+      console.error('❌ ERRO CRÍTICO ao carregar estatísticas:', error);
+      console.error('❌ Detalhes do erro:', error?.message);
+      console.error('❌ Response do erro:', error?.response?.data);
+      console.error('❌ Status do erro:', error?.response?.status);
     } finally {
       console.log("🏁 Loading finalizado");
       setLoading(false);
@@ -68,9 +73,9 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
   };
 
   useEffect(() => {
-    // Sempre começar com mês e ano atual
-    fetchStats(currentMonth, currentYear);
-  }, [currentMonth, currentYear, selectedMonth, selectedYear]);
+    // Iniciar com filtros padrão (Janeiro 2024)
+    fetchStats(selectedMonth, selectedYear);
+  }, []);
 
   if (loading) {
     return (
@@ -241,13 +246,10 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-xl font-semibold text-foreground">
-                      Ordens de Serviço - {(() => {
-                        const dateString = new Date(currentYear, currentMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-                        return dateString.charAt(0).toUpperCase() + dateString.slice(1);
-                      })()}
+                      Ordens de Serviço - {new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground">
-                      Lista das ordens de serviço do período filtrado
+                      Lista das ordens de serviço do período selecionado
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-lg border">
@@ -257,11 +259,11 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
                     
                     <div className="flex items-center gap-2">
                       <select 
-                        value={selectedMonth || currentMonth} 
+                        value={selectedMonth || 1} 
                         onChange={(e) => {
                           const month = parseInt(e.target.value);
-                          const year = selectedYear || currentYear;
-                          fetchStats(month, year);
+                          setSelectedMonth(month);
+                          fetchStats(month, selectedYear || 2024);
                         }}
                         className="w-32 h-8 text-sm border rounded px-2"
                       >
@@ -280,21 +282,36 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
                       </select>
 
                       <select 
-                        value={selectedYear || currentYear} 
+                        value={selectedYear || 2024} 
                         onChange={(e) => {
                           const year = parseInt(e.target.value);
-                          const month = selectedMonth || currentMonth;
-                          fetchStats(month, year);
+                          setSelectedYear(year);
+                          fetchStats(selectedMonth || 1, year);
                         }}
-                        className="w-20 h-8 text-sm border rounded px-2"
+                        className="w-24 h-8 text-sm border rounded px-2"
                       >
-                        {[2025, 2024, 2023, 2022, 2021, 2020, 2019].map(year => (
-                          <option key={year} value={year}>{year}</option>
-                        ))}
+                        <option value={2025}>2025</option>
+                        <option value={2024}>2024</option>
+                        <option value={2023}>2023</option>
+                        <option value={2022}>2022</option>
+                        <option value={2021}>2021</option>
+                        <option value={2020}>2020</option>
+                        <option value={2019}>2019</option>
                       </select>
                     </div>
 
                     <div className="h-4 w-px bg-gray-300" />
+
+                    <button 
+                      onClick={() => {
+                        setSelectedMonth(1);
+                        setSelectedYear(2024);
+                        fetchStats(1, 2024);
+                      }}
+                      className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100 text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      Resetar Filtros
+                    </button>
 
                     <button 
                       onClick={() => console.log('Exportar dados')}
@@ -353,7 +370,7 @@ const Dashboard = ({ selectedMonth, selectedYear }: DashboardProps) => {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                            Nenhuma ordem de serviço encontrada para o período selecionado.
+                            Nenhuma ordem de serviço encontrada para {new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}.
                           </TableCell>
                         </TableRow>
                       )}
