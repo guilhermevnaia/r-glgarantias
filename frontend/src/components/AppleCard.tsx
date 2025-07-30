@@ -1,18 +1,16 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LucideIcon } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { LucideIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface AppleCardProps {
   title: string;
   value: string | number | React.ReactNode;
-  subtitle?: string;
   icon: LucideIcon;
   trend?: {
     value: string;
-    isPositive: boolean;
+    isPositive: boolean; // isPositive means improvement (less is better)
   };
   gradient?: 'blue' | 'green' | 'orange' | 'purple' | 'red';
-  status?: 'good' | 'warning' | 'bad' | 'neutral';
   className?: string;
 }
 
@@ -48,21 +46,12 @@ const valueClasses = {
   red: 'text-black'
 };
 
-const statusIndicators = {
-  good: { emoji: '🟢', color: 'text-green-600' },
-  warning: { emoji: '🟡', color: 'text-yellow-600' },
-  bad: { emoji: '🔴', color: 'text-red-600' },
-  neutral: { emoji: '⚫', color: 'text-gray-600' }
-};
-
 export const AppleCard: React.FC<AppleCardProps> = ({
   title,
   value,
-  subtitle,
   icon: Icon,
   trend,
   gradient = 'blue',
-  status = 'neutral',
   className = ''
 }) => {
   return (
@@ -75,27 +64,24 @@ export const AppleCard: React.FC<AppleCardProps> = ({
       ${className}
     `}>
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className={`text-sm font-medium ${textClasses[gradient]} mb-1`}>
               {title}
             </p>
-            <div className={`text-3xl font-bold ${valueClasses[gradient]} mb-1`}>
+            <div className={`text-3xl font-bold ${valueClasses[gradient]} mb-2`}>
               {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
             </div>
-            {subtitle && (
-              <p className={`text-sm ${textClasses[gradient]}`}>
-                {subtitle}
-              </p>
-            )}
             {trend && (
-              <div className="flex items-center gap-1 mt-2">
-                <span className={`text-sm font-medium ${
-                  trend.isPositive ? 'text-apple-green' : 'text-apple-red'
-                }`}>
-                  {trend.value}
+              <div className="flex items-center gap-2">
+                {trend.isPositive ? (
+                  <ArrowDownRight className="h-4 w-4 text-green-500" />
+                ) : (
+                  <ArrowUpRight className="h-4 w-4 text-red-500" />
+                )}
+                <span className="text-sm text-gray-500">
+                  {trend.value} vs mês anterior
                 </span>
-                <span className="text-sm text-apple-gray-500">vs mês anterior</span>
               </div>
             )}
           </div>

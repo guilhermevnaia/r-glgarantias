@@ -144,8 +144,9 @@ class DateValidator {
               let year = parseInt(ddmmyyyy[3]);
               // Se ano tem 2 dígitos, assumir século baseado no contexto do negócio
               if (year < 100) {
-                // Para datas de OS: anos 00-23 = 2000-2023, anos 24-99 = 1924-1999
-                year = year <= 23 ? 2000 + year : 1900 + year;
+                // Para datas de OS: anos 00-99 = 2000-2099 (dados atuais/futuros)
+                // Apenas anos 50-99 poderiam ser 1950-1999, mas isso é improvável para OS
+                year = 2000 + year;
               }
               date = new Date(year, parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
             }
@@ -171,8 +172,9 @@ class DateValidator {
               let year = parseInt(mmddyyyy[3]);
               // Se ano tem 2 dígitos, assumir século baseado no contexto do negócio
               if (year < 100) {
-                // Para datas de OS: anos 00-23 = 2000-2023, anos 24-99 = 1924-1999
-                year = year <= 23 ? 2000 + year : 1900 + year;
+                // Para datas de OS: anos 00-99 = 2000-2099 (dados atuais/futuros)
+                // Apenas anos 50-99 poderiam ser 1950-1999, mas isso é improvável para OS
+                year = 2000 + year;
               }
               date = new Date(year, parseInt(mmddyyyy[1]) - 1, parseInt(mmddyyyy[2]));
             }

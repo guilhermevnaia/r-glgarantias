@@ -1,17 +1,67 @@
-# Ignorar arquivos de ambiente
+# Dependencies
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Ignorar módulos de node
-node_modules
+# Build outputs
+dist/
+build/
+out/
 
-# Ignorar builds de frontend
-build
-dist
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Ignorar logs
-*.log
-
-# Ignorar arquivos de sistema operacional
+# OS Files
 .DS_Store
-thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
+# Logs
+*.log
+logs/
+
+# Temporary folders and files
+tmp/
+temp/
+scripts/temp/
+scripts/logs/
+
+# Data files (Excel, backups)
+*.xlsx
+*.xls
+*.csv
+*.backup
+
+# Coverage and test outputs
+coverage/
+.nyc_output
+*.lcov
+
+# Cache directories
+.cache
+.parcel-cache
+.npm
+.eslintcache
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock

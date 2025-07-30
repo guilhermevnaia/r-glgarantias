@@ -228,67 +228,146 @@ export class StatsController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = (page - 1) * limit;
-
-      // Buscar todos os dados em múltiplas requisições (Supabase limita a 1000 por requisição)
-      console.log('🔄 Buscando todos os registros em múltiplas páginas...');
-      let allOrders: any[] = [];
-      let supabasePage = 0;
-      const pageSize = 1000;
       
-      while (true) {
-        const { data: pageData, error: fetchError } = await supabase
-          .from('service_orders')
-          .select('*')
-          .order('order_date', { ascending: false })
-          .range(supabasePage * pageSize, (supabasePage + 1) * pageSize - 1);
+      // Extrair parâmetros de filtro
+      const search = req.query.search as string;
+      const status = req.query.status as string;
+      const month = req.query.month ? parseInt(req.query.month as string) : null;
+      const year = req.query.year ? parseInt(req.query.year as string) : null;
+      const manufacturer = req.query.manufacturer as string;
+      const mechanic = req.query.mechanic as string;
+      const model = req.query.model as string;
 
-        if (fetchError) {
-          console.error('❌ Erro ao buscar página:', supabasePage, fetchError);
-          return res.status(500).json({ error: 'Erro ao buscar ordens' });
-        }
-
-        if (!pageData || pageData.length === 0) {
-          break; // Não há mais dados
-        }
-
-        allOrders = allOrders.concat(pageData);
-        console.log(`📄 Página ${supabasePage + 1}: ${pageData.length} registros (total: ${allOrders.length})`);
-        
-        if (pageData.length < pageSize) {
-          break; // Última página
-        }
-        
-        supabasePage++;
-      }
-      
-      console.log(`✅ Total de registros carregados: ${allOrders.length}`);
-
-      // Filtrar apenas dados de 2019-2025
-      const validOrders = (allOrders || []).filter(order => {
-        if (!order.order_date) return false;
-        const orderYear = new Date(order.order_date).getFullYear();
-        return orderYear >= 2019 && orderYear <= 2025;
+      console.log('🔄 Buscando ordens com filtros:', { 
+        page, limit, search, status, month, year, manufacturer, mechanic, model 
       });
 
-      // Aplicar paginação normal
-      const finalOrders = validOrders.slice(offset, offset + limit);
-      const finalPage = page;
-      const finalTotalPages = Math.ceil(validOrders.length / limit);
-      
-      console.log(`📋 Service Orders: ${validOrders.length} válidas (2019-2025), página ${page} com ${finalOrders.length} registros`);
+      // Construir query com filtros
+      let query = supabase
+        .from('service_orders')
+        .select('*', { count: 'exact' })
+        .order('order_date', { ascending: false });
 
-      const totalCount = validOrders.length;
+      // Aplicar filtros de data
+      if (year) {
+        const startDate = month 
+          ? `${year}-${month.toString().padStart(2, '0')}-01`
+          : `${year}-01-01`;
+        const endDate = month 
+          ? `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
+          : `${year}-12-31`;
+        
+        query = query.gte('order_date', startDate).lte('order_date', endDate);
+        console.log(`📅 Filtro de data: ${startDate} até ${endDate}`);
+      } else {
+        // Filtrar sempre por range válido (2019-2025)
+        query = query.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
+      }
+
+      // Filtro por status
+      if (status && status !== 'all') {
+        query = query.eq('order_status', status);
+        console.log(`🏷️ Filtro de status: ${status}`);
+      }
+
+      // Filtro por fabricante
+      if (manufacturer && manufacturer !== 'all') {
+        query = query.eq('engine_manufacturer', manufacturer);
+        console.log(`🏭 Filtro de fabricante: ${manufacturer}`);
+      }
+
+      // Filtro por mecânico
+      if (mechanic && mechanic !== 'all') {
+        query = query.eq('responsible_mechanic', mechanic);
+        console.log(`👨‍🔧 Filtro de mecânico: ${mechanic}`);
+      }
+
+      // Filtro por modelo
+      if (model && model !== 'all') {
+        query = query.eq('vehicle_model', model);
+        console.log(`🚗 Filtro de modelo: ${model}`);
+      }
+
+      // Filtro de busca textual
+      if (search && search.trim()) {
+        query = query.or(`order_number.ilike.%${search}%,engine_manufacturer.ilike.%${search}%,engine_description.ilike.%${search}%,vehicle_model.ilike.%${search}%,raw_defect_description.ilike.%${search}%,responsible_mechanic.ilike.%${search}%`);
+        console.log(`🔍 Filtro de busca: ${search}`);
+      }
+
+      // Criar query separada para contagem
+      let countQuery = supabase
+        .from('service_orders')
+        .select('*', { count: 'exact', head: true })
+        .order('order_date', { ascending: false });
+
+      // Aplicar os mesmos filtros para contagem
+      if (year) {
+        const startDate = month 
+          ? `${year}-${month.toString().padStart(2, '0')}-01`
+          : `${year}-01-01`;
+        const endDate = month 
+          ? `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
+          : `${year}-12-31`;
+        
+        countQuery = countQuery.gte('order_date', startDate).lte('order_date', endDate);
+      } else {
+        countQuery = countQuery.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
+      }
+
+      if (status && status !== 'all') {
+        countQuery = countQuery.eq('order_status', status);
+      }
+
+      if (manufacturer && manufacturer !== 'all') {
+        countQuery = countQuery.eq('engine_manufacturer', manufacturer);
+      }
+
+      if (mechanic && mechanic !== 'all') {
+        countQuery = countQuery.eq('responsible_mechanic', mechanic);
+      }
+
+      if (model && model !== 'all') {
+        countQuery = countQuery.eq('vehicle_model', model);
+      }
+
+      if (search && search.trim()) {
+        countQuery = countQuery.or(`order_number.ilike.%${search}%,engine_manufacturer.ilike.%${search}%,engine_description.ilike.%${search}%,vehicle_model.ilike.%${search}%,raw_defect_description.ilike.%${search}%,responsible_mechanic.ilike.%${search}%`);
+      }
+
+      // Buscar contagem e dados em paralelo
+      const [countResult, dataResult] = await Promise.all([
+        countQuery,
+        query.range(offset, offset + limit - 1)
+      ]);
+
+      if (countResult.error) {
+        console.error('❌ Erro ao contar registros filtrados:', countResult.error);
+        return res.status(500).json({ error: 'Erro ao contar registros filtrados' });
+      }
+
+      if (dataResult.error) {
+        console.error('❌ Erro ao buscar ordens:', dataResult.error);
+        return res.status(500).json({ error: 'Erro ao buscar ordens' });
+      }
+
+      const filteredCount = countResult.count || 0;
+      const orders = dataResult.data;
+
+      const totalCount = filteredCount || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      console.log(`✅ Encontradas ${totalCount} ordens filtradas, retornando página ${page} com ${orders?.length || 0} registros`);
 
       res.json({
-        data: finalOrders,
+        data: orders || [],
         total: totalCount,
-        page: finalPage,
+        page: page,
         limit: limit,
-        totalPages: finalTotalPages,
+        totalPages: totalPages,
         pagination: {
           total: totalCount,
-          page: finalPage,
-          totalPages: finalTotalPages
+          page: page,
+          totalPages: totalPages
         }
       });
 
@@ -313,6 +392,129 @@ export class StatsController {
       res.json(logs || []);
 
     } catch (error) {
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  async updateServiceOrder(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      console.log(`🔄 Atualizando OS ID: ${id}`);
+      console.log(`📝 Dados para atualizar:`, updateData);
+
+      // Validar campos obrigatórios
+      if (!id) {
+        return res.status(400).json({ error: 'ID da OS é obrigatório' });
+      }
+
+      // Validar e processar dados antes da atualização
+      const processedData: any = {};
+
+      // Campos de texto
+      if (updateData.order_number !== undefined) processedData.order_number = String(updateData.order_number).trim();
+      if (updateData.engine_manufacturer !== undefined) processedData.engine_manufacturer = updateData.engine_manufacturer ? String(updateData.engine_manufacturer).trim() : null;
+      if (updateData.engine_description !== undefined) processedData.engine_description = updateData.engine_description ? String(updateData.engine_description).trim() : null;
+      if (updateData.vehicle_model !== undefined) processedData.vehicle_model = updateData.vehicle_model ? String(updateData.vehicle_model).trim() : null;
+      if (updateData.raw_defect_description !== undefined) processedData.raw_defect_description = updateData.raw_defect_description ? String(updateData.raw_defect_description).trim() : null;
+      if (updateData.responsible_mechanic !== undefined) processedData.responsible_mechanic = updateData.responsible_mechanic ? String(updateData.responsible_mechanic).trim() : null;
+
+      // Campos numéricos com validação
+      if (updateData.parts_total !== undefined) {
+        const partsValue = parseFloat(updateData.parts_total);
+        if (isNaN(partsValue) || partsValue < 0) {
+          return res.status(400).json({ error: 'Total de peças deve ser um número positivo' });
+        }
+        processedData.parts_total = partsValue;
+        // Atualizar original_parts_value também (parts_total * 2 conforme regra de negócio)
+        processedData.original_parts_value = partsValue * 2;
+      }
+
+      if (updateData.labor_total !== undefined) {
+        const laborValue = parseFloat(updateData.labor_total);
+        if (isNaN(laborValue) || laborValue < 0) {
+          return res.status(400).json({ error: 'Total de serviços deve ser um número positivo' });
+        }
+        processedData.labor_total = laborValue;
+      }
+
+      if (updateData.grand_total !== undefined) {
+        const grandValue = parseFloat(updateData.grand_total);
+        if (isNaN(grandValue) || grandValue < 0) {
+          return res.status(400).json({ error: 'Total geral deve ser um número positivo' });
+        }
+        processedData.grand_total = grandValue;
+      }
+
+      // Status com validação
+      if (updateData.order_status !== undefined) {
+        const validStatuses = ['G', 'GO', 'GU'];
+        const status = String(updateData.order_status).trim().toUpperCase();
+        if (!validStatuses.includes(status)) {
+          return res.status(400).json({ error: 'Status deve ser G, GO ou GU' });
+        }
+        processedData.order_status = status;
+      }
+
+      // Data com validação
+      if (updateData.order_date !== undefined) {
+        try {
+          const date = new Date(updateData.order_date);
+          if (isNaN(date.getTime())) {
+            return res.status(400).json({ error: 'Data inválida' });
+          }
+          
+          const year = date.getFullYear();
+          if (year < 2019 || year > 2025) {
+            return res.status(400).json({ error: 'Data deve estar entre 2019 e 2025' });
+          }
+          
+          processedData.order_date = date.toISOString();
+        } catch (error) {
+          return res.status(400).json({ error: 'Formato de data inválido' });
+        }
+      }
+
+      // Atualizar campo updated_at
+      processedData.updated_at = new Date().toISOString();
+
+      // Verificar se a OS existe
+      const { data: existingOrder, error: fetchError } = await supabase
+        .from('service_orders')
+        .select('id, order_number')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !existingOrder) {
+        console.log(`❌ OS não encontrada: ${id}`);
+        return res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+      }
+
+      // Executar atualização
+      const { data: updatedOrder, error } = await supabase
+        .from('service_orders')
+        .update(processedData)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error(`❌ Erro ao atualizar OS:`, error);
+        return res.status(500).json({ error: 'Erro ao atualizar ordem de serviço' });
+      }
+
+      console.log(`✅ OS atualizada com sucesso: ${existingOrder.order_number}`);
+      console.log(`📊 Campos atualizados: ${Object.keys(processedData).join(', ')}`);
+
+      res.json({
+        success: true,
+        message: 'Ordem de serviço atualizada com sucesso',
+        data: updatedOrder
+      });
+
+    } catch (error) {
+      console.error('❌ Erro interno ao atualizar OS:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }

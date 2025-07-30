@@ -13,7 +13,12 @@ import {
   Truck,
   DollarSign,
   Calendar,
-  Activity
+  Activity,
+  Download,
+  Wrench,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownRight
 } from "lucide-react";
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
@@ -44,23 +49,49 @@ interface DashboardProps {
 
 const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: DashboardProps) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [previousMonthStats, setPreviousMonthStats] = useState<DashboardStats | null>(null);
+  const [yearTrendStats, setYearTrendStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || 1);
-  const [selectedYear, setSelectedYear] = useState<number>(initialYear || 2024);
+  // Definir mês e ano atual
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // Janeiro é 0, então somamos 1
+  const currentYear = currentDate.getFullYear();
+  
+  const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || currentMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYear);
 
   const fetchStats = async (month?: number, year?: number) => {
     console.log("🔄 fetchStats chamado com:", { month, year, selectedMonth, selectedYear });
     setLoading(true);
     try {
       console.log("🌐 Fazendo chamada para API...");
+      
+      // Buscar dados do mês atual
       const data = await apiService.getStats(month, year);
       console.log("✅ Dados recebidos da API no Dashboard:", data);
-      console.log("📈 Total de ordens recebido:", data?.totalOrders);
-      console.log("📈 Orders array recebido:", data?.orders?.length);
-      console.log("📈 Status distribution:", data?.statusDistribution);
-      console.log("📈 Financial summary:", data?.financialSummary);
       setStats(data);
-      console.log("📊 Stats setado no estado");
+      
+      // Buscar dados do mês anterior para comparação
+      const currentMonth = month || selectedMonth;
+      const currentYear = year || selectedYear;
+      let prevMonth = currentMonth - 1;
+      let prevYear = currentYear;
+      
+      if (prevMonth === 0) {
+        prevMonth = 12;
+        prevYear = currentYear - 1;
+      }
+      
+      const previousData = await apiService.getStats(prevMonth, prevYear);
+      console.log("📊 Dados do mês anterior:", previousData);
+      setPreviousMonthStats(previousData);
+      
+      // Buscar dados do ano completo para tendência
+      const yearData = await apiService.getStats(undefined, currentYear);
+      console.log("📈 Dados do ano completo:", yearData);
+      setYearTrendStats(yearData);
+      
+      console.log("📊 Todos os stats carregados");
     } catch (error) {
       console.error('❌ ERRO CRÍTICO ao carregar estatísticas:', error);
       console.error('❌ Detalhes do erro:', error?.message);
@@ -73,7 +104,7 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
   };
 
   useEffect(() => {
-    // Iniciar com filtros padrão (Janeiro 2024)
+    // Iniciar com filtros padrão (mês e ano atual)
     fetchStats(selectedMonth, selectedYear);
   }, []);
 
@@ -110,9 +141,9 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
 
   // Dados para gráficos
   const statusData = [
-    { name: 'Garantias (G)', value: stats.statusDistribution.G, color: '#34C759' },
-    { name: 'Garantias Outros (GO)', value: stats.statusDistribution.GO, color: '#007AFF' },
-    { name: 'Garantias Usados (GU)', value: stats.statusDistribution.GU, color: '#FF9500' }
+    { name: 'Garantia (G)', value: stats.statusDistribution.G, color: '#FF3B30' },
+    { name: 'Garantia Oficina (GO)', value: stats.statusDistribution.GO, color: '#FF9500' },
+    { name: 'Garantia Usinagem (GU)', value: stats.statusDistribution.GU, color: '#FFCC00' }
   ];
 
   const yearData = Object.entries(stats.yearDistribution).map(([year, count]) => ({
@@ -125,121 +156,77 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
 
   return (
     <div className="space-y-8">
-        {/* Tabs de Conteúdo - Movido para cima dos cards */}
+        {/* Tabs de Conteúdo */}
         <Tabs defaultValue="overview" className="w-full">
           <div className="flex justify-center">
-          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
-            <TabsTrigger 
-              value="overview" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Visão Geral
-            </TabsTrigger>
-            <TabsTrigger 
-              value="charts" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Gráficos
-            </TabsTrigger>
-            <TabsTrigger 
-              value="analysis" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Análises
-            </TabsTrigger>
-            <TabsTrigger 
-              value="trends" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Tendências
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          <AppleCard
-            title="Total de OS"
-            value={stats.totalOrders}
-            subtitle="Ordens processadas"
-            icon={FileText}
-            gradient="blue"
-          />
-          
-          <AppleCard
-            title="Valor Total"
-            value={stats.financialSummary ? (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground">
-                  Peças: {stats.financialSummary.partsTotal >= 1000000 ? 
-                    `R$ ${(stats.financialSummary.partsTotal / 1000000).toFixed(1)}M` : 
-                    stats.financialSummary.partsTotal >= 1000 ?
-                      `R$ ${(stats.financialSummary.partsTotal / 1000).toFixed(1)}K` :
-                      `R$ ${stats.financialSummary.partsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Serviços: {stats.financialSummary.laborTotal >= 1000000 ? 
-                    `R$ ${(stats.financialSummary.laborTotal / 1000000).toFixed(1)}M` : 
-                    stats.financialSummary.laborTotal >= 1000 ?
-                      `R$ ${(stats.financialSummary.laborTotal / 1000).toFixed(1)}K` :
-                      `R$ ${stats.financialSummary.laborTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
-                </div>
-                <div className="text-lg font-bold">
-                  {stats.financialSummary.totalValue >= 1000000 ? 
-                    `R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(1)}M` : 
-                    stats.financialSummary.totalValue >= 1000 ?
-                      `R$ ${(stats.financialSummary.totalValue / 1000).toFixed(1)}K` :
-                      `R$ ${stats.financialSummary.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  }
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground">Peças: R$ 0,00</div>
-                <div className="text-xs text-muted-foreground">Serviços: R$ 0,00</div>
-                <div className="text-lg font-bold">R$ 0,00</div>
-              </div>
-            )}
-            subtitle="Detalhamento financeiro"
-            icon={DollarSign}
-            gradient="purple"
-          />
-          
-          <AppleCard
-            title="Mecânicos Ativos"
-            value={stats.mechanicsCount || 0}
-            subtitle="Profissionais ativas"
-            icon={Users}
-            gradient="orange"
-          />
-          
-          <AppleCard
-            title="Total de Defeitos"
-            value={stats.defectsCount || 0}
-            subtitle="Tipos catalogados"
-            icon={Settings}
-            gradient="red"
-          />
-          
-          <AppleCard
-            title="Status OS"
-            value={
-              <div className="space-y-1">
-                <div className="text-xs">G: {stats.statusDistribution.G}</div>
-                <div className="text-xs">GO: {stats.statusDistribution.GO}</div>
-                <div className="text-xs">GU: {stats.statusDistribution.GU}</div>
-              </div>
-            }
-            subtitle="Distribuição"
-            icon={BarChart3}
-            gradient="green"
-          />
-        </div>
+            <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
+              <TabsTrigger 
+                value="overview" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              >
+                Visão Geral
+              </TabsTrigger>
+              <TabsTrigger 
+                value="comparative_analysis" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              >
+                Análise Comparativa
+              </TabsTrigger>
+              <TabsTrigger 
+                value="evaluation" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              >
+                Avaliação IA
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Visão Geral */}
           <TabsContent value="overview" className="space-y-6 mt-6">
+            {/* Cards de Estatísticas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <AppleCard
+                title="Total de OS"
+                value={stats.totalOrders}
+                icon={FileText}
+                gradient="blue"
+                trend={{
+                  value: `${previousMonthStats?.totalOrders ?? 0}`,
+                  isPositive: stats.totalOrders < (previousMonthStats?.totalOrders ?? 0),
+                }}
+              />
+              <AppleCard
+                title="Valor Total"
+                value={`R$ ${(stats.financialSummary.totalValue / 1000).toFixed(0)}k`}
+                icon={DollarSign}
+                gradient="purple"
+                trend={{
+                  value: `R$ ${((previousMonthStats?.financialSummary.totalValue ?? 0) / 1000).toFixed(0)}k`,
+                  isPositive: stats.financialSummary.totalValue < (previousMonthStats?.financialSummary.totalValue ?? 0),
+                }}
+              />
+              <AppleCard
+                title="Mecânicos Ativos"
+                value={stats.mechanicsCount || 0}
+                icon={Users}
+                gradient="orange"
+                trend={{
+                  value: `${previousMonthStats?.mechanicsCount ?? 0}`,
+                  isPositive: stats.mechanicsCount < (previousMonthStats?.mechanicsCount ?? 0),
+                }}
+              />
+              <AppleCard
+                title="Total de Defeitos"
+                value={stats.defectsCount || 0}
+                icon={Wrench}
+                gradient="red"
+                trend={{
+                  value: `${previousMonthStats?.defectsCount ?? 0}`,
+                  isPositive: stats.defectsCount < (previousMonthStats?.defectsCount ?? 0),
+                }}
+              />
+            </div>
+
             {/* Tabela de Ordens de Serviço */}
             <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
               <CardHeader className="border-b border-border">
@@ -304,20 +291,48 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
 
                     <button 
                       onClick={() => {
-                        setSelectedMonth(1);
-                        setSelectedYear(2024);
-                        fetchStats(1, 2024);
+                        setSelectedMonth(currentMonth);
+                        setSelectedYear(currentYear);
+                        fetchStats(currentMonth, currentYear);
                       }}
                       className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100 text-blue-600 border-blue-200 hover:bg-blue-50"
                     >
-                      Resetar Filtros
+                      Mês Atual
                     </button>
 
                     <button 
-                      onClick={() => console.log('Exportar dados')}
-                      className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100"
+                      onClick={() => {
+                        // Função de exportação completa
+                        const exportData = {
+                          periodo: `${new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}`,
+                          resumo: {
+                            totalOrdens: stats.totalOrders,
+                            valorTotal: stats.financialSummary.totalValue,
+                            valorMedio: stats.financialSummary.averageValue,
+                            mecanicosAtivos: stats.mechanicsCount,
+                            tiposDefeitos: stats.defectsCount
+                          },
+                          distribuicaoStatus: stats.statusDistribution,
+                          ordens: stats.orders,
+                          fabricantes: stats.topManufacturers,
+                          tendenciaMensal: stats.monthlyTrend,
+                          distribuicaoAnual: stats.yearDistribution
+                        };
+                        
+                        const dataStr = JSON.stringify(exportData, null, 2);
+                        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                        
+                        const exportFileDefaultName = `dashboard-${selectedYear}-${selectedMonth.toString().padStart(2, '0')}.json`;
+                        
+                        const linkElement = document.createElement('a');
+                        linkElement.setAttribute('href', dataUri);
+                        linkElement.setAttribute('download', exportFileDefaultName);
+                        linkElement.click();
+                      }}
+                      className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100 text-green-600 border-green-200 hover:bg-green-50"
                     >
-                      Exportar
+                      <Download className="h-4 w-4" />
+                      Exportar Dados
                     </button>
                   </div>
                 </div>
@@ -381,261 +396,259 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
             </Card>
           </TabsContent>
 
-          {/* Gráficos */}
-          <TabsContent value="charts" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Gráfico de Pizza - Distribuição por Status */}
+          {/* Análise Comparativa */}
+          <TabsContent value="comparative_analysis" className="space-y-8 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartCard
-                title="Distribuição por Status"
-                description="Proporção de cada tipo de garantia"
+                title="Distribuição por Status de Garantias"
+                description="Comparativo de garantias com o mês anterior"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Quantidade']}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Gráfico de Barras - Top Fabricantes */}
-              <ChartCard
-                title="Top 5 Fabricantes"
-                description="Fabricantes com maior volume"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={manufacturerData}>
+                  <BarChart 
+                    data={[
+                      { name: 'G', atual: stats.statusDistribution.G, anterior: previousMonthStats?.statusDistribution.G ?? 0 },
+                      { name: 'GO', atual: stats.statusDistribution.GO, anterior: previousMonthStats?.statusDistribution.GO ?? 0 },
+                      { name: 'GU', atual: stats.statusDistribution.GU, anterior: previousMonthStats?.statusDistribution.GU ?? 0 },
+                    ]}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="name" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6B7280' }} />
                     <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
                     <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Ordens']}
-                      labelStyle={{ color: '#374151' }}
                       contentStyle={{ 
                         backgroundColor: 'white', 
                         border: '1px solid #E5E7EB',
                         borderRadius: '8px'
                       }}
                     />
-                    <Bar 
-                      dataKey="count" 
-                      fill="#007AFF" 
-                      radius={[4, 4, 0, 0]}
-                    />
+                    <Bar dataKey="anterior" name="Mês Anterior" fill="#A1A1AA" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="atual" name="Mês Atual" fill="#007AFF" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard
+                title="Top 5 Modelos de Motor"
+                description={`Modelos com maior volume em ${new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })}`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={stats.orders ? 
+                      Object.entries(
+                        stats.orders.reduce((acc: any, order: any) => {
+                          const model = order.engine_description || 'Não informado';
+                          acc[model] = (acc[model] || 0) + 1;
+                          return acc;
+                        }, {})
+                      )
+                      .sort(([,a]: any, [,b]: any) => b - a)
+                      .slice(0, 5)
+                      .map(([name, count]) => ({ 
+                        name: name.length > 15 ? name.substring(0, 15) + '...' : name, 
+                        value: count 
+                      }))
+                      : []
+                    }
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip formatter={(value: any) => [value, 'Ordens']} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px' }} />
+                    <Bar dataKey="value" fill="#34C759" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
 
-            {/* Gráfico de Linha - Evolução por Ano */}
-            <ChartCard
-              title="Evolução Temporal"
-              description="Distribuição de ordens por ano"
-              height="h-96"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={yearData}>
-                  <defs>
-                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#007AFF" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="year" 
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                  <Tooltip 
-                    formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Ordens']}
-                    labelStyle={{ color: '#374151' }}
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#007AFF"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorCount)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </TabsContent>
-
-          {/* Análises */}
-          <TabsContent value="analysis" className="space-y-6 mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                    Análise Financeira
-                  </CardTitle>
-                  <CardDescription className="text-apple-gray-500">
-                    Resumo dos valores processados
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
-                    <span className="text-apple-gray-700 font-medium">Valor Total</span>
-                    <span className="text-xl font-bold text-apple-gray-900">
-                      {stats.financialSummary.totalValue >= 1000000 ? 
-                        `R$ ${(stats.financialSummary.totalValue / 1000000).toFixed(2)}M` : 
-                        stats.financialSummary.totalValue >= 1000 ?
-                          `R$ ${(stats.financialSummary.totalValue / 1000).toFixed(1)}K` :
-                          `R$ ${stats.financialSummary.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      }
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
-                    <span className="text-apple-gray-700 font-medium">Valor Médio</span>
-                    <span className="text-xl font-bold text-apple-gray-900">
-                      R$ {stats.financialSummary.averageValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
-                    <span className="text-apple-gray-700 font-medium">Total Peças</span>
-                    <span className="text-xl font-bold text-apple-gray-900">
-                      {stats.financialSummary.partsTotal >= 1000000 ? 
-                        `R$ ${(stats.financialSummary.partsTotal / 1000000).toFixed(2)}M` : 
-                        stats.financialSummary.partsTotal >= 1000 ?
-                          `R$ ${(stats.financialSummary.partsTotal / 1000).toFixed(1)}K` :
-                          `R$ ${stats.financialSummary.partsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      }
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-apple-gray-50 rounded-apple-md">
-                    <span className="text-apple-gray-700 font-medium">Total Mão de Obra</span>
-                    <span className="text-xl font-bold text-apple-gray-900">
-                      {stats.financialSummary.laborTotal >= 1000000 ? 
-                        `R$ ${(stats.financialSummary.laborTotal / 1000000).toFixed(2)}M` : 
-                        stats.financialSummary.laborTotal >= 1000 ?
-                          `R$ ${(stats.financialSummary.laborTotal / 1000).toFixed(1)}K` :
-                          `R$ ${stats.financialSummary.laborTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      }
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+              <ChartCard
+                title="Mecânicos Mais Ativos"
+                description={`Top 5 com mais ordens em ${new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })}`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={stats.orders ? 
+                      Object.entries(
+                        stats.orders.reduce((acc: any, order: any) => {
+                          const mechanic = order.responsible_mechanic || 'Não informado';
+                          acc[mechanic] = (acc[mechanic] || 0) + 1;
+                          return acc;
+                        }, {})
+                      )
+                      .filter(([name]) => name !== 'TESTE' && name !== 'Não informado')
+                      .sort(([,a]: any, [,b]: any) => b - a)
+                      .slice(0, 5)
+                      .map(([name, count]) => ({ 
+                        name: name.length > 12 ? name.substring(0, 12) + '...' : name, 
+                        value: count 
+                      }))
+                      : []
+                    }
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip formatter={(value: any) => [value, 'OS Atendidas']} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px' }} />
+                    <Bar dataKey="value" fill="#FF9500" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
 
-              <Card className="bg-white/80 backdrop-blur-sm border-apple-gray-200 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                    Insights Principais
-                  </CardTitle>
-                  <CardDescription className="text-apple-gray-500">
-                    Principais descobertas dos dados
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-apple-md">
-                    <p className="text-green-800 font-medium">
-                      ✓ Taxa de aprovação de 90% (Status G)
-                    </p>
-                    <p className="text-green-600 text-sm mt-1">
-                      Excelente performance nas garantias
-                    </p>
-                  </div>
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-apple-md">
-                    <p className="text-blue-800 font-medium">
-                      📊 MWM lidera com 173 ordens
-                    </p>
-                    <p className="text-blue-600 text-sm mt-1">
-                      Seguida por Mercedes-Benz e Cummins
-                    </p>
-                  </div>
-                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-apple-md">
-                    <p className="text-orange-800 font-medium">
-                      📈 Crescimento de 12.5% no período
-                    </p>
-                    <p className="text-orange-600 text-sm mt-1">
-                      Tendência positiva de volume
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <ChartCard
+                title="Principais Tipos de Defeitos"
+                description={`Categorias mais frequentes em ${new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long' })}`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={stats.orders ? 
+                      Object.entries(
+                        stats.orders.reduce((acc: any, order: any) => {
+                          let defect = order.raw_defect_description;
+                          if (!defect || defect === 'null' || defect.trim() === '') {
+                            defect = 'Não informado';
+                          } else {
+                            defect = defect.toUpperCase();
+                            if (defect.includes('VAZAMENTO')) defect = 'VAZAMENTO';
+                            else if (defect.includes('BARULHO')) defect = 'BARULHO/RUÍDO';
+                            else if (defect.includes('QUEBROU') || defect.includes('QUEBR') || defect.includes('DANIFIC')) defect = 'QUEBRA/DANO';
+                            else if (defect.includes('AQUEC') || defect.includes('ESQUENT')) defect = 'AQUECIMENTO';
+                            else if (defect.includes('OLEO') || defect.includes('ÓLEO')) defect = 'PROBLEMA ÓLEO';
+                            else if (defect.includes('FALH') || defect.includes('FALHANDO') || defect.includes('NÃO PEGA')) defect = 'FALHA FUNCIONAMENTO';
+                            else defect = 'OUTROS';
+                          }
+                          acc[defect] = (acc[defect] || 0) + 1;
+                          return acc;
+                        }, {})
+                      )
+                      .sort(([,a]: any, [,b]: any) => b - a)
+                      .slice(0, 5)
+                      .map(([name, count]) => ({ name, value: count }))
+                      : []
+                    }
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip formatter={(value: any) => [value, 'Ocorrências']} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px' }} />
+                    <Bar dataKey="value" fill="#FF3B30" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
             </div>
+
+            {/* Tabela Comparativa Detalhada */}
+            <Card className="bg-white border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Análise Detalhada vs. Mês Anterior</CardTitle>
+                <CardDescription className="mt-1">
+                  Comparativo completo dos indicadores de performance.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold">Métrica</TableHead>
+                      <TableHead className="text-right font-semibold">Mês Atual</TableHead>
+                      <TableHead className="text-right font-semibold">Mês Anterior</TableHead>
+                      <TableHead className="text-right font-semibold">Variação (%)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      {
+                        metric: 'Total de Ordens de Serviço',
+                        current: stats.totalOrders,
+                        previous: previousMonthStats?.totalOrders ?? 0,
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => value.toLocaleString('pt-BR'),
+                      },
+                      {
+                        metric: 'Valor Financeiro Total',
+                        current: stats.financialSummary.totalValue,
+                        previous: previousMonthStats?.financialSummary.totalValue ?? 0,
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      },
+                      {
+                        metric: 'Valor Médio por OS',
+                        current: stats.financialSummary.averageValue,
+                        previous: previousMonthStats?.financialSummary.averageValue ?? 0,
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      },
+                      {
+                        metric: 'Total de Garantias (G+GO+GU)',
+                        current: stats.statusDistribution.G + stats.statusDistribution.GO + stats.statusDistribution.GU,
+                        previous: (previousMonthStats?.statusDistribution.G ?? 0) + (previousMonthStats?.statusDistribution.GO ?? 0) + (previousMonthStats?.statusDistribution.GU ?? 0),
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => value.toLocaleString('pt-BR'),
+                      },
+                      {
+                        metric: 'Taxa de Garantia',
+                        current: stats.totalOrders > 0 ? ((stats.statusDistribution.G + stats.statusDistribution.GO + stats.statusDistribution.GU) / stats.totalOrders) * 100 : 0,
+                        previous: (previousMonthStats?.totalOrders ?? 0) > 0 ? (((previousMonthStats?.statusDistribution.G ?? 0) + (previousMonthStats?.statusDistribution.GO ?? 0) + (previousMonthStats?.statusDistribution.GU ?? 0)) / (previousMonthStats?.totalOrders ?? 1)) * 100 : 0,
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => `${value.toFixed(1)}%`,
+                      },
+                      {
+                        metric: 'Mecânicos Ativos',
+                        current: stats.mechanicsCount,
+                        previous: previousMonthStats?.mechanicsCount ?? 0,
+                        isImprovement: (current, previous) => current > previous, // More mechanics can be good
+                        format: (value) => value.toLocaleString('pt-BR'),
+                      },
+                      {
+                        metric: 'Total de Tipos de Defeitos',
+                        current: stats.defectsCount,
+                        previous: previousMonthStats?.defectsCount ?? 0,
+                        isImprovement: (current, previous) => current < previous,
+                        format: (value) => value.toLocaleString('pt-BR'),
+                      },
+                    ].map(({ metric, current, previous, isImprovement, format }) => {
+                      const variation = previous > 0 ? ((current - previous) / previous) * 100 : current > 0 ? 100 : 0;
+                      const improved = isImprovement(current, previous);
+
+                      return (
+                        <TableRow key={metric}>
+                          <TableCell className="font-medium">{metric}</TableCell>
+                          <TableCell className="text-right">{format(current)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{format(previous)}</TableCell>
+                          <TableCell className={`text-right font-bold ${variation === 0 ? 'text-gray-500' : improved ? 'text-green-600' : 'text-red-600'}`}>
+                            <div className="flex items-center justify-end gap-2">
+                              <span>{variation.toFixed(1)}%</span>
+                              {variation !== 0 && (improved ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />)}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          {/* Tendências */}
-          <TabsContent value="trends" className="space-y-6 mt-6">
-            <ChartCard
-              title="Tendência Mensal"
-              description="Evolução de ordens e valores por mês"
-              height="h-96"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.monthlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right"
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <Tooltip 
-                    formatter={(value: any, name: string) => [
-                      name === 'count' ? value.toLocaleString('pt-BR') : `R$ ${value.toLocaleString('pt-BR')}`,
-                      name === 'count' ? 'Ordens' : 'Valor'
-                    ]}
-                    labelStyle={{ color: '#374151' }}
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#007AFF"
-                    strokeWidth={3}
-                    dot={{ fill: '#007AFF', strokeWidth: 2, r: 4 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#34C759"
-                    strokeWidth={3}
-                    dot={{ fill: '#34C759', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
+          {/* Avaliação IA */}
+          <TabsContent value="evaluation" className="space-y-6 mt-6">
+            <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 shadow-sm">
+              <CardHeader className="text-center py-16">
+                <div className="mx-auto w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center mb-6">
+                  <Activity className="h-12 w-12 text-white" />
+                </div>
+                <CardTitle className="text-3xl font-bold text-purple-900 mb-4">
+                  Relatório de Avaliação Inteligente
+                </CardTitle>
+                <CardDescription className="text-purple-700 text-lg max-w-2xl mx-auto">
+                  Este espaço será preenchido automaticamente por uma IA que analisará todos os dados do período de{' '}
+                  <strong>{new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</strong>
+                </CardDescription>
+              </CardHeader>
+            </Card>
           </TabsContent>
         </Tabs>
     </div>

@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download, Shield, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download, Shield, AlertTriangle, Eye, Edit, Printer, FileDown } from "lucide-react";
 import { apiService, ServiceOrder, ServiceOrdersResponse } from "@/services/api";
 import { useDataIntegrity, useRecordCountVerification } from "@/hooks/useDataIntegrity";
+import { useToast } from "@/hooks/use-toast";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   "G": "outline",
@@ -18,8 +20,8 @@ const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | 
 
 const statusLabels: { [key: string]: string } = {
   "G": "Garantia",
-  "GO": "Garantia Outros",
-  "GU": "Garantia Usados",
+  "GO": "Garantia de Oficina",
+  "GU": "Garantia de Usinagem",
 };
 
 const ServiceOrders = () => {
@@ -37,6 +39,15 @@ const ServiceOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const recordsPerPage = 50; // Registros por página
+
+  // Estados para ações
+  const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<ServiceOrder>>({});
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
 
   // Hooks de integridade de dados
   const { integrityStatus, isLoading: integrityLoading, error: integrityError, checkIntegrity } = useDataIntegrity();
@@ -166,10 +177,16 @@ const ServiceOrders = () => {
   };
 
   const exportToCSV = async () => {
+    setIsExporting(true);
     try {
       // Para exportação, buscar todos os dados com os filtros aplicados
       console.log("📤 Buscando todos os dados para exportação...");
       
+      toast({
+        title: "Iniciando exportação",
+        description: "Buscando todos os dados. Isso pode levar alguns segundos...",
+      });
+
       const exportParams: any = {
         limit: 10000, // Buscar muitos registros para exportação
         page: 1
@@ -198,7 +215,11 @@ const ServiceOrders = () => {
       });
       
       if (dataToExport.length === 0) {
-        alert("Não há dados para exportar com os filtros aplicados.");
+        toast({
+          title: "Nenhum dado para exportar",
+          description: "Não há dados para exportar com os filtros aplicados.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -267,9 +288,20 @@ const ServiceOrders = () => {
     document.body.removeChild(link);
     
       console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
+      
+      toast({
+        title: "Exportação concluída!",
+        description: `${dataToExport.length} registros exportados com sucesso.`,
+      });
     } catch (error) {
       console.error("❌ Erro durante exportação:", error);
-      alert("Erro ao exportar dados. Tente novamente.");
+      toast({
+        title: "Erro na exportação",
+        description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -278,6 +310,213 @@ const ServiceOrders = () => {
       setCurrentPage(newPage);
       fetchServiceOrders(newPage);
     }
+  };
+
+  // Funções de ação
+  const handleViewDetails = (order: ServiceOrder) => {
+    setSelectedOrder(order);
+    setShowDetailsDialog(true);
+  };
+
+  const handleEdit = (order: ServiceOrder) => {
+    setSelectedOrder(order);
+    setEditFormData({
+      order_number: order.order_number,
+      order_date: order.order_date ? new Date(order.order_date).toISOString().split('T')[0] : '',
+      engine_manufacturer: order.engine_manufacturer || '',
+      engine_description: order.engine_description || '',
+      vehicle_model: order.vehicle_model || '',
+      raw_defect_description: order.raw_defect_description || '',
+      responsible_mechanic: order.responsible_mechanic || '',
+      parts_total: order.parts_total || 0,
+      labor_total: order.labor_total || 0,
+      grand_total: order.grand_total || 0,
+      order_status: order.order_status
+    });
+    setShowEditDialog(true);
+  };
+
+  const handlePrint = (order: ServiceOrder) => {
+    // Criar uma versão imprimível da OS
+    const printContent = `
+      <html>
+        <head>
+          <title>Ordem de Serviço - ${order.order_number}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .info-item { margin-bottom: 10px; }
+            .label { font-weight: bold; }
+            .financials { margin-top: 30px; padding: 15px; border: 1px solid #ccc; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>ORDEM DE SERVIÇO</h1>
+            <h2>OS: ${order.order_number}</h2>
+            <p>Data: ${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : 'N/A'}</p>
+          </div>
+          
+          <div class="info-grid">
+            <div>
+              <div class="info-item">
+                <span class="label">Fabricante:</span> ${order.engine_manufacturer || 'N/A'}
+              </div>
+              <div class="info-item">
+                <span class="label">Motor:</span> ${order.engine_description || 'N/A'}
+              </div>
+              <div class="info-item">
+                <span class="label">Modelo:</span> ${order.vehicle_model || 'N/A'}
+              </div>
+            </div>
+            <div>
+              <div class="info-item">
+                <span class="label">Mecânico:</span> ${order.responsible_mechanic || 'N/A'}
+              </div>
+              <div class="info-item">
+                <span class="label">Status:</span> ${statusLabels[order.order_status] || order.order_status}
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <span class="label">Descrição do Defeito:</span><br>
+            ${order.raw_defect_description || 'N/A'}
+          </div>
+          
+          <div class="financials">
+            <h3>Valores</h3>
+            <div class="info-item">
+              <span class="label">Total Peças:</span> R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div class="info-item">
+              <span class="label">Total Serviços:</span> R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div class="info-item" style="font-size: 1.2em; margin-top: 10px;">
+              <span class="label">TOTAL GERAL:</span> R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+      
+      toast({
+        title: "OS enviada para impressão",
+        description: `Ordem de serviço ${order.order_number} preparada para impressão.`,
+      });
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedOrder) return;
+
+    setIsUpdating(true);
+    try {
+      // Validar dados antes de enviar
+      if (!editFormData.order_number?.trim()) {
+        toast({
+          title: "❌ Erro de validação",
+          description: "Número da OS é obrigatório.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!editFormData.order_status) {
+        toast({
+          title: "❌ Erro de validação", 
+          description: "Status é obrigatório.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('🔄 Salvando alterações da OS:', selectedOrder.id);
+      console.log('📝 Dados alterados:', editFormData);
+
+      const updatedOrder = await apiService.updateServiceOrder(selectedOrder.id, editFormData);
+      
+      // Atualizar a lista local com os novos dados
+      setServiceOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === selectedOrder.id ? { ...order, ...updatedOrder } : order
+        )
+      );
+
+      setShowEditDialog(false);
+      setEditFormData({});
+      setSelectedOrder(null);
+
+      toast({
+        title: "✅ OS atualizada com sucesso!",
+        description: `Ordem de serviço ${editFormData.order_number} foi atualizada. Todas as análises e dashboards foram atualizados automaticamente.`,
+      });
+
+      // Verificar integridade após atualização
+      setTimeout(() => {
+        checkIntegrity();
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar alterações:', error);
+      
+      let errorMessage = 'Erro desconhecido ao atualizar OS';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast({
+        title: "❌ Erro ao atualizar OS",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleExportSingle = (order: ServiceOrder) => {
+    const csvContent = [
+      "OS,Data,Fabricante,Motor,Modelo,Defeito,Mecânico Montador,Total Peças,Total Serviços,Total",
+      [
+        `"${order.order_number || ''}"`,
+        `"${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : ''}"`,
+        `"${order.engine_manufacturer || ''}"`,
+        `"${order.engine_description || ''}"`,
+        `"${order.vehicle_model || ''}"`,
+        `"${order.raw_defect_description || ''}"`,
+        `"${order.responsible_mechanic || ''}"`,
+        `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
+      ].join(",")
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `OS_${order.order_number}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "OS exportada",
+      description: `Ordem de serviço ${order.order_number} exportada com sucesso.`,
+    });
   };
 
   return (
@@ -325,10 +564,15 @@ const ServiceOrders = () => {
               <Button 
                 variant="outline" 
                 onClick={exportToCSV}
-                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                disabled={isExporting}
+                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-50"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Exportar (Todos os dados)
+                {isExporting ? (
+                  <div className="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {isExporting ? "Exportando..." : "Exportar (Todos os dados)"}
               </Button>
 
               {/* Indicador de Integridade */}
@@ -382,8 +626,8 @@ const ServiceOrders = () => {
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="G">Garantia (G)</SelectItem>
-                    <SelectItem value="GO">Garantia Outros (GO)</SelectItem>
-                    <SelectItem value="GU">Garantia Usados (GU)</SelectItem>
+                    <SelectItem value="GO">Garantia de Oficina (GO)</SelectItem>
+                    <SelectItem value="GU">Garantia de Usinagem (GU)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -558,10 +802,22 @@ const ServiceOrders = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Ver Detalhes</DropdownMenuItem>
-                                <DropdownMenuItem>Editar</DropdownMenuItem>
-                                <DropdownMenuItem>Imprimir OS</DropdownMenuItem>
-                                <DropdownMenuItem>Exportar</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleViewDetails(order)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver Detalhes
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(order)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrint(order)}>
+                                  <Printer className="h-4 w-4 mr-2" />
+                                  Imprimir OS
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportSingle(order)}>
+                                  <FileDown className="h-4 w-4 mr-2" />
+                                  Exportar
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -660,6 +916,341 @@ const ServiceOrders = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Edição */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Editar Ordem de Serviço
+            </DialogTitle>
+            <DialogDescription>
+              Edite os dados da OS {selectedOrder?.order_number}. As alterações serão refletidas em todo o sistema.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Informações Básicas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Informações da OS</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Número da OS *</label>
+                      <Input
+                        value={editFormData.order_number || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, order_number: e.target.value }))}
+                        placeholder="Ex: OS-2024-001"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Data da OS *</label>
+                      <Input
+                        type="date"
+                        value={editFormData.order_date || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, order_date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Status *</label>
+                      <Select 
+                        value={editFormData.order_status || ''} 
+                        onValueChange={(value) => setEditFormData(prev => ({ ...prev, order_status: value as 'G' | 'GO' | 'GU' }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="G">Garantia (G)</SelectItem>
+                          <SelectItem value="GO">Garantia de Oficina (GO)</SelectItem>
+                          <SelectItem value="GU">Garantia de Usinagem (GU)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Equipamento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Fabricante</label>
+                      <Input
+                        value={editFormData.engine_manufacturer || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, engine_manufacturer: e.target.value }))}
+                        placeholder="Ex: Mercedes-Benz"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Motor</label>
+                      <Input
+                        value={editFormData.engine_description || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, engine_description: e.target.value }))}
+                        placeholder="Ex: OM926LA"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Modelo do Veículo</label>
+                      <Input
+                        value={editFormData.vehicle_model || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, vehicle_model: e.target.value }))}
+                        placeholder="Ex: Atego 1719"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Descrição do Defeito */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Descrição do Defeito</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <textarea
+                    className="w-full min-h-[100px] p-3 border border-gray-300 rounded-md resize-vertical"
+                    value={editFormData.raw_defect_description || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, raw_defect_description: e.target.value }))}
+                    placeholder="Descreva o defeito detalhadamente..."
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Responsável e Valores */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Responsável</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Mecânico Montador</label>
+                      <Input
+                        value={editFormData.responsible_mechanic || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, responsible_mechanic: e.target.value }))}
+                        placeholder="Ex: João Silva"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Valores Financeiros</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Total Peças (R$)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editFormData.parts_total || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, parts_total: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Total Serviços (R$)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editFormData.labor_total || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, labor_total: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 block mb-1">Total Geral (R$)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editFormData.grand_total || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, grand_total: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Ações do Dialog */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowEditDialog(false)}
+                  disabled={isUpdating}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleSaveEdit}
+                  disabled={isUpdating}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isUpdating ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Salvar Alterações
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Detalhes */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Detalhes da Ordem de Serviço
+            </DialogTitle>
+            <DialogDescription>
+              Informações completas da OS {selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Informações Básicas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Informações da OS</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Número da OS</label>
+                      <p className="font-semibold text-lg">{selectedOrder.order_number}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Data</label>
+                      <p>{selectedOrder.order_date ? new Date(selectedOrder.order_date).toLocaleDateString('pt-BR') : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Status</label>
+                      <div className="mt-1">
+                        <Badge variant={statusVariant[selectedOrder.order_status] || "default"}>
+                          {statusLabels[selectedOrder.order_status] || selectedOrder.order_status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Equipamento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Fabricante</label>
+                      <p>{selectedOrder.engine_manufacturer || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Motor</label>
+                      <p className="break-words">{selectedOrder.engine_description || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Modelo do Veículo</label>
+                      <p>{selectedOrder.vehicle_model || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Descrição do Defeito */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Descrição do Defeito</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {selectedOrder.raw_defect_description || 'Nenhuma descrição disponível'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Informações do Serviço */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Responsável</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Mecânico Montador</label>
+                      <p className="font-medium">{selectedOrder.responsible_mechanic || 'N/A'}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Valores Financeiros</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">Total Peças:</span>
+                      <span className="font-semibold">
+                        R$ {((selectedOrder.original_parts_value || selectedOrder.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">Total Serviços:</span>
+                      <span className="font-semibold">
+                        R$ {(selectedOrder.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="border-t pt-3 mt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">TOTAL GERAL:</span>
+                        <span className="text-xl font-bold text-blue-600">
+                          R$ {(((selectedOrder.original_parts_value || selectedOrder.parts_total || 0) / 2) + (selectedOrder.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Ações do Dialog */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => handlePrint(selectedOrder)}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir
+                </Button>
+                <Button variant="outline" onClick={() => handleExportSingle(selectedOrder)}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+                <Button onClick={() => setShowDetailsDialog(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

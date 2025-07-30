@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste API Direct</title>
+</head>
+<body>
+    <h1>Teste Direto da API</h1>
+    <button onclick="testAPI()">Testar API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testando...';
+            
+            try {
+                console.log('🚀 Fazendo requisição direta...');
+                const response = await fetch('http://localhost:3006/api/v1/stats');
+                console.log('📡 Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('📦 Dados recebidos:', data);
+                
+                resultDiv.innerHTML = `
+                    <h2>✅ SUCESSO!</h2>
+                    <p><strong>Total Orders:</strong> ${data.totalOrders}</p>
+                    <p><strong>Orders Array Length:</strong> ${data.orders?.length}</p>
+                    <p><strong>Status G:</strong> ${data.statusDistribution?.G}</p>
+                    <p><strong>Status GO:</strong> ${data.statusDistribution?.GO}</p>
+                    <p><strong>Status GU:</strong> ${data.statusDistribution?.GU}</p>
+                    <p><strong>Total Value:</strong> R$ ${data.financialSummary?.totalValue?.toFixed(2)}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                resultDiv.innerHTML = `
+                    <h2>❌ ERRO!</h2>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                    <p><strong>Possíveis causas:</strong></p>
+                    <ul>
+                        <li>Backend não está rodando na porta 3006</li>
+                        <li>Problema de CORS</li>
+                        <li>Firewall bloqueando</li>
+                        <li>Proxy/cache interferindo</li>
+                    </ul>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -6,11 +6,16 @@ interface ProcessingResult {
   summary: {
     totalRows: number;
     validRows: number;
+    removedByMissingFields: number;
     removedByStatus: number;
     removedByInvalidDate: number;
     removedByYearRange: number;
     statusDistribution: Record<string, number>;
     yearDistribution: Record<string, number>;
+    // Debug info
+    totalRemoved: number;
+    expectedValid: number;
+    mathematicallyCorrect: boolean;
   };
 }
 
@@ -64,6 +69,7 @@ class CleanDataProcessor {
     const dataRows = allRows.slice(1);
     
     console.log(`📊 Total de linhas na planilha: ${dataRows.length} (${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
+    console.log(`📋 Cabeçalhos encontrados: ${headers.join(', ')}`);
     
     // 3. MAPEAR COLUNAS
     const colIndexMap = {
@@ -81,8 +87,15 @@ class CleanDataProcessor {
     };
     
     // Verificar se colunas obrigatórias existem
-    if (colIndexMap.orderNumber === -1 || colIndexMap.orderDate === -1 || colIndexMap.orderStatus === -1) {
-      throw new Error('Colunas obrigatórias não encontradas');
+    console.log(`🔍 Mapeamento de colunas:`, colIndexMap);
+    
+    const missingColumns = [];
+    if (colIndexMap.orderNumber === -1) missingColumns.push('NOrdem_OSv');
+    if (colIndexMap.orderDate === -1) missingColumns.push('Data_OSv');
+    if (colIndexMap.orderStatus === -1) missingColumns.push('Status_OSv');
+    
+    if (missingColumns.length > 0) {
+      throw new Error(`Colunas obrigatórias não encontradas: ${missingColumns.join(', ')}`);
     }
     
     // 4. FILTROS COMBINADOS (OTIMIZADO)
@@ -91,22 +104,32 @@ class CleanDataProcessor {
     
     const statusDistribution: Record<string, number> = {};
     let removedByStatus = 0;
+    let removedByMissingFields = 0;
     
     // Filtrar campos obrigatórios e status em uma única passada
-    const rowsWithValidStatus = dataRows.filter((row: any) => {
+    const rowsWithValidStatus = dataRows.filter((row: any, index: number) => {
       // Verificar campos obrigatórios
-      if (!row[colIndexMap.orderNumber] || 
-          !row[colIndexMap.orderDate] || 
-          !row[colIndexMap.orderStatus]) {
+      const orderNumber = row[colIndexMap.orderNumber];
+      const orderDate = row[colIndexMap.orderDate];
+      const orderStatus = row[colIndexMap.orderStatus];
+      
+      if (!orderNumber || !orderDate || !orderStatus) {
+        removedByMissingFields++;
+        if (index < 5) { // Log apenas as primeiras 5 para não sobrecarregar
+          console.log(`❌ Linha ${index + 2}: Campos obrigatórios faltando - OS: ${orderNumber}, Data: ${orderDate}, Status: ${orderStatus}`);
+        }
         return false;
       }
       
       // Verificar status válido
-      const status = String(row[colIndexMap.orderStatus]).trim();
+      const status = String(orderStatus).trim();
       statusDistribution[status] = (statusDistribution[status] || 0) + 1;
       
       if (!validStatuses.has(status)) {
         removedByStatus++;
+        if (index < 5) {
+          console.log(`❌ Linha ${index + 2}: Status inválido "${status}" - OS: ${orderNumber}`);
+        }
         return false;
       }
       
@@ -114,7 +137,9 @@ class CleanDataProcessor {
     });
     
     console.log(`   Linhas válidas após filtros: ${rowsWithValidStatus.length}`);
+    console.log(`   Removidas por campos obrigatórios faltando: ${removedByMissingFields}`);
     console.log(`   Removidas por status inválido: ${removedByStatus}`);
+    console.log(`   Distribuição de status encontrados:`, statusDistribution);
     
     // 6. CONVERTER E FILTRAR DATAS
     console.log('📅 Processando datas...');
@@ -124,8 +149,9 @@ class CleanDataProcessor {
     
     let removedByInvalidDate = 0;
     let removedByYearRange = 0;
+    let processedDateCount = 0;
     
-    for (const row of rowsWithValidStatus as any[]) {
+    for (const [index, row] of (rowsWithValidStatus as any[]).entries()) {
       const dateValue = row[colIndexMap.orderDate];
       const dateValidation = dateValidator.validateDate(dateValue);
       
@@ -139,11 +165,18 @@ class CleanDataProcessor {
           // Transformar dados
           const transformedRow = this.transformRow(row, colIndexMap, dateValidation.date);
           validRows.push(transformedRow);
+          processedDateCount++;
         } else {
           removedByYearRange++;
+          if (index < 5) {
+            console.log(`❌ Linha ${index + 2}: Ano fora do range (${year}) - OS: ${row[colIndexMap.orderNumber]}, Data: ${dateValue}`);
+          }
         }
       } else {
         removedByInvalidDate++;
+        if (index < 5) {
+          console.log(`❌ Linha ${index + 2}: Data inválida - OS: ${row[colIndexMap.orderNumber]}, Data: ${dateValue}, Erro: ${dateValidation.error}`);
+        }
       }
     }
     
@@ -156,9 +189,23 @@ class CleanDataProcessor {
       finalStatusDist[status] = (finalStatusDist[status] || 0) + 1;
     });
     
+    // VERIFICAÇÃO MATEMÁTICA COMPLETA
+    const totalRemoved = removedByMissingFields + removedByStatus + removedByInvalidDate + removedByYearRange;
+    const expectedValid = dataRows.length - totalRemoved;
+    
     console.log('✅ Processamento concluído:');
-    console.log(`   Total válido: ${validRows.length}`);
-    console.log('   Por status:');
+    console.log(`📊 RESUMO MATEMÁTICO:`);
+    console.log(`   Total linhas Excel: ${dataRows.length}`);
+    console.log(`   - Campos obrigatórios faltando: ${removedByMissingFields}`);
+    console.log(`   - Status inválido: ${removedByStatus}`);
+    console.log(`   - Data inválida: ${removedByInvalidDate}`);
+    console.log(`   - Ano fora do range (2019-2025): ${removedByYearRange}`);
+    console.log(`   = Total removido: ${totalRemoved}`);
+    console.log(`   = Esperado válido: ${expectedValid}`);
+    console.log(`   = Real processado: ${validRows.length}`);
+    console.log(`   ${expectedValid === validRows.length ? '✅ MATEMÁTICA CORRETA' : '❌ DIFERENÇA DETECTADA!'}`);
+    
+    console.log('   Por status final:');
     Object.entries(finalStatusDist).forEach(([status, count]) => {
       const pct = ((count / validRows.length) * 100).toFixed(1);
       console.log(`     ${status}: ${count} (${pct}%)`);
@@ -175,11 +222,16 @@ class CleanDataProcessor {
       summary: {
         totalRows: dataRows.length,
         validRows: validRows.length,
+        removedByMissingFields,
         removedByStatus,
         removedByInvalidDate,
         removedByYearRange,
         statusDistribution: finalStatusDist,
-        yearDistribution
+        yearDistribution,
+        // Debug info
+        totalRemoved,
+        expectedValid,
+        mathematicallyCorrect: expectedValid === validRows.length
       }
     };
   }

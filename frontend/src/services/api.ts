@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3008';
+const API_BASE_URL = 'http://localhost:3006';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -77,6 +77,26 @@ export interface ServiceOrdersResponse {
   };
 }
 
+export interface Mechanic {
+  id: number;
+  name: string;
+  email?: string;
+  active: boolean;
+  totalOrders: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 export const apiService = {
   // Buscar estatísticas do dashboard
   async getStats(month?: number, year?: number): Promise<DashboardStats> {
@@ -146,12 +166,19 @@ export const apiService = {
     limit?: number;
     search?: string;
     status?: string;
+    month?: number;
+    year?: number;
+    manufacturer?: string;
+    mechanic?: string;
+    model?: string;
   } = {}): Promise<ServiceOrdersResponse> {
     try {
+      console.log('🔄 apiService.getServiceOrders chamado com parâmetros:', params);
       const response = await api.get('/api/v1/service-orders', { params });
+      console.log('✅ Resposta recebida:', response.data.pagination);
       return response.data;
     } catch (error) {
-      console.error('Erro ao buscar ordens de serviço:', error);
+      console.error('❌ Erro ao buscar ordens de serviço:', error);
       // Retorna dados mock em caso de erro
       return {
         data: [],
@@ -231,6 +258,135 @@ export const apiService = {
       return response.data.data?.logs || [];
     } catch (error) {
       console.error('❌ Erro ao buscar logs de integridade:', error);
+      throw error;
+    }
+  },
+
+  // Atualizar ordem de serviço
+  async updateServiceOrder(id: number, updateData: Partial<ServiceOrder>): Promise<ServiceOrder> {
+    console.log('🔄 apiService.updateServiceOrder chamado');
+    console.log('📝 ID:', id, 'Dados:', updateData);
+    
+    try {
+      const response = await api.put(`/api/v1/service-orders/${id}`, updateData);
+      console.log('✅ OS atualizada:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar OS:', error);
+      throw error;
+    }
+  },
+
+  // === MÉTODOS DE MECÂNICOS ===
+  
+  // Buscar todos os mecânicos
+  async getMechanics(): Promise<Mechanic[]> {
+    console.log('👨‍🔧 apiService.getMechanics chamado');
+    
+    try {
+      const response = await api.get('/api/v1/mechanics');
+      console.log('✅ Mecânicos recebidos:', response.data);
+      return response.data.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar mecânicos:', error);
+      throw error;
+    }
+  },
+
+  // Adicionar novo mecânico
+  async addMechanic(mechanicData: { name: string; email?: string }): Promise<Mechanic> {
+    console.log('➕ apiService.addMechanic chamado:', mechanicData);
+    
+    try {
+      const response = await api.post('/api/v1/mechanics', mechanicData);
+      console.log('✅ Mecânico adicionado:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Erro ao adicionar mecânico:', error);
+      throw error;
+    }
+  },
+
+  // Atualizar mecânico
+  async updateMechanic(id: number, updateData: Partial<Mechanic>): Promise<Mechanic> {
+    console.log('🔄 apiService.updateMechanic chamado:', id, updateData);
+    
+    try {
+      const response = await api.put(`/api/v1/mechanics/${id}`, updateData);
+      console.log('✅ Mecânico atualizado:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar mecânico:', error);
+      throw error;
+    }
+  },
+
+  // Remover mecânico
+  async removeMechanic(id: number): Promise<void> {
+    console.log('🗑️ apiService.removeMechanic chamado:', id);
+    
+    try {
+      await api.delete(`/api/v1/mechanics/${id}`);
+      console.log('✅ Mecânico removido');
+    } catch (error) {
+      console.error('❌ Erro ao remover mecânico:', error);
+      throw error;
+    }
+  },
+
+  // === MÉTODOS DE USUÁRIOS ===
+  
+  // Buscar todos os usuários
+  async getUsers(): Promise<User[]> {
+    console.log('👥 apiService.getUsers chamado');
+    
+    try {
+      const response = await api.get('/api/v1/users');
+      console.log('✅ Usuários recebidos:', response.data);
+      return response.data.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuários:', error);
+      throw error;
+    }
+  },
+
+  // Adicionar novo usuário
+  async addUser(userData: { name: string; email: string; role: 'admin' | 'user' }): Promise<User> {
+    console.log('➕ apiService.addUser chamado:', userData);
+    
+    try {
+      const response = await api.post('/api/v1/users', userData);
+      console.log('✅ Usuário adicionado:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Erro ao adicionar usuário:', error);
+      throw error;
+    }
+  },
+
+  // Atualizar usuário
+  async updateUser(id: number, updateData: Partial<User>): Promise<User> {
+    console.log('🔄 apiService.updateUser chamado:', id, updateData);
+    
+    try {
+      const response = await api.put(`/api/v1/users/${id}`, updateData);
+      console.log('✅ Usuário atualizado:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar usuário:', error);
+      throw error;
+    }
+  },
+
+  // Remover usuário
+  async removeUser(id: number): Promise<void> {
+    console.log('🗑️ apiService.removeUser chamado:', id);
+    
+    try {
+      await api.delete(`/api/v1/users/${id}`);
+      console.log('✅ Usuário removido');
+    } catch (error) {
+      console.error('❌ Erro ao remover usuário:', error);
       throw error;
     }
   }

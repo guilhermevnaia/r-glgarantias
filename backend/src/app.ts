@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { UploadController } from './controllers/UploadController';
 import { StatsController } from './controllers/StatsController';
 import { IntegrityController } from './controllers/IntegrityController';
+import { SettingsController } from './controllers/SettingsController';
 import { continuousMonitoring } from './services/ContinuousMonitoringService';
 
 dotenv.config();
@@ -40,6 +41,7 @@ app.use((req, res, next) => {
 const uploadController = new UploadController();
 const statsController = new StatsController();
 const integrityController = new IntegrityController();
+const settingsController = new SettingsController();
 
 // Rotas
 app.get('/', (req, res) => {
@@ -77,6 +79,10 @@ app.get('/api/v1/service-orders', (req, res) => {
   statsController.getServiceOrders(req, res);
 });
 
+app.put('/api/v1/service-orders/:id', (req, res) => {
+  statsController.updateServiceOrder(req, res);
+});
+
 app.get('/api/v1/upload-logs', (req, res) => {
   statsController.getUploadLogs(req, res);
 });
@@ -104,6 +110,40 @@ app.post('/api/v1/integrity/check/date-range', (req, res) => {
 
 app.post('/api/v1/integrity/check/financial', (req, res) => {
   integrityController.checkFinancialCalculations(req, res);
+});
+
+// Rotas de configurações - Mecânicos
+app.get('/api/v1/mechanics', (req, res) => {
+  settingsController.getMechanics(req, res);
+});
+
+app.post('/api/v1/mechanics', (req, res) => {
+  settingsController.addMechanic(req, res);
+});
+
+app.put('/api/v1/mechanics/:id', (req, res) => {
+  settingsController.updateMechanic(req, res);
+});
+
+app.delete('/api/v1/mechanics/:id', (req, res) => {
+  settingsController.removeMechanic(req, res);
+});
+
+// Rotas de configurações - Usuários
+app.get('/api/v1/users', (req, res) => {
+  settingsController.getUsers(req, res);
+});
+
+app.post('/api/v1/users', (req, res) => {
+  settingsController.addUser(req, res);
+});
+
+app.put('/api/v1/users/:id', (req, res) => {
+  settingsController.updateUser(req, res);
+});
+
+app.delete('/api/v1/users/:id', (req, res) => {
+  settingsController.removeUser(req, res);
 });
 
 // Middleware de tratamento de erros

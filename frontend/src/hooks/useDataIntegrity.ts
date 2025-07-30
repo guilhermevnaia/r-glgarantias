@@ -38,7 +38,7 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
   const checkHealthStatus = useCallback(async (): Promise<void> => {
     try {
       setError(null);
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3008'}/api/v1/integrity/health`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3006'}/api/v1/integrity/health`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -74,7 +74,7 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
     try {
       console.log('🔍 Frontend: Executando verificação de integridade...');
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3008'}/api/v1/integrity/check/complete`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3006'}/api/v1/integrity/check/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -167,7 +167,7 @@ export const useRecordCountVerification = (expectedCount: number) => {
     setIsChecking(true);
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3008'}/api/v1/integrity/check/total-records`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3006'}/api/v1/integrity/check/total-records`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
