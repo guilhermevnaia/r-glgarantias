@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import { UploadController } from './controllers/UploadController';
+import { UploadControllerV2 } from './controllers/UploadControllerV2';
 import { StatsController } from './controllers/StatsController';
 import { IntegrityController } from './controllers/IntegrityController';
 import { SettingsController } from './controllers/SettingsController';
@@ -10,13 +11,13 @@ import { continuousMonitoring } from './services/ContinuousMonitoringService';
 dotenv.config();
 
 const app = express();
-const port = parseInt(process.env.PORT || '3001', 10);
+const port = parseInt(process.env.PORT || '4000', 10);
 
 // Configuração do multer para upload de arquivos
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 100 * 1024 * 1024, // 100MB
   },
 });
 
@@ -39,6 +40,7 @@ app.use((req, res, next) => {
 
 // Instanciar controladores
 const uploadController = new UploadController();
+const uploadControllerV2 = new UploadControllerV2();
 const statsController = new StatsController();
 const integrityController = new IntegrityController();
 const settingsController = new SettingsController();
@@ -47,8 +49,18 @@ const settingsController = new SettingsController();
 app.get('/', (req, res) => {
   res.json({
     message: 'Sistema de Análise de Ordens de Serviço - API',
-    version: '1.0.0',
-    status: 'running'
+    version: '2.0.0',
+    status: 'running',
+    features: {
+      v1: 'Sistema original Node.js/XLSX (compatibilidade)',
+      v2: 'Sistema definitivo Python/Pandas (recomendado)'
+    },
+    endpoints: {
+      upload_v1: '/api/v1/upload',
+      upload_v2: '/api/v2/upload (RECOMENDADO)',
+      health_v2: '/api/v2/health',
+      install_deps: '/api/v2/install-dependencies'
+    }
   });
 });
 
@@ -60,9 +72,24 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Rota de upload
+// Rota de upload (SISTEMA ANTIGO - Manter para compatibilidade)
 app.post('/api/v1/upload', upload.single('file'), (req, res) => {
   uploadController.uploadExcel(req, res);
+});
+
+// NOVA ROTA DE UPLOAD DEFINITIVA COM PYTHON PANDAS
+app.post('/api/v2/upload', upload.single('file'), (req, res) => {
+  uploadControllerV2.uploadExcelDefinitive(req, res);
+});
+
+// Health check do sistema Python
+app.get('/api/v2/health', (req, res) => {
+  uploadControllerV2.healthCheck(req, res);
+});
+
+// Instalar dependências Python
+app.post('/api/v2/install-dependencies', (req, res) => {
+  uploadControllerV2.installDependencies(req, res);
 });
 
 // Rota de teste simples
@@ -161,8 +188,11 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
   console.log(`📊 API disponível em http://localhost:${port}`);
   console.log(`🔗 Health check: http://localhost:${port}/health`);
-  console.log(`📤 Upload endpoint: http://localhost:${port}/api/v1/upload`);
+  console.log(`📤 Upload v1 (Node.js): http://localhost:${port}/api/v1/upload`);
+  console.log(`🐍 Upload v2 (Python): http://localhost:${port}/api/v2/upload`);
+  console.log(`🔍 Python health: http://localhost:${port}/api/v2/health`);
   console.log(`🔍 Integridade: http://localhost:${port}/api/v1/integrity/health`);
+  console.log(`\n⚡ SISTEMA DEFINITIVO PYTHON DISPONÍVEL!`);
   
   // Iniciar monitoramento contínuo após 30 segundos (dar tempo para o servidor estabilizar)
   setTimeout(() => {

@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3006';
+const API_BASE_URL = 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 120000, // 2 minutes for large files
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -198,7 +198,8 @@ export const apiService = {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await api.post('/api/v1/upload', formData, {
+      // 🏆 USAR SISTEMA DEFINITIVO PYTHON v2
+      const response = await api.post('/api/v2/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

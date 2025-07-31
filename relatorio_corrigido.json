@@ -1,0 +1,405 @@
+{
+  "summary": {
+    "total_rows_read": 17717,
+    "total_valid_records": 2488,
+    "total_rejected_records": 15229,
+    "expected_target": 2519,
+    "current_result": 2488,
+    "missing_records": 31,
+    "mathematical_verification": true
+  },
+  "rejection_breakdown": {
+    "missing_fields": {
+      "count": 5508,
+      "percentage": 31.09,
+      "sample_rows": [
+        {
+          "excel_row": 722,
+          "order_number": "025525",
+          "reason": "Campos faltando: status"
+        },
+        {
+          "excel_row": 723,
+          "order_number": "025526",
+          "reason": "Campos faltando: status"
+        },
+        {
+          "excel_row": 727,
+          "order_number": "027519",
+          "reason": "Campos faltando: status"
+        },
+        {
+          "excel_row": 731,
+          "order_number": "027752",
+          "reason": "Campos faltando: status"
+        },
+        {
+          "excel_row": 732,
+          "order_number": "027818",
+          "reason": "Campos faltando: status"
+        }
+      ]
+    },
+    "invalid_status": {
+      "count": 6167,
+      "percentage": 34.81,
+      "status_found": {
+        "1": 4901,
+        "G": 5773,
+        "GU": 60,
+        "B": 17,
+        "GO": 209,
+        "O": 276,
+        "H": 22,
+        "NS": 6,
+        "R": 163,
+        "K": 782
+      },
+      "sample_rows": [
+        {
+          "excel_row": 2,
+          "order_number": "*00000",
+          "invalid_status": "1",
+          "reason": "Status inválido: '1' (válidos: G, GO, GU)"
+        },
+        {
+          "excel_row": 3,
+          "order_number": "000000",
+          "invalid_status": "1",
+          "reason": "Status inválido: '1' (válidos: G, GO, GU)"
+        },
+        {
+          "excel_row": 1320,
+          "order_number": "037230",
+          "invalid_status": "1",
+          "reason": "Status inválido: '1' (válidos: G, GO, GU)"
+        },
+        {
+          "excel_row": 1578,
+          "order_number": "039208",
+          "invalid_status": "1",
+          "reason": "Status inválido: '1' (válidos: G, GO, GU)"
+        },
+        {
+          "excel_row": 1599,
+          "order_number": "039309",
+          "invalid_status": "1",
+          "reason": "Status inválido: '1' (válidos: G, GO, GU)"
+        }
+      ]
+    },
+    "invalid_dates": {
+      "count": 0,
+      "percentage": 0.0,
+      "sample_rows": []
+    },
+    "year_out_of_range": {
+      "count": 3523,
+      "percentage": 19.88,
+      "sample_rows": [
+        {
+          "excel_row": 4,
+          "order_number": "000001",
+          "year": 2006,
+          "date": "2006-03-11T00:00:00",
+          "reason": "Ano fora do range: 2006 (range: 2019-2025)"
+        },
+        {
+          "excel_row": 5,
+          "order_number": "000011",
+          "year": 2006,
+          "date": "2006-03-11T00:00:00",
+          "reason": "Ano fora do range: 2006 (range: 2019-2025)"
+        },
+        {
+          "excel_row": 6,
+          "order_number": "000012",
+          "year": 2006,
+          "date": "2006-03-11T00:00:00",
+          "reason": "Ano fora do range: 2006 (range: 2019-2025)"
+        },
+        {
+          "excel_row": 7,
+          "order_number": "000025",
+          "year": 2006,
+          "date": "2006-07-11T00:00:00",
+          "reason": "Ano fora do range: 2006 (range: 2019-2025)"
+        },
+        {
+          "excel_row": 8,
+          "order_number": "000027",
+          "year": 2006,
+          "date": "2006-07-11T00:00:00",
+          "reason": "Ano fora do range: 2006 (range: 2019-2025)"
+        }
+      ]
+    },
+    "future_dates": {
+      "count": 31,
+      "percentage": 0.17,
+      "sample_rows": [
+        {
+          "excel_row": 16381,
+          "order_number": "119266",
+          "date": "2025-09-01T00:00:00",
+          "reason": "Data futura impossível: 09/2025 (mês atual: 7)"
+        },
+        {
+          "excel_row": 16392,
+          "order_number": "119279",
+          "date": "2025-09-01T00:00:00",
+          "reason": "Data futura impossível: 09/2025 (mês atual: 7)"
+        },
+        {
+          "excel_row": 16400,
+          "order_number": "119288",
+          "date": "2025-10-01T00:00:00",
+          "reason": "Data futura impossível: 10/2025 (mês atual: 7)"
+        },
+        {
+          "excel_row": 16402,
+          "order_number": "119290",
+          "date": "2025-10-01T00:00:00",
+          "reason": "Data futura impossível: 10/2025 (mês atual: 7)"
+        },
+        {
+          "excel_row": 16403,
+          "order_number": "119291",
+          "date": "2025-10-01T00:00:00",
+          "reason": "Data futura impossível: 10/2025 (mês atual: 7)"
+        }
+      ]
+    }
+  },
+  "year_distribution_analysis": {
+    "2019": {
+      "total_records": 405,
+      "percentage": 16.28,
+      "sample_orders": [
+        {
+          "order_number": "033546",
+          "excel_row": 845,
+          "date": "2019-01-21T00:00:00"
+        },
+        {
+          "order_number": "034957",
+          "excel_row": 878,
+          "date": "2019-06-27T00:00:00"
+        },
+        {
+          "order_number": "033762",
+          "excel_row": 884,
+          "date": "2019-02-19T00:00:00"
+        }
+      ]
+    },
+    "2020": {
+      "total_records": 457,
+      "percentage": 18.37,
+      "sample_orders": [
+        {
+          "order_number": "036549",
+          "excel_row": 1137,
+          "date": "2020-07-04T00:00:00"
+        },
+        {
+          "order_number": "035908",
+          "excel_row": 1168,
+          "date": "2020-01-23T00:00:00"
+        },
+        {
+          "order_number": "036032",
+          "excel_row": 1183,
+          "date": "2020-01-24T00:00:00"
+        }
+      ]
+    },
+    "2021": {
+      "total_records": 388,
+      "percentage": 15.59,
+      "sample_orders": [
+        {
+          "order_number": "038587",
+          "excel_row": 1493,
+          "date": "2021-02-25T00:00:00"
+        },
+        {
+          "order_number": "038749",
+          "excel_row": 1518,
+          "date": "2021-03-19T00:00:00"
+        },
+        {
+          "order_number": "039127",
+          "excel_row": 1523,
+          "date": "2021-05-20T00:00:00"
+        }
+      ]
+    },
+    "2022": {
+      "total_records": 325,
+      "percentage": 13.06,
+      "sample_orders": [
+        {
+          "order_number": "058712",
+          "excel_row": 3426,
+          "date": "2022-06-06T00:00:00"
+        },
+        {
+          "order_number": "108860",
+          "excel_row": 8473,
+          "date": "2022-01-18T00:00:00"
+        },
+        {
+          "order_number": "108864",
+          "excel_row": 8477,
+          "date": "2022-01-19T00:00:00"
+        }
+      ]
+    },
+    "2023": {
+      "total_records": 378,
+      "percentage": 15.19,
+      "sample_orders": [
+        {
+          "order_number": "044237",
+          "excel_row": 2256,
+          "date": "2023-03-14T00:00:00"
+        },
+        {
+          "order_number": "045223",
+          "excel_row": 2411,
+          "date": "2023-06-27T00:00:00"
+        },
+        {
+          "order_number": "112542",
+          "excel_row": 11554,
+          "date": "2023-05-01T00:00:00"
+        }
+      ]
+    },
+    "2024": {
+      "total_records": 346,
+      "percentage": 13.91,
+      "sample_orders": [
+        {
+          "order_number": "047667",
+          "excel_row": 2721,
+          "date": "2024-02-02T00:00:00"
+        },
+        {
+          "order_number": "048367",
+          "excel_row": 2875,
+          "date": "2024-05-15T00:00:00"
+        },
+        {
+          "order_number": "048459",
+          "excel_row": 2900,
+          "date": "2024-04-22T00:00:00"
+        }
+      ]
+    },
+    "2025": {
+      "total_records": 189,
+      "percentage": 7.6,
+      "sample_orders": [
+        {
+          "order_number": "051706",
+          "excel_row": 3305,
+          "date": "2025-02-24T00:00:00"
+        },
+        {
+          "order_number": "119461",
+          "excel_row": 16279,
+          "date": "2025-01-31T00:00:00"
+        },
+        {
+          "order_number": "119466",
+          "excel_row": 16282,
+          "date": "2025-01-31T00:00:00"
+        }
+      ]
+    }
+  },
+  "data_quality_insights": {
+    "most_common_rejection": [
+      "invalid_status",
+      6167
+    ],
+    "status_distribution_all": {
+      "1": 4901,
+      "G": 5773,
+      "GU": 60,
+      "B": 17,
+      "GO": 209,
+      "O": 276,
+      "H": 22,
+      "NS": 6,
+      "R": 163,
+      "K": 782
+    },
+    "data_completeness_score": 14.04,
+    "target_achievement": 98.77
+  },
+  "sample_valid_data": [
+    {
+      "excel_row": 845,
+      "order_number": "033546",
+      "raw_date": "2019-01-21 00:00:00",
+      "raw_status": "G",
+      "rejection_reason": null,
+      "processed_date": "2019-01-21T00:00:00",
+      "year": 2019,
+      "engine_manufacturer": "MWM",
+      "vehicle_model": "VALMET 785"
+    },
+    {
+      "excel_row": 878,
+      "order_number": "034957",
+      "raw_date": "2019-06-27 00:00:00",
+      "raw_status": "G",
+      "rejection_reason": null,
+      "processed_date": "2019-06-27T00:00:00",
+      "year": 2019,
+      "engine_manufacturer": "PERKINS",
+      "vehicle_model": "MF 235"
+    },
+    {
+      "excel_row": 884,
+      "order_number": "033762",
+      "raw_date": "2019-02-19 00:00:00",
+      "raw_status": "G",
+      "rejection_reason": null,
+      "processed_date": "2019-02-19T00:00:00",
+      "year": 2019,
+      "engine_manufacturer": "MERCEDES-BENZ",
+      "vehicle_model": "MB 1113"
+    },
+    {
+      "excel_row": 895,
+      "order_number": "033929",
+      "raw_date": "2019-03-13 00:00:00",
+      "raw_status": "G",
+      "rejection_reason": null,
+      "processed_date": "2019-03-13T00:00:00",
+      "year": 2019,
+      "engine_manufacturer": "SCANIA",
+      "vehicle_model": "SCANIA 124"
+    },
+    {
+      "excel_row": 910,
+      "order_number": "033990",
+      "raw_date": "2019-05-27 00:00:00",
+      "raw_status": "G",
+      "rejection_reason": null,
+      "processed_date": "2019-05-27T00:00:00",
+      "year": 2019,
+      "engine_manufacturer": "TOYOTA",
+      "vehicle_model": "TOYOTA BANDEIRANTES"
+    }
+  ],
+  "recommendations": [
+    "FALTAM 31 registros para atingir o target de 2519",
+    "Principal causa de rejeição: invalid_status (6167 registros)",
+    "Revisar regras de status - considerar aceitar outros status além de G, GO, GU"
+  ]
+}

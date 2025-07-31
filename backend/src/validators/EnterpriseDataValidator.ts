@@ -67,7 +67,7 @@ class EnterpriseDataValidator {
     try {
       parsedDate = this.safeDateParse(rawDate);
     } catch (error) {
-      result.errors.push(`Erro no parsing: ${error.message}`);
+      result.errors.push(`Erro no parsing: ${(error as Error).message}`);
       return result;
     }
 

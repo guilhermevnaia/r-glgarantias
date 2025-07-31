@@ -1,0 +1,486 @@
+{
+  "validation_summary": {
+    "total_valid_records": 2519,
+    "target_achieved": true,
+    "validation_date": "2025-07-31T10:51:38.087077",
+    "data_quality_score": "EXCELLENT"
+  },
+  "global_totals": {
+    "total_os_all_years": 2519,
+    "total_financial_all_years": 3183147.02,
+    "total_with_defect_descriptions": 2353,
+    "defect_description_rate": 93.41
+  },
+  "year_by_year_analysis": {
+    "2019": {
+      "os_count": 405,
+      "date_analysis": {
+        "month_distribution": {
+          "1": 27,
+          "6": 31,
+          "2": 24,
+          "3": 22,
+          "5": 43,
+          "4": 38,
+          "7": 44,
+          "12": 30,
+          "8": 31,
+          "9": 38,
+          "10": 34,
+          "11": 43
+        },
+        "date_range": {
+          "first_date": "2019-01-02",
+          "last_date": "2019-12-27"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 370,
+        "without_description": 35,
+        "unique_defects_approx": 300,
+        "description_rate": 91.36
+      },
+      "financial_totals": {
+        "total_parts": 116168.63,
+        "total_labor": 207316.98,
+        "total_grand": 436154.23,
+        "average_per_os": 1076.92
+      },
+      "status_distribution": {
+        "G": 399,
+        "GO": 6
+      },
+      "top_manufacturers": {
+        "MWM": 71,
+        "MERCEDES-BENZ": 67,
+        "CUMMINS": 60,
+        "PERKINS": 29,
+        "FIAT": 27
+      },
+      "sample_records": [
+        {
+          "order_number": "033546",
+          "date": "2019-01-21",
+          "status": "G",
+          "grand_total": 1111.53
+        },
+        {
+          "order_number": "034957",
+          "date": "2019-06-27",
+          "status": "G",
+          "grand_total": 653.08
+        },
+        {
+          "order_number": "033762",
+          "date": "2019-02-19",
+          "status": "G",
+          "grand_total": 249.6
+        }
+      ]
+    },
+    "2020": {
+      "os_count": 457,
+      "date_analysis": {
+        "month_distribution": {
+          "4": 21,
+          "1": 47,
+          "3": 38,
+          "5": 38,
+          "6": 38,
+          "7": 54,
+          "11": 42,
+          "9": 23,
+          "10": 45,
+          "2": 44,
+          "8": 35,
+          "12": 32
+        },
+        "date_range": {
+          "first_date": "2020-01-02",
+          "last_date": "2020-12-28"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 428,
+        "without_description": 29,
+        "unique_defects_approx": 381,
+        "description_rate": 93.65
+      },
+      "financial_totals": {
+        "total_parts": 120161.67,
+        "total_labor": 235078.98,
+        "total_grand": 475402.31,
+        "average_per_os": 1040.27
+      },
+      "status_distribution": {
+        "G": 385,
+        "GU": 23,
+        "GO": 49
+      },
+      "top_manufacturers": {
+        "MWM": 84,
+        "MERCEDES-BENZ": 71,
+        "CUMMINS": 65,
+        "PERKINS": 28,
+        "YANMAR": 23
+      },
+      "sample_records": [
+        {
+          "order_number": "036549",
+          "date": "2020-04-07",
+          "status": "G",
+          "grand_total": 13447.92
+        },
+        {
+          "order_number": "035908",
+          "date": "2020-01-23",
+          "status": "G",
+          "grand_total": 0.0
+        },
+        {
+          "order_number": "036032",
+          "date": "2020-01-24",
+          "status": "G",
+          "grand_total": 51.48
+        }
+      ]
+    },
+    "2021": {
+      "os_count": 388,
+      "date_analysis": {
+        "month_distribution": {
+          "2": 24,
+          "3": 33,
+          "5": 31,
+          "4": 31,
+          "7": 26,
+          "8": 52,
+          "6": 38,
+          "9": 41,
+          "1": 30,
+          "11": 34,
+          "10": 20,
+          "12": 28
+        },
+        "date_range": {
+          "first_date": "2021-01-04",
+          "last_date": "2021-12-30"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 383,
+        "without_description": 5,
+        "unique_defects_approx": 378,
+        "description_rate": 98.71
+      },
+      "financial_totals": {
+        "total_parts": 111323.2,
+        "total_labor": 195585.56,
+        "total_grand": 417940.11,
+        "average_per_os": 1077.17
+      },
+      "status_distribution": {
+        "GU": 19,
+        "G": 312,
+        "GO": 57
+      },
+      "top_manufacturers": {
+        "MWM": 67,
+        "CUMMINS": 58,
+        "MERCEDES-BENZ": 52,
+        "PERKINS": 50,
+        "YANMAR": 21
+      },
+      "sample_records": [
+        {
+          "order_number": "038587",
+          "date": "2021-02-25",
+          "status": "GU",
+          "grand_total": 8590.05
+        },
+        {
+          "order_number": "038749",
+          "date": "2021-03-19",
+          "status": "GU",
+          "grand_total": 963.73
+        },
+        {
+          "order_number": "039127",
+          "date": "2021-05-20",
+          "status": "GU",
+          "grand_total": 96.1
+        }
+      ]
+    },
+    "2022": {
+      "os_count": 325,
+      "date_analysis": {
+        "month_distribution": {
+          "6": 28,
+          "1": 23,
+          "2": 26,
+          "3": 27,
+          "4": 24,
+          "5": 19,
+          "7": 29,
+          "8": 28,
+          "9": 41,
+          "10": 28,
+          "11": 29,
+          "12": 23
+        },
+        "date_range": {
+          "first_date": "2022-01-03",
+          "last_date": "2022-12-29"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 321,
+        "without_description": 4,
+        "unique_defects_approx": 320,
+        "description_rate": 98.77
+      },
+      "financial_totals": {
+        "total_parts": 110236.53,
+        "total_labor": 232992.44,
+        "total_grand": 453465.49,
+        "average_per_os": 1395.28
+      },
+      "status_distribution": {
+        "G": 282,
+        "GO": 34,
+        "GU": 9
+      },
+      "top_manufacturers": {
+        "MWM": 59,
+        "CUMMINS": 51,
+        "PERKINS": 41,
+        "MERCEDES-BENZ": 40,
+        "VOLKSWAGEN": 15
+      },
+      "sample_records": [
+        {
+          "order_number": "058712",
+          "date": "2022-06-06",
+          "status": "G",
+          "grand_total": 4620.24
+        },
+        {
+          "order_number": "108860",
+          "date": "2022-01-18",
+          "status": "G",
+          "grand_total": 759.6
+        },
+        {
+          "order_number": "108864",
+          "date": "2022-01-19",
+          "status": "G",
+          "grand_total": 1656.24
+        }
+      ]
+    },
+    "2023": {
+      "os_count": 378,
+      "date_analysis": {
+        "month_distribution": {
+          "3": 35,
+          "6": 29,
+          "1": 36,
+          "2": 25,
+          "7": 33,
+          "4": 14,
+          "5": 35,
+          "8": 28,
+          "9": 42,
+          "10": 31,
+          "11": 32,
+          "12": 38
+        },
+        "date_range": {
+          "first_date": "2023-01-05",
+          "last_date": "2023-12-29"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 369,
+        "without_description": 9,
+        "unique_defects_approx": 367,
+        "description_rate": 97.62
+      },
+      "financial_totals": {
+        "total_parts": 105398.49,
+        "total_labor": 305039.97,
+        "total_grand": 515836.95,
+        "average_per_os": 1364.65
+      },
+      "status_distribution": {
+        "G": 345,
+        "GO": 27,
+        "GU": 6
+      },
+      "top_manufacturers": {
+        "PERKINS": 59,
+        "CUMMINS": 55,
+        "MERCEDES-BENZ": 55,
+        "MWM": 54,
+        "VALTRA": 17
+      },
+      "sample_records": [
+        {
+          "order_number": "044237",
+          "date": "2023-03-14",
+          "status": "G",
+          "grand_total": 10707.75
+        },
+        {
+          "order_number": "045223",
+          "date": "2023-06-27",
+          "status": "G",
+          "grand_total": 31019.62
+        },
+        {
+          "order_number": "112542",
+          "date": "2023-01-05",
+          "status": "GO",
+          "grand_total": 30.0
+        }
+      ]
+    },
+    "2024": {
+      "os_count": 346,
+      "date_analysis": {
+        "month_distribution": {
+          "2": 28,
+          "5": 29,
+          "4": 30,
+          "8": 25,
+          "1": 32,
+          "3": 24,
+          "6": 37,
+          "7": 28,
+          "9": 26,
+          "10": 36,
+          "11": 32,
+          "12": 19
+        },
+        "date_range": {
+          "first_date": "2024-01-02",
+          "last_date": "2024-12-23"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 288,
+        "without_description": 58,
+        "unique_defects_approx": 262,
+        "description_rate": 83.24
+      },
+      "financial_totals": {
+        "total_parts": 136906.6,
+        "total_labor": 256790.31,
+        "total_grand": 530603.51,
+        "average_per_os": 1533.54
+      },
+      "status_distribution": {
+        "G": 333,
+        "GO": 11,
+        "GU": 2
+      },
+      "top_manufacturers": {
+        "CUMMINS": 65,
+        "MERCEDES-BENZ": 50,
+        "MWM": 47,
+        "PERKINS": 34,
+        "YANMAR": 14
+      },
+      "sample_records": [
+        {
+          "order_number": "047667",
+          "date": "2024-02-02",
+          "status": "G",
+          "grand_total": 1132.84
+        },
+        {
+          "order_number": "048367",
+          "date": "2024-05-15",
+          "status": "G",
+          "grand_total": 3279.06
+        },
+        {
+          "order_number": "048459",
+          "date": "2024-04-22",
+          "status": "G",
+          "grand_total": 15811.23
+        }
+      ]
+    },
+    "2025": {
+      "os_count": 220,
+      "date_analysis": {
+        "month_distribution": {
+          "2": 36,
+          "1": 34,
+          "3": 28,
+          "5": 41,
+          "4": 32,
+          "6": 31,
+          "7": 18
+        },
+        "date_range": {
+          "first_date": "2025-01-06",
+          "last_date": "2025-07-15"
+        }
+      },
+      "defect_analysis": {
+        "with_description": 194,
+        "without_description": 26,
+        "unique_defects_approx": 181,
+        "description_rate": 88.18
+      },
+      "financial_totals": {
+        "total_parts": 75758.15,
+        "total_labor": 202418.13,
+        "total_grand": 353744.42,
+        "average_per_os": 1607.93
+      },
+      "status_distribution": {
+        "G": 212,
+        "GU": 1,
+        "GO": 7
+      },
+      "top_manufacturers": {
+        "CUMMINS": 51,
+        "MERCEDES-BENZ": 34,
+        "MWM": 29,
+        "PERKINS": 22,
+        "IVECO": 17
+      },
+      "sample_records": [
+        {
+          "order_number": "051706",
+          "date": "2025-02-24",
+          "status": "G",
+          "grand_total": 1991.81
+        },
+        {
+          "order_number": "119461",
+          "date": "2025-01-31",
+          "status": "G",
+          "grand_total": 344.0
+        },
+        {
+          "order_number": "119466",
+          "date": "2025-01-31",
+          "status": "G",
+          "grand_total": 280.0
+        }
+      ]
+    }
+  },
+  "critical_validations": {
+    "target_2519_achieved": true,
+    "year_2025_has_220_records": true,
+    "no_impossible_future_dates": true,
+    "all_years_present": true,
+    "financial_totals_positive": true
+  }
+}

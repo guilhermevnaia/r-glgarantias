@@ -1,0 +1,29 @@
+🚨 ATENÇÃO - SISTEMA CRÍTICO 🚨
+
+⛔ NÃO ALTERAR OS SEGUINTES ARQUIVOS SEM VALIDAÇÃO COMPLETA:
+
+🏆 ARQUIVO PRINCIPAL (MAIS IMPORTANTE):
+   python/excel_processor.py
+
+🌉 ARQUIVOS DE INTEGRAÇÃO:
+   src/services/PythonExcelService.ts
+   src/controllers/UploadControllerV2.ts
+
+🚀 ROTAS CRÍTICAS NO APP.TS (linhas 70-83):
+   POST /api/v2/upload
+   GET /api/v2/health
+
+📦 DEPENDÊNCIAS:
+   python/requirements.txt
+
+⚠️ QUALQUER ALTERAÇÃO NESTES ARQUIVOS PODE QUEBRAR 
+   O PROCESSAMENTO DE 2.519 REGISTROS VALIDADOS!
+
+🆘 EM CASO DE ERRO, USE OS CÓDIGOS:
+   - PYTHON_UPLOAD_ERROR
+   - DATE_PARSING_BUG  
+   - TARGET_2519_PERDIDO
+
+📅 Sistema implantado: 31/07/2025
+🎯 Status: PRODUÇÃO CRÍTICA
+🛡️ Proteção: PERMANENTE
