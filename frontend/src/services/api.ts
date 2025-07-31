@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+const API_BASE_URL = 'http://localhost:3009';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -26,6 +26,12 @@ export interface ServiceOrder {
   order_status: 'G' | 'GO' | 'GU';
   created_at: string;
   updated_at: string;
+  // ✅ CAMPOS DE PROTEÇÃO DE EDIÇÕES
+  manually_edited?: boolean;
+  protected_fields?: Record<string, boolean>;
+  last_edited_by?: string;
+  last_edit_date?: string;
+  edit_count?: number;
 }
 
 export interface DashboardStats {
@@ -388,6 +394,36 @@ export const apiService = {
       console.log('✅ Usuário removido');
     } catch (error) {
       console.error('❌ Erro ao remover usuário:', error);
+      throw error;
+    }
+  },
+
+  // === MÉTODOS DE PROTEÇÃO DE DADOS EDITADOS ===
+  
+  // Buscar relatório de dados editados
+  async getEditedDataReport(): Promise<any> {
+    console.log('📊 apiService.getEditedDataReport chamado');
+    
+    try {
+      const response = await api.get('/api/v2/edited-data-report');
+      console.log('✅ Relatório de dados editados recebido:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar relatório de dados editados:', error);
+      throw error;
+    }
+  },
+
+  // Resetar proteção de uma ordem específica
+  async resetOrderProtection(orderNumber: string): Promise<any> {
+    console.log('🔓 apiService.resetOrderProtection chamado:', orderNumber);
+    
+    try {
+      const response = await api.post(`/api/v2/reset-protection/${orderNumber}`);
+      console.log('✅ Proteção resetada:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao resetar proteção:', error);
       throw error;
     }
   }

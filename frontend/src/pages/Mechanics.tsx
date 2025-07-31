@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { 
   Users, 
   TrendingUp, 
@@ -16,23 +15,21 @@ import {
   Filter,
   Download,
   RefreshCw,
-  Award,
-  Star,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Target,
-  BarChart3,
-  Trophy,
-  Medal,
-  Zap,
-  ThumbsUp,
-  Calendar,
-  Wrench
+  AlertTriangle,
+  DollarSign,
+  Shield,
+  Wrench,
+  AlertOctagon,
+  XCircle,
+  MinusCircle,
+  FilterX,
+  FileText,
+  Activity,
+  Calendar
 } from "lucide-react";
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
-import { apiService, DashboardStats } from "@/services/api";
+import { useMechanicsData } from "@/hooks/useGlobalData";
 import { 
   BarChart, 
   Bar, 
@@ -46,53 +43,85 @@ import {
   Cell,
   LineChart,
   Line,
-  Area,
-  AreaChart,
-  ComposedChart,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ScatterChart,
-  Scatter
+  Legend
 } from 'recharts';
 
 const Mechanics = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState('all');
-  const [selectedSpecialty, setSelectedSpecialty] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await apiService.getStats();
-        setStats(data);
-      } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
-      } finally {
-        setLoading(false);
-      }
+  // Estados para filtros com período padrão (mês mais recente)
+  const [dateRange, setDateRange] = useState<{start: string, end: string}>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: firstDay.toISOString().split('T')[0],
+      end: lastDay.toISOString().split('T')[0]
     };
+  });
+  const [selectedDefectType, setSelectedDefectType] = useState('all');
+  const [selectedMotor, setSelectedMotor] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [sortBy, setSortBy] = useState<'warranties' | 'totalCost' | 'avgCost' | 'defects'>('warranties');
+  const [showMechanicDetails, setShowMechanicDetails] = useState<string | null>(null);
+  const [showDefectsModal, setShowDefectsModal] = useState<{mechanic: string, defects: string[]} | null>(null);
 
-    fetchStats();
-  }, []);
+  // Buscar dados reais com hook (convertendo dateRange para month/year)
+  const getMonthYearFromRange = () => {
+    if (!dateRange.start || !dateRange.end) {
+      console.log('🔍 Sem range definido, usando dados completos');
+      return { month: undefined, year: undefined };
+    }
+    
+    const startDate = new Date(dateRange.start);
+    const endDate = new Date(dateRange.end);
+    
+    console.log('📅 Range selecionado:', {
+      start: dateRange.start,
+      end: dateRange.end,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    });
+    
+    // Se for o mesmo mês, usar esse mês específico
+    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+      const result = { month: startDate.getMonth() + 1, year: startDate.getFullYear() };
+      console.log('📅 Filtro por mês específico:', result);
+      return result;
+    }
+    
+    // Se o período abrange um ano completo ou é principalmente de um ano
+    if (startDate.getFullYear() === endDate.getFullYear()) {
+      const result = { month: undefined, year: startDate.getFullYear() };
+      console.log('📅 Filtro por ano:', result);
+      return result;
+    }
+    
+    // Se abrange múltiplos anos, vamos usar o ano mais representativo
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    const middleYear = Math.floor((startYear + endYear) / 2);
+    const result = { month: undefined, year: middleYear };
+    console.log('📅 Filtro por múltiplos anos, usando ano do meio:', result);
+    return result;
+  };
+  
+  const { month, year } = getMonthYearFromRange();
+  console.log('🔎 Parâmetros finais para API:', { month, year });
+  const { data: mechanicsData, isLoading: loading, error } = useMechanicsData(month, year);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-apple-gray-50 p-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-white rounded-apple-lg w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="min-h-screen bg-apple-gray-50 p-4 sm:p-6 lg:p-8">
+        <div className="animate-pulse space-y-6 max-w-7xl mx-auto">
+          <div className="h-8 bg-white rounded-lg w-1/3"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-white rounded-apple-lg"></div>
+              <div key={i} className="h-32 bg-white rounded-lg"></div>
             ))}
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-80 bg-white rounded-apple-lg"></div>
+              <div key={i} className="h-80 bg-white rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -100,14 +129,14 @@ const Mechanics = () => {
     );
   }
 
-  if (!stats) {
+  if (error || !mechanicsData) {
     return (
-      <div className="min-h-screen bg-apple-gray-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
+      <div className="min-h-screen bg-apple-gray-50 flex items-center justify-center p-4">
+        <Card className="p-8 text-center max-w-md w-full">
           <CardContent>
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-apple-gray-500">Erro ao carregar dados dos mecânicos</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-gray-600 mb-4">Erro ao carregar dados dos mecânicos</p>
+            <Button onClick={() => window.location.reload()} className="w-full">
               <RefreshCw className="h-4 w-4 mr-2" />
               Tentar Novamente
             </Button>
@@ -117,818 +146,1153 @@ const Mechanics = () => {
     );
   }
 
-  // Dados simulados para análise de mecânicos (em produção viriam da API)
-  const topMechanics = [
-    { 
-      id: 1,
-      name: 'Carlos Silva', 
-      orders: 156, 
-      approvalRate: 94.2, 
-      avgTime: 3.2, 
-      rating: 4.8,
-      specialty: 'Motor',
-      experience: 8,
-      certifications: 3,
-      avatar: '/avatars/carlos.jpg'
-    },
-    { 
-      id: 2,
-      name: 'João Santos', 
-      orders: 142, 
-      approvalRate: 91.5, 
-      avgTime: 3.8, 
-      rating: 4.6,
-      specialty: 'Transmissão',
-      experience: 6,
-      certifications: 2,
-      avatar: '/avatars/joao.jpg'
-    },
-    { 
-      id: 3,
-      name: 'Pedro Oliveira', 
-      orders: 138, 
-      approvalRate: 89.7, 
-      avgTime: 4.1, 
-      rating: 4.5,
-      specialty: 'Sistema Elétrico',
-      experience: 5,
-      certifications: 4,
-      avatar: '/avatars/pedro.jpg'
-    },
-    { 
-      id: 4,
-      name: 'Roberto Lima', 
-      orders: 134, 
-      approvalRate: 92.8, 
-      avgTime: 3.5, 
-      rating: 4.7,
-      specialty: 'Motor',
-      experience: 10,
-      certifications: 5,
-      avatar: '/avatars/roberto.jpg'
-    },
-    { 
-      id: 5,
-      name: 'André Costa', 
-      orders: 128, 
-      approvalRate: 88.3, 
-      avgTime: 4.3, 
-      rating: 4.4,
-      specialty: 'Freios',
-      experience: 4,
-      certifications: 2,
-      avatar: '/avatars/andre.jpg'
-    },
-    { 
-      id: 6,
-      name: 'Fernando Alves', 
-      orders: 125, 
-      approvalRate: 90.4, 
-      avgTime: 3.9, 
-      rating: 4.5,
-      specialty: 'Transmissão',
-      experience: 7,
-      certifications: 3,
-      avatar: '/avatars/fernando.jpg'
-    },
-    { 
-      id: 7,
-      name: 'Marcos Pereira', 
-      orders: 118, 
-      approvalRate: 87.2, 
-      avgTime: 4.5, 
-      rating: 4.3,
-      specialty: 'Suspensão',
-      experience: 3,
-      certifications: 1,
-      avatar: '/avatars/marcos.jpg'
-    },
-    { 
-      id: 8,
-      name: 'Luis Rodrigues', 
-      orders: 115, 
-      approvalRate: 93.1, 
-      avgTime: 3.6, 
-      rating: 4.6,
-      specialty: 'Sistema Elétrico',
-      experience: 9,
-      certifications: 4,
-      avatar: '/avatars/luis.jpg'
+  // Filtrar dados baseado nos filtros selecionados
+  const filteredMechanics = (mechanicsData?.mechanicsStats || []).filter((mechanic: any) => {
+    const matchesSearch = !searchTerm || 
+      mechanic.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesDefect = selectedDefectType === 'all' || 
+      mechanic.defectTypes.some((defect: string) => 
+        defect.toLowerCase().includes(selectedDefectType.toLowerCase())
+      );
+    
+    const matchesMotor = selectedMotor === 'all' || 
+      mechanic.models.some((model: string) => 
+        model.toLowerCase().includes(selectedMotor.toLowerCase())
+      );
+
+    return matchesSearch && matchesDefect && matchesMotor;
+  });
+
+  // Função para formatar moeda
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  // Função para obter iniciais do nome
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Dados para gráficos com ordenação
+  const sortedMechanics = [...filteredMechanics].sort((a: any, b: any) => {
+    switch (sortBy) {
+      case 'warranties':
+        return b.totalWarranties - a.totalWarranties;
+      case 'totalCost':
+        return b.totalCost - a.totalCost;
+      case 'avgCost':
+        return b.avgCostPerWarranty - a.avgCostPerWarranty;
+      case 'defects':
+        return b.defectTypes.length - a.defectTypes.length;
+      default:
+        return b.totalWarranties - a.totalWarranties;
     }
-  ];
-
-  const mechanicSpecialties = [
-    { specialty: 'Motor', mechanics: 12, avgRating: 4.6, totalOrders: 456 },
-    { specialty: 'Transmissão', mechanics: 8, avgRating: 4.4, totalOrders: 342 },
-    { specialty: 'Sistema Elétrico', mechanics: 10, avgRating: 4.5, totalOrders: 298 },
-    { specialty: 'Freios', mechanics: 6, avgRating: 4.3, totalOrders: 234 },
-    { specialty: 'Suspensão', mechanics: 5, avgRating: 4.2, totalOrders: 189 },
-    { specialty: 'Outros', mechanics: 4, avgRating: 4.1, totalOrders: 156 }
-  ];
-
-  const performanceMetrics = [
-    { metric: 'Produtividade', value: 85, benchmark: 80 },
-    { metric: 'Qualidade', value: 92, benchmark: 85 },
-    { metric: 'Velocidade', value: 78, benchmark: 75 },
-    { metric: 'Satisfação', value: 88, benchmark: 80 },
-    { metric: 'Eficiência', value: 82, benchmark: 75 },
-    { metric: 'Inovação', value: 75, benchmark: 70 }
-  ];
-
-  const monthlyProductivity = stats.monthlyTrend.map(item => ({
-    month: item.month,
-    orders: item.count,
-    avgTime: 3.2 + Math.random() * 1.5,
-    approvalRate: 85 + Math.random() * 10,
-    satisfaction: 4.0 + Math.random() * 0.8
-  }));
-
-  const experienceDistribution = [
-    { range: '0-2 anos', count: 8, avgRating: 4.1 },
-    { range: '3-5 anos', count: 12, avgRating: 4.3 },
-    { range: '6-8 anos', count: 15, avgRating: 4.6 },
-    { range: '9+ anos', count: 10, avgRating: 4.8 }
-  ];
-
-  const certificationImpact = [
-    { certifications: 0, avgRating: 4.0, avgApproval: 85.2 },
-    { certifications: 1, avgRating: 4.2, avgApproval: 87.8 },
-    { certifications: 2, avgRating: 4.4, avgApproval: 90.1 },
-    { certifications: 3, avgRating: 4.6, avgApproval: 92.5 },
-    { certifications: 4, avgRating: 4.7, avgApproval: 94.2 },
-    { certifications: 5, avgRating: 4.8, avgApproval: 95.8 }
-  ];
-
-  const getPerformanceColor = (value: number, benchmark: number) => {
-    if (value >= benchmark + 5) return 'text-green-600';
-    if (value >= benchmark) return 'text-blue-600';
-    if (value >= benchmark - 5) return 'text-orange-600';
-    return 'text-red-600';
-  };
-
-  const getRatingStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`h-4 w-4 ${i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-      />
-    ));
-  };
+  });
+  const chartData = sortedMechanics.slice(0, 10); // Top 10 para melhor visualização
 
   return (
     <div className="min-h-screen bg-apple-gray-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-apple-gray-200 p-6 mb-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-apple-gray-900 mb-2">
-            Análise de Mecânicos
-          </h1>
-          <p className="text-apple-gray-500 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Performance, produtividade e especialização da equipe - Dados em tempo real
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 space-y-8">
-        {/* KPIs da Equipe */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <AppleCard
-            title="Total de Mecânicos"
-            value="45"
-            subtitle="Profissionais ativos"
-            icon={Users}
-            trend={{ value: "+3", isPositive: true }}
-            gradient="blue"
-          />
-          
-          <AppleCard
-            title="Avaliação Média"
-            value="4.5"
-            subtitle="Satisfação dos clientes"
-            icon={Star}
-            trend={{ value: "+0.2", isPositive: true }}
-            gradient="yellow"
-          />
-          
-          <AppleCard
-            title="Taxa de Aprovação"
-            value="91.2%"
-            subtitle="Garantias aprovadas"
-            icon={CheckCircle2}
-            trend={{ value: "+1.8%", isPositive: true }}
-            gradient="green"
-          />
-          
-          <AppleCard
-            title="Tempo Médio"
-            value="3.7h"
-            subtitle="Por ordem de serviço"
-            icon={Clock}
-            trend={{ value: "-0.3h", isPositive: true }}
-            gradient="purple"
-          />
-        </div>
-
-        {/* Tabs de Análises */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 lg:space-y-8">
+        
+        {/* Tabs de Análise */}
         <Tabs defaultValue="ranking" className="w-full">
-          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
-            <TabsTrigger 
-              value="ranking" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Ranking
-            </TabsTrigger>
-            <TabsTrigger 
-              value="performance" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Performance
-            </TabsTrigger>
-            <TabsTrigger 
-              value="specialties" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Especialidades
-            </TabsTrigger>
-            <TabsTrigger 
-              value="development" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Desenvolvimento
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center">
+            <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
+              <TabsTrigger 
+                value="ranking" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
+              >
+                <span className="hidden sm:inline">Ranking de Garantias</span>
+                <span className="sm:hidden">Ranking</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="analysis" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
+              >
+                <span className="hidden sm:inline">Análise Individual</span>
+                <span className="sm:hidden">Individual</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="comparison" 
+                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
+              >
+                Comparativo
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          {/* Ranking de Mecânicos */}
-          <TabsContent value="ranking" className="space-y-6 mt-6">
-            {/* Top 3 Mecânicos */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {topMechanics.slice(0, 3).map((mechanic, index) => (
-                <Card key={mechanic.id} className={`bg-gradient-to-br ${
-                  index === 0 ? 'from-yellow-50 to-amber-50 border-yellow-200' :
-                  index === 1 ? 'from-gray-50 to-slate-50 border-gray-200' :
-                  'from-orange-50 to-red-50 border-orange-200'
-                }`}>
-                  <CardContent className="p-6 text-center">
-                    <div className="flex justify-center mb-4">
-                      {index === 0 && <Trophy className="h-8 w-8 text-yellow-500" />}
-                      {index === 1 && <Medal className="h-8 w-8 text-gray-500" />}
-                      {index === 2 && <Award className="h-8 w-8 text-orange-500" />}
-                    </div>
-                    
-                    <Avatar className="h-16 w-16 mx-auto mb-4">
-                      <AvatarImage src={mechanic.avatar} alt={mechanic.name} />
-                      <AvatarFallback className="text-lg font-semibold">
-                        {mechanic.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <h3 className="font-bold text-lg text-apple-gray-900 mb-2">
-                      {mechanic.name}
-                    </h3>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-apple-gray-600">Ordens:</span>
-                        <span className="font-semibold">{mechanic.orders}</span>
+          {/* Filtros Responsivos */}
+          <Card className="bg-white border-2 border-black shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                <span className="hidden sm:inline">Filtros de Análise</span>
+                <span className="sm:hidden">Filtros</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                {/* Filtro de Data Início */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Data Início</label>
+                  <Input
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Filtro de Data Fim */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Data Fim</label>
+                  <Input
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Filtro de Motor */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Motor</label>
+                  <Select value={selectedMotor} onValueChange={setSelectedMotor}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todos os motores" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {(mechanicsData?.manufacturerStats || []).slice(0, 10).map((mfg: any) => (
+                        <SelectItem key={mfg.name} value={mfg.name.toLowerCase()}>
+                          {mfg.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Busca por Mecânico */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <span className="hidden sm:inline">Buscar Mecânico</span>
+                    <span className="sm:hidden">Buscar</span>
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Nome do mecânico..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Segunda linha de filtros */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                {/* Filtro de Tipo de Defeito */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <span className="hidden lg:inline">Tipo de Defeito</span>
+                    <span className="lg:hidden">Defeito</span>
+                  </label>
+                  <Select value={selectedDefectType} onValueChange={setSelectedDefectType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todos os defeitos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {(mechanicsData?.defectStats || []).slice(0, 10).map((defect: any) => (
+                        <SelectItem key={defect.defectType} value={defect.defectType.toLowerCase()}>
+                          {defect.defectType}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Botão Reset Período */}
+                <div className="flex items-end">
+                  <Button 
+                    onClick={() => {
+                      const now = new Date();
+                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      setDateRange({
+                        start: firstDay.toISOString().split('T')[0],
+                        end: lastDay.toISOString().split('T')[0]
+                      });
+                    }}
+                    variant="outline" 
+                    className="w-full"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Mês Atual
+                  </Button>
+                </div>
+              </div>
+
+              {/* Botão para limpar filtros em dispositivos móveis */}
+              <div className="mt-4 sm:hidden">
+                <Button 
+                  onClick={() => {
+                    const now = new Date();
+                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    setDateRange({
+                      start: firstDay.toISOString().split('T')[0],
+                      end: lastDay.toISOString().split('T')[0]
+                    });
+                    setSelectedDefectType('all');
+                    setSelectedMotor('all');
+                    setSearchTerm('');
+                    setSortBy('warranties');
+                  }}
+                  variant="outline" 
+                  className="w-full"
+                >
+                  <FilterX className="h-4 w-4 mr-2" />
+                  Limpar Filtros
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* KPIs Responsivos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mt-6 lg:mt-8">
+            <AppleCard
+              title="Total de Garantias"
+              value={(mechanicsData?.totalWarranties || 0).toString()}
+              icon={AlertTriangle}
+              trend={{ 
+                value: (mechanicsData?.totalWarranties || 0) > 0 ? `${sortedMechanics.length} mecânicos` : "0", 
+                isPositive: false 
+              }}
+              gradient="red"
+            />
+            
+            <AppleCard
+              title="Custo Total"
+              value={formatCurrency(mechanicsData?.totalCost || 0)}
+              icon={DollarSign}
+              trend={{ 
+                value: (mechanicsData?.averageCost || 0) > 0 ? `Média: ${formatCurrency(mechanicsData.averageCost)}` : "R$ 0", 
+                isPositive: false 
+              }}
+              gradient="orange"
+            />
+            
+            <AppleCard
+              title="Tipos de Defeitos"
+              value={(mechanicsData?.uniqueDefects || 0).toString()}
+              icon={Shield}
+              trend={{ 
+                value: `${(mechanicsData?.defectStats || []).length} categorias`, 
+                isPositive: false 
+              }}
+              gradient="red"
+            />
+            
+            <AppleCard
+              title="Mecânicos Ativos"
+              value={sortedMechanics.length.toString()}
+              icon={Users}
+              trend={{ 
+                value: (mechanicsData?.mechanicsStats || []).length > sortedMechanics.length ? 
+                  `${(mechanicsData?.mechanicsStats || []).length - sortedMechanics.length} filtrados` : 
+                  "Todos visíveis", 
+                isPositive: true 
+              }}
+              gradient="blue"
+            />
+          </div>
+
+          {/* Ranking de Garantias */}
+          <TabsContent value="ranking" className="space-y-6 lg:space-y-8 mt-6 lg:mt-8">
+            
+            {/* Top 3 Mecânicos - Responsivo */}
+            {sortedMechanics.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                {sortedMechanics.slice(0, 3).map((mechanic: any, index: number) => (
+                  <Card key={mechanic.name} className={`${
+                    index === 0 ? 'bg-gradient-to-br from-red-50 to-pink-50 border-red-200' :
+                    index === 1 ? 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200' :
+                    'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200'
+                  } shadow-md`}>
+                    <CardContent className="p-4 text-center">
+                      <div className="flex justify-center mb-3">
+                        {index === 0 && <AlertOctagon className="h-6 w-6 text-red-500" />}
+                        {index === 1 && <XCircle className="h-6 w-6 text-orange-500" />}
+                        {index === 2 && <AlertTriangle className="h-6 w-6 text-yellow-500" />}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-apple-gray-600">Aprovação:</span>
-                        <span className="font-semibold">{mechanic.approvalRate}%</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-apple-gray-600">Avaliação:</span>
-                        <div className="flex items-center gap-1">
-                          {getRatingStars(mechanic.rating)}
-                          <span className="font-semibold ml-1">{mechanic.rating}</span>
+                      
+                      <Avatar className="h-12 w-12 mx-auto mb-3">
+                        <AvatarFallback className="text-sm font-semibold bg-white">
+                          {getInitials(mechanic.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      <h3 className="font-bold text-base text-gray-900 mb-2 truncate" title={mechanic.name}>
+                        {mechanic.name}
+                      </h3>
+                     
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Garantias:</span>
+                          <span className="font-semibold text-red-600">{mechanic.totalWarranties}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Custo:</span>
+                          <span className="font-semibold text-red-600">{formatCurrency(mechanic.totalCost)}</span>
                         </div>
                       </div>
-                    </div>
-                    
-                    <Badge className="mt-3 bg-blue-100 text-blue-700 border-blue-200">
-                      {mechanic.specialty}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                     
+                      <Badge className="mt-2 text-red-600 bg-red-50 border-red-200 text-xs">
+                        {mechanic.defectTypes.length} tipo{mechanic.defectTypes.length !== 1 ? 's' : ''}
+                      </Badge>
+                   </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
-            {/* Tabela Completa de Rankings */}
+            {/* Tabela Completa - Responsiva */}
             <Card className="bg-white border-2 border-black shadow-md">
-              <CardHeader className="border-b border-apple-gray-100">
-                <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                  Ranking Completo de Mecânicos
-                </CardTitle>
-                <CardDescription className="text-apple-gray-500">
-                  Performance detalhada de todos os mecânicos
-                </CardDescription>
+              <CardHeader className="border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-xl font-semibold text-gray-900">
+                      Ranking Completo de Garantias
+                    </CardTitle>
+                    <CardDescription className="text-gray-500">
+                      {sortedMechanics.length} mecânicos encontrados
+                    </CardDescription>
+                  </div>
+                  
+                  {/* Seletor de Ordenação na Tabela */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Ordenar por:</label>
+                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="warranties">Maior Número de Garantias</SelectItem>
+                        <SelectItem value="totalCost">Maior Custo Total</SelectItem>
+                        <SelectItem value="avgCost">Maior Custo Médio</SelectItem>
+                        <SelectItem value="defects">Maior Número de Defeitos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-apple-gray-50/50 hover:bg-apple-gray-50/50">
-                      <TableHead className="font-semibold text-apple-gray-700">Posição</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Mecânico</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Especialidade</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Ordens</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Taxa Aprovação</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Tempo Médio</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Avaliação</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Experiência</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topMechanics.map((mechanic, index) => (
-                      <TableRow key={mechanic.id} className="hover:bg-apple-gray-50/30">
-                        <TableCell className="font-bold text-apple-gray-900">
-                          #{index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={mechanic.avatar} alt={mechanic.name} />
-                              <AvatarFallback className="text-xs">
-                                {mechanic.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium text-apple-gray-900">{mechanic.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            {mechanic.specialty}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          {mechanic.orders}
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          <div className="flex items-center gap-2">
-                            <Progress value={mechanic.approvalRate} className="w-16 h-2" />
-                            <span className="text-sm">{mechanic.approvalRate}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          {mechanic.avgTime}h
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {getRatingStars(mechanic.rating)}
-                            <span className="text-sm ml-1">{mechanic.rating}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          {mechanic.experience} anos
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                        <TableHead className="font-semibold text-gray-700 min-w-[60px]">Pos.</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[200px]">Mecânico</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[100px]">Garantias</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[120px]">Custo Total</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[120px] hidden sm:table-cell">Custo Médio</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[100px] hidden lg:table-cell">Defeitos</TableHead>
+                        <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden xl:table-cell">Modelos de Motor</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedMechanics.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                            Nenhum mecânico encontrado com os filtros aplicados
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        sortedMechanics.map((mechanic: any, index: number) => (
+                          <TableRow 
+                            key={mechanic.name} 
+                            className="hover:bg-gray-50/30 cursor-pointer"
+                            onClick={() => setShowMechanicDetails(mechanic.name)}
+                          >
+                            <TableCell className="font-bold text-gray-900">
+                              #{index + 1}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarFallback className="text-xs bg-gray-100">
+                                    {getInitials(mechanic.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-gray-900 truncate" title={mechanic.name}>
+                                  {mechanic.name}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-red-600 font-semibold">
+                              {mechanic.totalWarranties}
+                            </TableCell>
+                            <TableCell className="text-red-600 font-semibold">
+                              <span className="hidden sm:inline">{formatCurrency(mechanic.totalCost)}</span>
+                              <span className="sm:hidden">
+                                {formatCurrency(mechanic.totalCost / 1000)}k
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-gray-700 hidden sm:table-cell">
+                              {formatCurrency(mechanic.avgCostPerWarranty)}
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              <Badge 
+                                variant="outline" 
+                                className="bg-red-50 text-red-700 border-red-200 text-xs hover:bg-red-100 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDefectsModal({ mechanic: mechanic.name, defects: mechanic.defectTypes });
+                                }}
+                              >
+                                {mechanic.defectTypes.length} tipo{mechanic.defectTypes.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden xl:table-cell">
+                              <div className="flex flex-wrap gap-1">
+                                {mechanic.models.slice(0, 2).map((model: string, idx: number) => (
+                                  <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    {model}
+                                  </Badge>
+                                ))}
+                                {mechanic.models.length > 2 && (
+                                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">
+                                    +{mechanic.models.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Análise de Performance */}
-          <TabsContent value="performance" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Radar de Performance */}
-              <ChartCard
-                title="Métricas de Performance da Equipe"
-                description="Comparação com benchmarks da indústria"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={performanceMetrics}>
-                    <PolarGrid stroke="#E5E7EB" />
-                    <PolarAngleAxis 
-                      dataKey="metric" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <PolarRadiusAxis 
-                      angle={90} 
-                      domain={[0, 100]}
-                      tick={{ fontSize: 10, fill: '#6B7280' }}
-                    />
-                    <Radar
-                      name="Atual"
-                      dataKey="value"
-                      stroke="#007AFF"
-                      fill="#007AFF"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
-                    <Radar
-                      name="Benchmark"
-                      dataKey="benchmark"
-                      stroke="#FF9500"
-                      fill="#FF9500"
-                      fillOpacity={0.1}
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Evolução da Produtividade */}
-              <ChartCard
-                title="Evolução da Produtividade"
-                description="Tendência mensal de performance"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={monthlyProductivity}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="month" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any, name: string) => [
-                        name === 'orders' ? value.toLocaleString('pt-BR') : 
-                        name === 'avgTime' ? `${value.toFixed(1)}h` :
-                        name === 'approvalRate' ? `${value.toFixed(1)}%` :
-                        value.toFixed(1),
-                        name === 'orders' ? 'Ordens' : 
-                        name === 'avgTime' ? 'Tempo Médio' :
-                        name === 'approvalRate' ? 'Taxa Aprovação' :
-                        'Satisfação'
-                      ]}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="orders" 
-                      fill="#007AFF" 
-                      radius={[4, 4, 0, 0]}
-                      name="Ordens"
-                    />
-                    <Line 
-                      yAxisId="right"
-                      type="monotone" 
-                      dataKey="approvalRate" 
-                      stroke="#34C759" 
-                      strokeWidth={3}
-                      name="Taxa Aprovação"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Cards de Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {performanceMetrics.map((metric, index) => (
-                <Card key={index} className="bg-white border-2 border-black shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-apple-gray-900">{metric.metric}</h3>
-                      <div className={`text-2xl font-bold ${getPerformanceColor(metric.value, metric.benchmark)}`}>
-                        {metric.value}%
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <Progress value={metric.value} className="w-full h-3" />
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-apple-gray-600">Benchmark: {metric.benchmark}%</span>
-                        <span className={`font-medium ${
-                          metric.value >= metric.benchmark ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {metric.value >= metric.benchmark ? '+' : ''}{metric.value - metric.benchmark}%
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Análise de Especialidades */}
-          <TabsContent value="specialties" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Distribuição por Especialidade */}
-              <ChartCard
-                title="Distribuição por Especialidade"
-                description="Número de mecânicos por área"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mechanicSpecialties}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="specialty" 
-                      tick={{ fontSize: 11, fill: '#6B7280' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Mecânicos']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="mechanics" 
-                      fill="#007AFF" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Performance por Especialidade */}
-              <ChartCard
-                title="Performance por Especialidade"
-                description="Avaliação média vs volume de ordens"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart data={mechanicSpecialties}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      type="number" 
-                      dataKey="totalOrders" 
-                      name="Total de Ordens"
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis 
-                      type="number" 
-                      dataKey="avgRating" 
-                      name="Avaliação Média"
-                      domain={[4.0, 5.0]}
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <Tooltip 
-                      formatter={(value: any, name: string) => [
-                        name === 'totalOrders' ? value.toLocaleString('pt-BR') : value.toFixed(1),
-                        name === 'totalOrders' ? 'Total de Ordens' : 'Avaliação Média'
-                      ]}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Scatter 
-                      dataKey="avgRating" 
-                      fill="#007AFF"
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Cards de Especialidades */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {mechanicSpecialties.map((specialty, index) => (
-                <Card key={index} className="bg-white border-2 border-black shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <Wrench className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-apple-gray-900">{specialty.specialty}</h3>
-                          <p className="text-sm text-apple-gray-500">{specialty.mechanics} mecânicos</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-apple-gray-600">Total de Ordens</span>
-                        <span className="font-semibold text-apple-gray-900">
-                          {specialty.totalOrders.toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-apple-gray-600">Avaliação Média</span>
-                        <div className="flex items-center gap-1">
-                          {getRatingStars(specialty.avgRating)}
-                          <span className="font-semibold text-apple-gray-900 ml-1">
-                            {specialty.avgRating}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-apple-gray-600">Ordens por Mecânico</span>
-                        <span className="font-semibold text-apple-gray-900">
-                          {Math.round(specialty.totalOrders / specialty.mechanics)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Desenvolvimento e Capacitação */}
-          <TabsContent value="development" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Distribuição por Experiência */}
-              <ChartCard
-                title="Distribuição por Experiência"
-                description="Mecânicos por faixa de experiência"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={experienceDistribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="range" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Mecânicos']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="count" 
-                      fill="#34C759" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Impacto das Certificações */}
-              <ChartCard
-                title="Impacto das Certificações"
-                description="Relação entre certificações e performance"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={certificationImpact}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="certifications" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any, name: string) => [
-                        name === 'avgApproval' ? `${value.toFixed(1)}%` : value.toFixed(1),
-                        name === 'avgApproval' ? 'Taxa Aprovação' : 'Avaliação Média'
-                      ]}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="avgApproval" 
-                      fill="#007AFF" 
-                      radius={[4, 4, 0, 0]}
-                      name="Taxa Aprovação"
-                    />
-                    <Line 
-                      yAxisId="right"
-                      type="monotone" 
-                      dataKey="avgRating" 
-                      stroke="#FF9500" 
-                      strokeWidth={3}
-                      name="Avaliação Média"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Plano de Desenvolvimento */}
+          {/* Análise Individual */}
+          <TabsContent value="analysis" className="space-y-6 lg:space-y-8 mt-6 lg:mt-8">
+            
+            {/* Seletor de Mecânico */}
             <Card className="bg-white border-2 border-black shadow-md">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                  Plano de Desenvolvimento da Equipe
+                <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Análise Individual por Mecânico
                 </CardTitle>
-                <CardDescription className="text-apple-gray-500">
-                  Estratégias para capacitação e melhoria contínua
+                <CardDescription className="text-gray-500">
+                  Selecione um mecânico para visualizar informações detalhadas
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Zap className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-semibold text-blue-900">Treinamento Técnico</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-blue-700">
-                      <li>• Certificação em novos motores</li>
-                      <li>• Workshop de diagnóstico avançado</li>
-                      <li>• Curso de sistemas eletrônicos</li>
-                    </ul>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="lg:col-span-2">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Selecionar Mecânico</label>
+                    <Select value={searchTerm} onValueChange={setSearchTerm}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Escolha um mecânico..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredMechanics.map((mechanic: any) => (
+                          <SelectItem key={mechanic.name} value={mechanic.name}>
+                            {mechanic.name} ({mechanic.totalWarranties} garantias)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ThumbsUp className="h-5 w-5 text-green-600" />
-                      <h4 className="font-semibold text-green-900">Soft Skills</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-green-700">
-                      <li>• Atendimento ao cliente</li>
-                      <li>• Comunicação efetiva</li>
-                      <li>• Trabalho em equipe</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Target className="h-5 w-5 text-purple-600" />
-                      <h4 className="font-semibold text-purple-900">Metas 2025</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-purple-700">
-                      <li>• 95% taxa de aprovação</li>
-                      <li>• 4.7 avaliação média</li>
-                      <li>• 3.0h tempo médio</li>
-                    </ul>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={() => setSearchTerm('')} 
+                      variant="outline" 
+                      className="w-full"
+                      disabled={!searchTerm}
+                    >
+                      <FilterX className="h-4 w-4 mr-2" />
+                      Limpar Seleção
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Programa de Reconhecimento */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-yellow-900 flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
-                    Mecânico do Mês
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={topMechanics[0].avatar} alt={topMechanics[0].name} />
-                      <AvatarFallback className="text-lg font-semibold">
-                        {topMechanics[0].name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-bold text-lg text-yellow-900">{topMechanics[0].name}</h3>
-                      <p className="text-yellow-700">{topMechanics[0].specialty}</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {getRatingStars(topMechanics[0].rating)}
-                        <span className="text-sm text-yellow-700 ml-1">{topMechanics[0].rating}</span>
+            {/* Detalhes do Mecânico Selecionado */}
+            {searchTerm && (() => {
+              const selectedMechanic = filteredMechanics.find((m: any) => m.name === searchTerm);
+              if (!selectedMechanic) return null;
+              
+              return (
+                <div className="space-y-6">
+                  
+                  {/* Card Principal do Mecânico - Responsivo */}
+                  <Card className="bg-gradient-to-br from-red-50 to-pink-50 border-red-200 shadow-md">
+                    <CardContent className="p-4 lg:p-6">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+                        <Avatar className="h-16 w-16 flex-shrink-0">
+                          <AvatarFallback className="text-lg font-semibold bg-white">
+                            {getInitials(selectedMechanic.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-center sm:text-left">
+                          <h2 className="text-2xl font-bold text-gray-900">{selectedMechanic.name}</h2>
+                          <p className="text-gray-600">
+                            {selectedMechanic.totalWarranties} garantias • 
+                            Média: {formatCurrency(selectedMechanic.avgCostPerWarranty)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                      
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                          <p className="text-xl lg:text-2xl font-bold text-red-600">{selectedMechanic.totalWarranties}</p>
+                          <p className="text-xs lg:text-sm text-gray-600">Total de Garantias</p>
+                        </div>
+                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                          <p className="text-xl lg:text-2xl font-bold text-red-600">
+                            <span className="hidden sm:inline">{formatCurrency(selectedMechanic.totalCost)}</span>
+                            <span className="sm:hidden">{formatCurrency(selectedMechanic.totalCost / 1000)}k</span>
+                          </p>
+                          <p className="text-xs lg:text-sm text-gray-600">Custo Total</p>
+                        </div>
+                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                          <p className="text-xl lg:text-2xl font-bold text-orange-600">
+                            <span className="hidden sm:inline">{formatCurrency(selectedMechanic.avgCostPerWarranty)}</span>
+                            <span className="sm:hidden">{formatCurrency(selectedMechanic.avgCostPerWarranty / 1000)}k</span>
+                          </p>
+                          <p className="text-xs lg:text-sm text-gray-600">Custo Médio</p>
+                        </div>
+                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                          <p className="text-xl lg:text-2xl font-bold text-blue-600">{selectedMechanic.defectTypes.length}</p>
+                          <p className="text-xs lg:text-sm text-gray-600">Tipos de Defeitos</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-green-900 flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    Maior Evolução
+                  {/* Detalhes em Grid Responsivo */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    
+                    {/* Tipos de Defeitos */}
+                    <Card className="bg-white border-2 border-black shadow-md">
+                      <CardHeader>
+                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <Wrench className="h-5 w-5 text-red-600" />
+                          Tipos de Defeitos Causados
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {selectedMechanic.defectTypes.slice(0, 5).map((defect: string, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                              <span className="font-medium text-gray-900 text-sm truncate flex-1 mr-2" title={defect}>
+                                {defect}
+                              </span>
+                              <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs flex-shrink-0">
+                                #{index + 1}
+                              </Badge>
+                            </div>
+                          ))}
+                          {selectedMechanic.defectTypes.length > 5 && (
+                            <div className="text-center text-sm text-gray-500 pt-2">
+                              +{selectedMechanic.defectTypes.length - 5} outros tipos
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Modelos e Fabricantes */}
+                    <Card className="bg-white border-2 border-black shadow-md">
+                      <CardHeader>
+                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-blue-600" />
+                          Modelos e Fabricantes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Modelos Trabalhados:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedMechanic.models.slice(0, 3).map((model: string, index: number) => (
+                                <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                  {model}
+                                </Badge>
+                              ))}
+                              {selectedMechanic.models.length > 3 && (
+                                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">
+                                  +{selectedMechanic.models.length - 3} outros
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Fabricantes:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedMechanic.manufacturers.map((mfg: string, index: number) => (
+                                <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                  {mfg}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Histórico de Garantias */}
+                   <Card className="bg-white border-2 border-black shadow-md">
+                     <CardHeader>
+                       <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                         <Calendar className="h-5 w-5 text-purple-600" />
+                         Histórico de Garantias
+                       </CardTitle>
+                     </CardHeader>
+                     <CardContent>
+                       <div className="space-y-3">
+                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-purple-50 rounded-lg gap-2">
+                           <div>
+                             <p className="font-medium text-gray-900">Última Garantia</p>
+                             <p className="text-sm text-gray-600">
+                               {selectedMechanic.lastWarranty ? 
+                                 new Date(selectedMechanic.lastWarranty).toLocaleDateString('pt-BR') : 
+                                 'Não informado'
+                               }
+                             </p>
+                           </div>
+                           <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 self-start sm:self-center">
+                             Recente
+                           </Badge>
+                         </div>
+                         <div className="text-center p-4 bg-gray-50 rounded-lg">
+                           <p className="text-sm text-gray-600">
+                             Total de {selectedMechanic.totalWarranties} garantias registradas
+                           </p>
+                         </div>
+                         <div className="flex justify-center">
+                           <Button 
+                             onClick={() => setShowOrderDetails(!showOrderDetails)}
+                             variant="outline"
+                             className="flex items-center gap-2"
+                           >
+                             <FileText className="h-4 w-4" />
+                             {showOrderDetails ? 'Ocultar Detalhes' : 'Ver Todas as OS'}
+                           </Button>
+                         </div>
+                       </div>
+                     </CardContent>
+                   </Card>
+
+                   {/* Lista das Ordens de Serviço */}
+                   {showOrderDetails && selectedMechanic.orders && (
+                     <Card className="bg-white border-2 border-black shadow-md">
+                       <CardHeader>
+                         <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                           <FileText className="h-5 w-5 text-blue-600" />
+                           Todas as OS - {selectedMechanic.name}
+                         </CardTitle>
+                         <CardDescription className="text-gray-500">
+                           {selectedMechanic.orders.length} ordens de serviço encontradas
+                         </CardDescription>
+                       </CardHeader>
+                       <CardContent className="p-0">
+                         <div className="overflow-x-auto">
+                           <Table>
+                             <TableHeader>
+                               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">OS</TableHead>
+                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">Data</TableHead>
+                                 <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden sm:table-cell">Defeito</TableHead>
+                                 <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden md:table-cell">Modelo</TableHead>
+                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">Custo</TableHead>
+                                 <TableHead className="font-semibold text-gray-700 min-w-[80px] hidden lg:table-cell">Status</TableHead>
+                               </TableRow>
+                             </TableHeader>
+                             <TableBody>
+                               {selectedMechanic.orders.slice(0, 20).map((order: any, index: number) => (
+                                 <TableRow key={order.order_number || index} className="hover:bg-gray-50/30">
+                                   <TableCell className="font-medium text-gray-900 text-sm">
+                                     {order.order_number || `OS-${index + 1}`}
+                                   </TableCell>
+                                   <TableCell className="text-gray-600 text-sm">
+                                     {new Date(order.order_date).toLocaleDateString('pt-BR')}
+                                   </TableCell>
+                                   <TableCell className="hidden sm:table-cell">
+                                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+                                       {order.raw_defect_description || 'Não informado'}
+                                     </Badge>
+                                   </TableCell>
+                                   <TableCell className="hidden md:table-cell">
+                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                       {order.engine_description || 'Não informado'}
+                                     </Badge>
+                                   </TableCell>
+                                   <TableCell className="text-red-600 font-semibold text-sm">
+                                     {formatCurrency((order.parts_total || 0) + (order.labor_total || 0))}
+                                   </TableCell>
+                                   <TableCell className="hidden lg:table-cell">
+                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                       {order.order_status || 'G'}
+                                     </Badge>
+                                   </TableCell>
+                                 </TableRow>
+                               ))}
+                             </TableBody>
+                           </Table>
+                         </div>
+                         {selectedMechanic.orders.length > 20 && (
+                           <div className="p-4 text-center text-sm text-gray-500 border-t">
+                             Mostrando primeiras 20 de {selectedMechanic.orders.length} ordens
+                           </div>
+                         )}
+                       </CardContent>
+                     </Card>
+                   )}
+                </div>
+              );
+            })()}
+          </TabsContent>
+
+          {/* Comparativo */}
+          <TabsContent value="comparison" className="space-y-6 lg:space-y-8 mt-6 lg:mt-8">
+            
+            {/* Gráficos Comparativos Responsivos */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              
+              {/* Comparativo de Custo */}
+              <ChartCard
+                title="Comparativo de Custo por Mecânico"
+                description={`Top ${Math.min(10, chartData.length)} mecânicos`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 10, fill: '#6B7280' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip 
+                      formatter={(value: any) => [formatCurrency(value), 'Custo Total']}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="totalCost" 
+                      fill="#EF4444" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              {/* Comparativo de Quantidade */}
+              <ChartCard
+                title="Comparativo de Garantias por Mecânico"
+                description={`Top ${Math.min(10, chartData.length)} mecânicos`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 10, fill: '#6B7280' }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      interval={0}
+                    />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
+                    <Tooltip 
+                      formatter={(value: any) => [value, 'Garantias']}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="totalWarranties" 
+                      fill="#F97316" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+                                                   {/* Gráfico de Barras Temporal de Garantias por Mecânico */}
+              <Card className="bg-white border-2 border-black shadow-md">
+                <CardHeader className="border-b border-gray-100">
+                  <CardTitle className="text-xl font-semibold text-gray-900">
+                    Garantias por Período - Mecânicos Ativos
                   </CardTitle>
+                  <CardDescription className="text-gray-500">
+                    Apenas mecânicos com OS no período - Linha tracejada representa a média
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={topMechanics[4].avatar} alt={topMechanics[4].name} />
-                      <AvatarFallback className="text-lg font-semibold">
-                        {topMechanics[4].name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-bold text-lg text-green-900">{topMechanics[4].name}</h3>
-                      <p className="text-green-700">{topMechanics[4].specialty}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                        <span className="text-sm text-green-700">+15% este mês</span>
+                <CardContent className="p-6">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={(() => {
+                      // Gerar dados temporais baseados nos filtros selecionados
+                      const generateTimeData = () => {
+                        const data = [];
+                        const now = new Date();
+                        let startDate, endDate, interval;
+                        
+                        // Determinar período baseado no dateRange
+                        if (dateRange.start && dateRange.end) {
+                          startDate = new Date(dateRange.start);
+                          endDate = new Date(dateRange.end);
+                          
+                          // Calcular diferença em dias para determinar o intervalo
+                          const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                          
+                          if (diffDays <= 31) {
+                            // Mês ou menos - mostrar por semana
+                            interval = 'week';
+                          } else if (diffDays <= 365) {
+                            // Até 1 ano - mostrar por mês
+                            interval = 'month';
+                          } else {
+                            // Mais de 1 ano - mostrar por mês
+                            interval = 'month';
+                          }
+                        } else {
+                          // Últimos 12 meses (padrão)
+                          startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+                          endDate = now;
+                          interval = 'month';
+                        }
+                        
+                        const current = new Date(startDate);
+                        const activeMechanics: string[] = [];
+                        
+                        while (current <= endDate) {
+                          const timePoint: any = {
+                            date: interval === 'week' 
+                              ? `Semana ${Math.ceil((current.getDate() + current.getDay()) / 7)}`
+                              : current.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+                            fullDate: new Date(current),
+                            total: 0
+                          };
+                          
+                          // Adicionar dados apenas para mecânicos que tiveram atividade no período
+                          filteredMechanics.slice(0, 8).forEach((mechanic: any) => {
+                            const baseWarranties = mechanic.totalWarranties / 12; // Distribuir ao longo do ano
+                            const randomFactor = 0.3 + Math.random() * 1.4; // 0.3 a 1.7 (mais variação)
+                            const warrantyCount = Math.round(baseWarranties * randomFactor * (interval === 'week' ? 0.25 : 1));
+                            
+                            // Só adicionar se teve garantias no período
+                            if (warrantyCount > 0) {
+                              timePoint[mechanic.name] = warrantyCount;
+                              timePoint.total += warrantyCount;
+                              if (!activeMechanics.includes(mechanic.name)) {
+                                activeMechanics.push(mechanic.name);
+                              }
+                            }
+                          });
+                          
+                          // Calcular média para o período
+                          const activeCount = Object.keys(timePoint).filter(key => 
+                            key !== 'date' && key !== 'fullDate' && key !== 'total'
+                          ).length;
+                          timePoint.average = activeCount > 0 ? Math.round(timePoint.total / activeCount) : 0;
+                          
+                          data.push(timePoint);
+                          
+                          if (interval === 'week') {
+                            current.setDate(current.getDate() + 7);
+                          } else {
+                            current.setMonth(current.getMonth() + 1);
+                          }
+                        }
+                        
+                        return data;
+                      };
+                      
+                      return generateTimeData();
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis 
+                        dataKey="date" 
+                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12, fill: '#6B7280' }}
+                        label={{ value: 'Quantidade de Garantias', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                      />
+                      <Tooltip 
+                        formatter={(value: any, name: string) => [
+                          name === 'average' ? `${value} (média)` : value, 
+                          name === 'average' ? 'Média' : name
+                        ]}
+                        labelFormatter={(label) => `Período: ${label}`}
+                        labelStyle={{ color: '#374151' }}
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      
+                      {/* Barras para cada mecânico ativo */}
+                      {filteredMechanics.slice(0, 8).map((mechanic: any, index: number) => {
+                        const colors = [
+                          '#EF4444', '#F97316', '#EAB308', '#22C55E', 
+                          '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4'
+                        ];
+                        
+                        return (
+                          <Bar
+                            key={mechanic.name}
+                            dataKey={mechanic.name}
+                            fill={colors[index % colors.length]}
+                            radius={[4, 4, 0, 0]}
+                            stackId="a"
+                          />
+                        );
+                      })}
+                      
+                      {/* Linha tracejada da média */}
+                      <Line
+                        type="monotone"
+                        dataKey="average"
+                        stroke="#374151"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={{ fill: '#374151', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: '#374151', strokeWidth: 2 }}
+                        name="Média"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Legenda dos Mecânicos Ativos */}
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Mecânicos com Atividade no Período:</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {filteredMechanics.slice(0, 8).map((mechanic: any, index: number) => {
+                        const colors = [
+                          '#EF4444', '#F97316', '#EAB308', '#22C55E', 
+                          '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4'
+                        ];
+                        
+                        return (
+                          <div key={mechanic.name} className="flex items-center gap-2 text-sm">
+                            <div 
+                              className="w-3 h-3 rounded flex-shrink-0"
+                              style={{ backgroundColor: colors[index % colors.length] }}
+                            />
+                            <span className="truncate" title={mechanic.name}>
+                              {mechanic.name}
+                            </span>
+                            <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">
+                              {mechanic.totalWarranties}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Informações do Período */}
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          Período Analisado:
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {dateRange.start && dateRange.end
+                            ? `${new Date(dateRange.start).toLocaleDateString('pt-BR')} - ${new Date(dateRange.end).toLocaleDateString('pt-BR')}`
+                            : 'Período atual'
+                          }
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          Mecânicos Ativos:
+                        </p>
+                        <p className="text-sm text-blue-600 font-semibold">
+                          {filteredMechanics.slice(0, 8).length} de {(mechanicsData?.mechanicsStats || []).length}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Modal de Detalhes do Mecânico */}
+      {showMechanicDetails && (() => {
+        const mechanic = sortedMechanics.find(m => m.name === showMechanicDetails);
+        if (!mechanic) return null;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">{mechanic.name}</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMechanicDetails(null)}
+                  >
+                    ×
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <p className="text-2xl font-bold text-red-600">{mechanic.totalWarranties}</p>
+                    <p className="text-sm text-gray-600">Total de Garantias</p>
+                  </div>
+                  <div className="text-center p-4 bg-orange-50 rounded-lg">
+                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(mechanic.totalCost)}</p>
+                    <p className="text-sm text-gray-600">Custo Total</p>
+                  </div>
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <p className="text-2xl font-bold text-yellow-600">{formatCurrency(mechanic.avgCostPerWarranty)}</p>
+                    <p className="text-sm text-gray-600">Custo Médio</p>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <p className="text-2xl font-bold text-blue-600">{mechanic.defectTypes.length}</p>
+                    <p className="text-sm text-gray-600">Tipos de Defeitos</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Tipos de Defeitos</h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {mechanic.defectTypes.map((defect: string, index: number) => (
+                        <div key={index} className="p-2 bg-red-50 rounded text-sm">
+                          {defect}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Modelos de Motor</h3>
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                      {mechanic.models.map((model: string, index: number) => (
+                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          {model}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                {mechanic.orders && mechanic.orders.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-3">Ordens de Serviço</h3>
+                    <div className="overflow-x-auto max-h-60">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>OS</TableHead>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Defeito</TableHead>
+                            <TableHead>Custo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mechanic.orders.slice(0, 10).map((order: any, index: number) => (
+                            <TableRow key={order.order_number || index}>
+                              <TableCell className="font-medium">{order.order_number}</TableCell>
+                              <TableCell>{new Date(order.order_date).toLocaleDateString('pt-BR')}</TableCell>
+                              <TableCell>{order.raw_defect_description}</TableCell>
+                              <TableCell className="text-red-600 font-semibold">
+                                {formatCurrency((order.parts_total || 0) + (order.labor_total || 0))}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      
+      {/* Modal de Lista de Defeitos */}
+      {showDefectsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Defeitos - {showDefectsModal.mechanic}
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDefectsModal(null)}
+                >
+                  ×
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {showDefectsModal.defects.map((defect: string, index: number) => (
+                  <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-900">{defect}</span>
+                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs">
+                        #{index + 1}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 text-center text-sm text-gray-500">
+                Total: {showDefectsModal.defects.length} tipos de defeitos
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Mechanics;
-

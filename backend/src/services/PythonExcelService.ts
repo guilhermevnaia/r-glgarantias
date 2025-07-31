@@ -107,7 +107,7 @@ class PythonExcelService {
       console.log(`🚀 DEBUG: filePath = "${filePath}"`);
       console.log(`🚀 Executando: python ${this.pythonScriptPath} "${filePath}"`);
 
-      const pythonProcess = spawn('python', [this.pythonScriptPath, filePath, '--summary-only'], {
+      const pythonProcess = spawn('python', [this.pythonScriptPath, filePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         shell: true
       });
@@ -120,8 +120,12 @@ class PythonExcelService {
       });
 
       pythonProcess.stderr.on('data', (data) => {
-        stderr += data.toString();
-        console.log(`🐍 Python log: ${data.toString().trim()}`);
+        const logMessage = data.toString().trim();
+        stderr += logMessage;
+        // Only log non-INFO messages as errors
+        if (!logMessage.includes('- INFO -')) {
+          console.log(`🐍 Python log: ${logMessage}`);
+        }
       });
 
       pythonProcess.on('close', (code) => {
@@ -129,16 +133,23 @@ class PythonExcelService {
         console.log(`🔍 DEBUG: Stdout length: ${stdout.length}`);
         console.log(`🔍 DEBUG: Stderr: ${stderr}`);
         
-        // Se temos stdout válido, considerar sucesso mesmo com código 1
+        // Check if we have valid JSON output with success=true
         if (stdout.trim().length > 0 && stdout.includes('"success":true')) {
-          console.log(`✅ Forçando sucesso: JSON válido encontrado mesmo com código ${code}`);
-          code = 0; // Forçar sucesso
+          console.log(`✅ Python processamento bem-sucedido (stdout válido encontrado)`);
+          console.log(`📏 Tamanho do stdout: ${stdout.length} caracteres`);
+          console.log(`🔍 Primeiros 200 chars do stdout:`, stdout.substring(0, 200));
+          // Force success if we have valid JSON output
+          code = 0;
         }
         
         if (code !== 0) {
           console.error(`❌ Processo Python terminou com código: ${code}`);
           console.error(`❌ Stderr: ${stderr}`);
-          reject(new Error(`Processo Python falhou (código ${code}): ${stderr}`));
+          // Filter out INFO logging from stderr for cleaner error messages
+          const actualErrors = stderr.split('\n').filter(line => 
+            !line.includes('- INFO -') && line.trim().length > 0
+          ).join('\n');
+          reject(new Error(`Processo Python falhou (código ${code}): ${actualErrors}`));
           return;
         }
 

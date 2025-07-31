@@ -81,7 +81,9 @@
       "Bash(PORT=3010 npm run dev)",
       "Bash(./test-curl-upload.bat)",
       "Bash(PORT=4000 npm run dev)",
-      "Bash(echo \"EXIT CODE: $?\")"
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(cmd /c:*)",
+      "Bash(set PORT=3009)"
     ],
     "deny": []
   }

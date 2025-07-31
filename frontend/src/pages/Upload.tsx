@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Upload as UploadIcon, FileSpreadsheet, Download, CheckCircle, AlertCircle, AlertTriangle, Clock, Trash2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiService } from "@/services/api";
 import { useDataIntegrity } from "@/hooks/useDataIntegrity";
+import { useUploadWithSync } from "@/hooks/useGlobalData";
 
 interface UploadStatus {
   status: 'idle' | 'uploading' | 'processing' | 'success' | 'error';
@@ -20,6 +20,7 @@ const Upload = () => {
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({ status: 'idle' });
   const { toast } = useToast();
   const { integrityStatus, checkIntegrity } = useDataIntegrity();
+  const { uploadWithSync } = useUploadWithSync();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -117,7 +118,7 @@ const Upload = () => {
         }));
       }, 300);
 
-      const result = await apiService.uploadExcel(uploadedFile);
+      const result = await uploadWithSync(uploadedFile);
       
       clearInterval(progressInterval);
       console.log('✅ Upload concluído:', result);

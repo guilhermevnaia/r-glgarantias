@@ -38,11 +38,13 @@ export class DataIntegrityService {
 
       if (error) {
         console.error('❌ Erro ao salvar log de integridade:', error);
+        console.log('💡 Dica: Execute o script create_integrity_table.py para criar a tabela data_integrity_logs');
       } else {
         console.log(`📝 Log de integridade salvo: ${result.check_type} - ${result.status}`);
       }
     } catch (error) {
       console.error('❌ Erro ao processar log de integridade:', error);
+      console.log('💡 Dica: Execute o script create_integrity_table.py para criar a tabela data_integrity_logs');
     }
   }
 

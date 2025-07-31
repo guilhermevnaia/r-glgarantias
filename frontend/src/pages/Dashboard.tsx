@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
-import { apiService, DashboardStats } from "@/services/api";
+import { DashboardStats } from "@/services/api";
+import { useDashboardStats } from "@/hooks/useGlobalData";
 import { 
   BarChart, 
   Bar, 
@@ -48,10 +49,6 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: DashboardProps) => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [previousMonthStats, setPreviousMonthStats] = useState<DashboardStats | null>(null);
-  const [yearTrendStats, setYearTrendStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
   // Definir mês e ano atual
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // Janeiro é 0, então somamos 1
@@ -60,53 +57,22 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
   const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || currentMonth);
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYear);
 
-  const fetchStats = async (month?: number, year?: number) => {
-    console.log("🔄 fetchStats chamado com:", { month, year, selectedMonth, selectedYear });
-    setLoading(true);
-    try {
-      console.log("🌐 Fazendo chamada para API...");
-      
-      // Buscar dados do mês atual
-      const data = await apiService.getStats(month, year);
-      console.log("✅ Dados recebidos da API no Dashboard:", data);
-      setStats(data);
-      
-      // Buscar dados do mês anterior para comparação
-      const currentMonth = month || selectedMonth;
-      const currentYear = year || selectedYear;
-      let prevMonth = currentMonth - 1;
-      let prevYear = currentYear;
-      
-      if (prevMonth === 0) {
-        prevMonth = 12;
-        prevYear = currentYear - 1;
-      }
-      
-      const previousData = await apiService.getStats(prevMonth, prevYear);
-      console.log("📊 Dados do mês anterior:", previousData);
-      setPreviousMonthStats(previousData);
-      
-      // Buscar dados do ano completo para tendência
-      const yearData = await apiService.getStats(undefined, currentYear);
-      console.log("📈 Dados do ano completo:", yearData);
-      setYearTrendStats(yearData);
-      
-      console.log("📊 Todos os stats carregados");
-    } catch (error) {
-      console.error('❌ ERRO CRÍTICO ao carregar estatísticas:', error);
-      console.error('❌ Detalhes do erro:', error?.message);
-      console.error('❌ Response do erro:', error?.response?.data);
-      console.error('❌ Status do erro:', error?.response?.status);
-    } finally {
-      console.log("🏁 Loading finalizado");
-      setLoading(false);
-    }
-  };
+  // ✅ USANDO ESTADO GLOBAL SINCRONIZADO
+  const { data: stats, isLoading: loading, error } = useDashboardStats(selectedMonth, selectedYear);
+  
+  // Buscar dados do mês anterior para comparação
+  const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+  const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+  const { data: previousMonthStats } = useDashboardStats(prevMonth, prevYear);
+  
+  // Buscar dados do ano completo para tendência
+  const { data: yearTrendStats } = useDashboardStats(undefined, selectedYear);
 
-  useEffect(() => {
-    // Iniciar com filtros padrão (mês e ano atual)
-    fetchStats(selectedMonth, selectedYear);
-  }, []);
+  console.log("📊 Dashboard usando dados sincronizados:", { 
+    loading, 
+    stats: !!stats, 
+    previousMonthStats: !!previousMonthStats 
+  });
 
   if (loading) {
     return (
@@ -250,7 +216,6 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                         onChange={(e) => {
                           const month = parseInt(e.target.value);
                           setSelectedMonth(month);
-                          fetchStats(month, selectedYear || 2024);
                         }}
                         className="w-32 h-8 text-sm border rounded px-2"
                       >
@@ -273,7 +238,6 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                         onChange={(e) => {
                           const year = parseInt(e.target.value);
                           setSelectedYear(year);
-                          fetchStats(selectedMonth || 1, year);
                         }}
                         className="w-24 h-8 text-sm border rounded px-2"
                       >
@@ -293,7 +257,6 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                       onClick={() => {
                         setSelectedMonth(currentMonth);
                         setSelectedYear(currentYear);
-                        fetchStats(currentMonth, currentYear);
                       }}
                       className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100 text-blue-600 border-blue-200 hover:bg-blue-50"
                     >

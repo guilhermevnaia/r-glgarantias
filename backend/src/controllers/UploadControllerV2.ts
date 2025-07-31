@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PythonExcelService, PythonProcessingResult } from '../services/PythonExcelService';
+import EditProtectionService from '../services/EditProtectionService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,9 +13,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 class UploadControllerV2 {
   private pythonService: PythonExcelService;
+  private editProtectionService: EditProtectionService;
 
   constructor() {
     this.pythonService = new PythonExcelService();
+    this.editProtectionService = new EditProtectionService();
   }
 
   /**
@@ -75,23 +78,67 @@ class UploadControllerV2 {
       console.log(`   ⏱️ Tempo Python: ${processingResult.processing_time_seconds.toFixed(2)}s`);
       console.log(`   🧮 Validação matemática: ${processingResult.summary.mathematically_correct ? '✅' : '❌'}`);
 
-      // 4. DETECÇÃO INTELIGENTE DE DUPLICATAS
+      // 4. 🛡️ SISTEMA DE PROTEÇÃO DE DADOS EDITADOS
       let insertedCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
+      let protectedCount = 0;
+      let mergedCount = 0;
+
+      console.log(`🔍 DADOS PROCESSADOS PELO PYTHON: ${processingResult.data.length} registros`);
+      console.log(`🔍 PRIMEIRO REGISTRO:`, JSON.stringify(processingResult.data[0], null, 2));
 
       if (processingResult.data.length > 0) {
-        console.log('🔍 Iniciando detecção inteligente de duplicatas...');
+        console.log('🛡️ Iniciando sistema de proteção de dados editados...');
         
-        const duplicateResults = await this.handleDuplicateDetection(processingResult.data);
-        insertedCount = duplicateResults.inserted;
-        skippedCount = duplicateResults.skipped;
-        errorCount = duplicateResults.errors;
+        try {
+          // APLICAR PROTEÇÃO DE DADOS EDITADOS
+          const protectionResult = await this.editProtectionService.protectEditedDataDuringUpload(processingResult.data);
+          
+          console.log('📊 RESULTADO DA PROTEÇÃO:');
+          console.log(`   🆕 Ordens novas para inserir: ${protectionResult.newOrders.length}`);
+          console.log(`   🛡️ Ordens totalmente protegidas: ${protectionResult.protectedOrders.length}`);
+          console.log(`   🔄 Ordens parcialmente mescladas: ${protectionResult.mergedOrders.length}`);
 
-        console.log('📊 RESULTADO DA INSERÇÃO:');
-        console.log(`   🆕 Novos registros inseridos: ${insertedCount}`);
-        console.log(`   ⚠️ Duplicatas ignoradas: ${skippedCount}`);
-        console.log(`   ❌ Erros na inserção: ${errorCount}`);
+          // INSERIR APENAS ORDENS REALMENTE NOVAS
+          if (protectionResult.newOrders.length > 0) {
+            const duplicateResults = await this.handleDuplicateDetection(protectionResult.newOrders);
+            insertedCount = duplicateResults.inserted;
+            skippedCount = duplicateResults.skipped;
+            errorCount = duplicateResults.errors;
+          }
+
+          // APLICAR ATUALIZAÇÕES MESCLADAS (preservando edições)
+          if (protectionResult.mergedOrders.length > 0) {
+            const mergeResults = await this.editProtectionService.applyMergedUpdates(protectionResult.mergedOrders);
+            mergedCount = mergeResults.updated;
+            errorCount += mergeResults.errors;
+          }
+
+          // CONTAR ORDENS PROTEGIDAS
+          protectedCount = protectionResult.protectedOrders.length;
+
+          // REGISTRAR LOG DE PROTEÇÃO
+          await this.editProtectionService.logProtectionActivity(protectionResult.summary, uploadId);
+
+          console.log('📊 RESULTADO FINAL DA INSERÇÃO COM PROTEÇÃO:');
+          console.log(`   🆕 Novos registros inseridos: ${insertedCount}`);
+          console.log(`   🔄 Registros mesclados (preservando edições): ${mergedCount}`);
+          console.log(`   🛡️ Registros totalmente protegidos: ${protectedCount}`);
+          console.log(`   ⚠️ Duplicatas ignoradas: ${skippedCount}`);
+          console.log(`   ❌ Erros na inserção: ${errorCount}`);
+
+        } catch (error) {
+          console.error('💥 ERRO CRÍTICO NO SISTEMA DE PROTEÇÃO:', error);
+          // Fallback para o sistema antigo em caso de erro
+          console.log('🔄 Usando sistema de inserção sem proteção como fallback...');
+          const duplicateResults = await this.handleDuplicateDetection(processingResult.data);
+          insertedCount = duplicateResults.inserted;
+          skippedCount = duplicateResults.skipped;
+          errorCount = duplicateResults.errors;
+        }
+      } else {
+        console.log('⚠️ Nenhum dado processado pelo Python - array vazio');
       }
 
       // 5. REGISTRAR LOG DETALHADO
@@ -114,10 +161,12 @@ class UploadControllerV2 {
         rejectedByInvalidDate: processingResult.summary.rejected_by_invalid_date,
         rejectedByYearRange: processingResult.summary.rejected_by_year_range,
         
-        // Inserção no banco
+        // Inserção no banco com proteção
         rowsInserted: insertedCount,
         rowsSkippedDuplicates: skippedCount,
         rowsWithInsertionErrors: errorCount,
+        rowsProtected: protectedCount,
+        rowsMerged: mergedCount,
         
         // Distribuições
         statusDistribution: processingResult.summary.status_distribution,
@@ -150,6 +199,8 @@ class UploadControllerV2 {
           rowsInserted: insertedCount,
           rowsSkippedDuplicates: skippedCount,
           rowsWithErrors: errorCount,
+          rowsProtected: protectedCount,
+          rowsMerged: mergedCount,
           mathematicallyCorrect: processingResult.summary.mathematically_correct,
           dataAccuracy: processingResult.summary.mathematically_correct ? 'VERIFIED' : 'NEEDS_REVIEW',
           reliability: 'HIGH'
@@ -367,6 +418,103 @@ class UploadControllerV2 {
       res.status(500).json({
         success: false,
         error: (error as Error).message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * RELATÓRIO DE DADOS EDITADOS PELO USUÁRIO
+   */
+  async getEditedDataReport(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('📊 Gerando relatório de dados editados...');
+      
+      const report = await this.editProtectionService.getEditedOrdersReport();
+      
+      res.json({
+        success: true,
+        data: report,
+        systemVersion: '2.0_EDIT_PROTECTION',
+        timestamp: new Date().toISOString(),
+        message: 'Relatório de dados editados gerado com sucesso'
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao gerar relatório de dados editados:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message,
+        systemVersion: '2.0_EDIT_PROTECTION',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * RESETAR PROTEÇÃO DE UMA ORDEM ESPECÍFICA
+   * (Permite que a próxima planilha sobrescreva os dados)
+   */
+  async resetOrderProtection(req: Request, res: Response): Promise<void> {
+    try {
+      const { orderNumber } = req.params;
+      
+      if (!orderNumber) {
+        return res.status(400).json({
+          success: false,
+          error: 'Número da ordem é obrigatório'
+        });
+      }
+
+      console.log(`🔓 Resetando proteção da ordem: ${orderNumber}`);
+
+      const { data: updatedOrder, error } = await supabase
+        .from('service_orders')
+        .update({
+          manually_edited: false,
+          protected_fields: {},
+          last_edited_by: null,
+          last_edit_date: null,
+          edit_count: 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_number', orderNumber)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('❌ Erro ao resetar proteção:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Erro ao resetar proteção da ordem'
+        });
+      }
+
+      if (!updatedOrder) {
+        return res.status(404).json({
+          success: false,
+          error: 'Ordem de serviço não encontrada'
+        });
+      }
+
+      console.log(`✅ Proteção resetada para ordem: ${orderNumber}`);
+
+      res.json({
+        success: true,
+        message: 'Proteção resetada com sucesso. A próxima planilha poderá sobrescrever os dados desta ordem.',
+        data: updatedOrder,
+        systemVersion: '2.0_EDIT_PROTECTION',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao resetar proteção:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message,
+        systemVersion: '2.0_EDIT_PROTECTION',
         timestamp: new Date().toISOString()
       });
     }

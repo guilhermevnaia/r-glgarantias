@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download, Shield, AlertTriangle, Eye, Edit, Printer, FileDown } from "lucide-react";
-import { apiService, ServiceOrder, ServiceOrdersResponse } from "@/services/api";
+import { ServiceOrder } from "@/services/api";
 import { useDataIntegrity, useRecordCountVerification } from "@/hooks/useDataIntegrity";
 import { useToast } from "@/hooks/use-toast";
+import { useServiceOrders, useUpdateServiceOrder, useDataSync } from "@/hooks/useGlobalData";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   "G": "outline",
@@ -32,13 +33,27 @@ const ServiceOrders = () => {
   const [manufacturerFilter, setManufacturerFilter] = useState("all");
   const [mechanicFilter, setMechanicFilter] = useState("all");
   const [modelFilter, setModelFilter] = useState("all");
-  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const recordsPerPage = 50; // Registros por página
+
+  // ✅ USANDO ESTADO GLOBAL SINCRONIZADO
+  const serviceOrdersParams = {
+    page: currentPage,
+    limit: recordsPerPage,
+    ...(searchTerm && { search: searchTerm }),
+    ...(statusFilter !== "all" && { status: statusFilter }),
+    ...(yearFilter !== "all" && { year: parseInt(yearFilter) }),
+    ...(monthFilter !== "all" && { month: parseInt(monthFilter) }),
+    ...(manufacturerFilter !== "all" && { manufacturer: manufacturerFilter }),
+    ...(mechanicFilter !== "all" && { mechanic: mechanicFilter }),
+    ...(modelFilter !== "all" && { model: modelFilter }),
+  };
+
+  const { data: serviceOrdersResponse, isLoading: loading, error } = useServiceOrders(serviceOrdersParams);
+  const serviceOrders = serviceOrdersResponse?.data || [];
+  const totalRecords = serviceOrdersResponse?.pagination?.total || 0;
+  const totalPages = serviceOrdersResponse?.pagination?.totalPages || 1;
 
   // Estados para ações
   const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
@@ -49,9 +64,11 @@ const ServiceOrders = () => {
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
-  // Hooks de integridade de dados
+  // Hooks de integridade de dados e sincronização
   const { integrityStatus, isLoading: integrityLoading, error: integrityError, checkIntegrity } = useDataIntegrity();
   const { isValid: isCountValid, actualCount, isChecking, verifyCount } = useRecordCountVerification(serviceOrders.length);
+  const { updateServiceOrder } = useUpdateServiceOrder();
+  const { invalidateAllData } = useDataSync();
 
   // Lista de anos únicos
   const availableYears = ["2019", "2020", "2021", "2022", "2023", "2024", "2025"];
@@ -88,57 +105,18 @@ const ServiceOrders = () => {
     return models.sort();
   }, [serviceOrders]);
 
-  const fetchServiceOrders = async (page: number = 1) => {
-    setLoading(true);
-    try {
-      const params: any = {
-        page: page,
-        limit: recordsPerPage
-      };
+  // ✅ fetchServiceOrders removido - usando estado global sincronizado
 
-      // Aplicar filtros de busca se existirem
-      if (searchTerm) params.search = searchTerm;
-      if (statusFilter !== "all") params.status = statusFilter;
-
-      console.log("🔄 Buscando ordens de serviço paginadas:", params);
-      const response: ServiceOrdersResponse = await apiService.getServiceOrders(params);
-      console.log("✅ Ordens recebidas:", response);
-      
-      setServiceOrders(response.data || []);
-      setTotalRecords(response.pagination?.total || response.total || 0);
-      setCurrentPage(response.pagination?.page || page);
-      setTotalPages(response.pagination?.totalPages || Math.ceil((response.total || 0) / recordsPerPage));
-
-      console.log(`📊 Página ${page}: ${response.data?.length || 0} registros de ${response.pagination?.total || response.total || 0} totais`);
-    } catch (error) {
-      console.error("❌ Erro ao buscar ordens:", error);
-      setServiceOrders([]);
-      setTotalRecords(0);
-      setCurrentPage(1);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchServiceOrders();
-  }, []);
+  // ✅ useEffect removido - dados carregados automaticamente pelo hook global
 
   // Calcular hasActiveFilters antes de usar no useEffect
   const hasActiveFilters = statusFilter !== "all" || yearFilter !== "all" || monthFilter !== "all" || 
                           manufacturerFilter !== "all" || mechanicFilter !== "all" || modelFilter !== "all" || searchTerm;
 
-  // Recarregar dados quando filtros mudarem
+  // Resetar página quando filtros mudarem
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Voltar para página 1 quando filtros mudarem
-      setCurrentPage(1);
-      fetchServiceOrders(1);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter]);
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
 
   // Aplicar filtros locais (frontend) sobre os dados da página atual
   const filteredOrders = useMemo(() => {
@@ -173,7 +151,7 @@ const ServiceOrders = () => {
     setMechanicFilter("all");
     setModelFilter("all");
     setCurrentPage(1);
-    fetchServiceOrders(1);
+    // ✅ Não precisa mais chamar fetchServiceOrders - dados sincronizados automaticamente
   };
 
   const exportToCSV = async () => {
@@ -308,7 +286,7 @@ const ServiceOrders = () => {
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
-      fetchServiceOrders(newPage);
+      // ✅ Página atualizada automaticamente via estado global
     }
   };
 

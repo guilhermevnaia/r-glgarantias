@@ -317,8 +317,7 @@ class DefinitiveExcelProcessor:
         
         # 7. EXTRAIR OUTROS CAMPOS COM VALIDAÇÃO
         try:
-            parts_total_raw = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['parts_total'], 0))
-            parts_total = parts_total_raw / 2  # Regra de negócio: dividir por 2
+            parts_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['parts_total'], 0))
             labor_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['labor_total'], 0))
             grand_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['grand_total'], 0))
             
@@ -335,7 +334,6 @@ class DefinitiveExcelProcessor:
                 'parts_total': parts_total,
                 'labor_total': labor_total,
                 'grand_total': grand_total,
-                'original_parts_value': parts_total_raw,
                 'calculation_verified': abs((parts_total + labor_total) - grand_total) < 0.01
             }
             
@@ -497,8 +495,8 @@ def main():
             f.write(result.to_json())
         logger.info(f"📄 Resultado salvo em: {args.output}")
     else:
-        # Para Node.js, retornar apenas resumo para evitar broken pipe
-        if args.summary_only or not args.output:
+        # Para Node.js, retornar dados completos ou apenas resumo
+        if args.summary_only:
             summary = {
                 "success": result.success,
                 "data": [],  # Dados vazios para evitar broken pipe

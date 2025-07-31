@@ -92,6 +92,17 @@ app.post('/api/v2/install-dependencies', (req, res) => {
   uploadControllerV2.installDependencies(req, res);
 });
 
+// ✅ NOVAS ROTAS DE PROTEÇÃO DE DADOS EDITADOS
+// Relatório de dados editados pelo usuário
+app.get('/api/v2/edited-data-report', (req, res) => {
+  uploadControllerV2.getEditedDataReport(req, res);
+});
+
+// Resetar proteção de uma ordem específica
+app.post('/api/v2/reset-protection/:orderNumber', (req, res) => {
+  uploadControllerV2.resetOrderProtection(req, res);
+});
+
 // Rota de teste simples
 app.get('/api/v1/test', (req, res) => {
   res.json({ message: 'API funcionando', timestamp: new Date().toISOString() });

@@ -478,6 +478,11 @@ export class StatsController {
 
       // Atualizar campo updated_at
       processedData.updated_at = new Date().toISOString();
+      
+      // ✅ MARCAR COMO EDITADO MANUALMENTE
+      processedData.manually_edited = true;
+      processedData.last_edit_date = new Date().toISOString();
+      processedData.last_edited_by = 'user'; // TODO: Implementar sistema de usuários
 
       // Verificar se a OS existe
       const { data: existingOrder, error: fetchError } = await supabase

@@ -29,7 +29,6 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Ordens de Serviço", url: "/orders", icon: ClipboardList },
   { title: "Upload Excel", url: "/upload", icon: Upload },
-  { title: "Análises", url: "/analysis", icon: BarChart3 },
   { title: "Defeitos", url: "/defects", icon: AlertTriangle },
   { title: "Mecânicos", url: "/mechanics", icon: Users },
   { title: "Relatórios", url: "/reports", icon: FileBarChart },
