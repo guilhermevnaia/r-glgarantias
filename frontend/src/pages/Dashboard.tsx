@@ -18,12 +18,17 @@ import {
   Wrench,
   AlertTriangle,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Brain,
+  Zap
 } from "lucide-react";
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
 import { DashboardStats } from "@/services/api";
 import { useDashboardStats } from "@/hooks/useGlobalData";
+import { exportToExcel, formatServiceOrdersForExport } from '@/utils/exportExcel';
+import { useAI } from '@/hooks/useAI';
+import { ClassifiedDefectText } from '@/components/ClassifiedDefect';
 import { 
   BarChart, 
   Bar, 
@@ -56,9 +61,13 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
   
   const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth || currentMonth);
   const [selectedYear, setSelectedYear] = useState<number>(initialYear || currentYear);
+  const [aiStats, setAiStats] = useState<any>(null);
 
   // ✅ USANDO ESTADO GLOBAL SINCRONIZADO
   const { data: stats, isLoading: loading, error } = useDashboardStats(selectedMonth, selectedYear);
+  
+  // 🤖 DADOS DA IA
+  const { classifications, getClassificationForOrder } = useAI();
   
   // Buscar dados do mês anterior para comparação
   const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
@@ -73,6 +82,23 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
     stats: !!stats, 
     previousMonthStats: !!previousMonthStats 
   });
+
+  // Carregar dados da IA
+  useEffect(() => {
+    const loadAIStats = async () => {
+      try {
+        const response = await fetch('http://localhost:3010/api/v1/ai/stats');
+        const data = await response.json();
+        if (data.success) {
+          setAiStats(data.data);
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível carregar estatísticas da IA:', error);
+      }
+    };
+
+    loadAIStats();
+  }, []);
 
   if (loading) {
     return (
@@ -150,7 +176,7 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
           {/* Visão Geral */}
           <TabsContent value="overview" className="space-y-6 mt-6">
             {/* Cards de Estatísticas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
               <AppleCard
                 title="Total de OS"
                 value={stats.totalOrders}
@@ -190,6 +216,17 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                   value: `${previousMonthStats?.defectsCount ?? 0}`,
                   isPositive: stats.defectsCount < (previousMonthStats?.defectsCount ?? 0),
                 }}
+              />
+              <AppleCard
+                title="IA Classificações"
+                value={aiStats ? `${aiStats.totalClassified}/${aiStats.totalDefects}` : '0/0'}
+                icon={Brain}
+                gradient="green"
+                trend={{
+                  value: aiStats ? `${((aiStats.classificationRate || 0) * 100).toFixed(1)}%` : '0%',
+                  isPositive: true,
+                }}
+                subtitle="Taxa de Classificação"
               />
             </div>
 
@@ -265,32 +302,16 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
 
                     <button 
                       onClick={() => {
-                        // Função de exportação completa
-                        const exportData = {
-                          periodo: `${new Date(selectedYear, selectedMonth - 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}`,
-                          resumo: {
-                            totalOrdens: stats.totalOrders,
-                            valorTotal: stats.financialSummary.totalValue,
-                            valorMedio: stats.financialSummary.averageValue,
-                            mecanicosAtivos: stats.mechanicsCount,
-                            tiposDefeitos: stats.defectsCount
-                          },
-                          distribuicaoStatus: stats.statusDistribution,
-                          ordens: stats.orders,
-                          fabricantes: stats.topManufacturers,
-                          tendenciaMensal: stats.monthlyTrend,
-                          distribuicaoAnual: stats.yearDistribution
-                        };
+                        // Exportar dados do dashboard para Excel
+                        const exportData = formatServiceOrdersForExport(stats.orders || [], classifications);
+                        const fileName = `dashboard-${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+                        const success = exportToExcel(exportData, fileName, 'Dashboard');
                         
-                        const dataStr = JSON.stringify(exportData, null, 2);
-                        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                        
-                        const exportFileDefaultName = `dashboard-${selectedYear}-${selectedMonth.toString().padStart(2, '0')}.json`;
-                        
-                        const linkElement = document.createElement('a');
-                        linkElement.setAttribute('href', dataUri);
-                        linkElement.setAttribute('download', exportFileDefaultName);
-                        linkElement.click();
+                        if (success) {
+                          console.log('✅ Dados do dashboard exportados para Excel com sucesso');
+                        } else {
+                          console.error('❌ Erro ao exportar dados do dashboard para Excel');
+                        }
                       }}
                       className="flex items-center gap-2 h-8 px-3 text-sm border rounded hover:bg-gray-100 text-green-600 border-green-200 hover:bg-green-50"
                     >
@@ -335,7 +356,11 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                               {order.vehicle_model || '-'}
                             </TableCell>
                             <TableCell className="text-foreground">
-                              {order.raw_defect_description || '-'}
+                              <ClassifiedDefectText 
+                                order={order}
+                                classification={classifications.find(c => c.service_order_id === order.id)}
+                                maxLength={40}
+                              />
                             </TableCell>
                             <TableCell className="text-foreground">
                               {order.responsible_mechanic || '-'}
@@ -469,20 +494,31 @@ const Dashboard = ({ selectedMonth: initialMonth, selectedYear: initialYear }: D
                     data={stats.orders ? 
                       Object.entries(
                         stats.orders.reduce((acc: any, order: any) => {
-                          let defect = order.raw_defect_description;
-                          if (!defect || defect === 'null' || defect.trim() === '') {
-                            defect = 'Não informado';
+                          // 🤖 USAR CLASSIFICAÇÃO DA IA OU FALLBACK
+                          const classification = classifications.find(c => c.service_order_id === order.id);
+                          let defectCategory;
+                          
+                          if (classification && classification.defect_categories) {
+                            // Usar categoria da IA
+                            defectCategory = classification.defect_categories.category_name;
                           } else {
-                            defect = defect.toUpperCase();
-                            if (defect.includes('VAZAMENTO')) defect = 'VAZAMENTO';
-                            else if (defect.includes('BARULHO')) defect = 'BARULHO/RUÍDO';
-                            else if (defect.includes('QUEBROU') || defect.includes('QUEBR') || defect.includes('DANIFIC')) defect = 'QUEBRA/DANO';
-                            else if (defect.includes('AQUEC') || defect.includes('ESQUENT')) defect = 'AQUECIMENTO';
-                            else if (defect.includes('OLEO') || defect.includes('ÓLEO')) defect = 'PROBLEMA ÓLEO';
-                            else if (defect.includes('FALH') || defect.includes('FALHANDO') || defect.includes('NÃO PEGA')) defect = 'FALHA FUNCIONAMENTO';
-                            else defect = 'OUTROS';
+                            // Fallback para classificação manual (antigo sistema)
+                            let defect = order.raw_defect_description;
+                            if (!defect || defect === 'null' || defect.trim() === '') {
+                              defectCategory = 'Não Classificado';
+                            } else {
+                              defect = defect.toUpperCase();
+                              if (defect.includes('VAZAMENTO')) defectCategory = 'Vazamentos';
+                              else if (defect.includes('BARULHO')) defectCategory = 'Ruídos Anômalos';
+                              else if (defect.includes('QUEBROU') || defect.includes('QUEBR') || defect.includes('DANIFIC')) defectCategory = 'Desgaste de Componentes';
+                              else if (defect.includes('AQUEC') || defect.includes('ESQUENT')) defectCategory = 'Superaquecimento';
+                              else if (defect.includes('OLEO') || defect.includes('ÓLEO')) defectCategory = 'Vazamentos';
+                              else if (defect.includes('FALH') || defect.includes('FALHANDO') || defect.includes('NÃO PEGA')) defectCategory = 'Falhas Elétricas';
+                              else defectCategory = 'Não Classificado';
+                            }
                           }
-                          acc[defect] = (acc[defect] || 0) + 1;
+                          
+                          acc[defectCategory] = (acc[defectCategory] || 0) + 1;
                           return acc;
                         }, {})
                       )

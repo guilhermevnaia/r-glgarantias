@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-08-01T19:34:54.229Z",
+  "filesRemoved": [
+    "S:\\comp-glgarantias\\r-glgarantias\\backend\\error.log (Arquivo temporário) [605 Bytes]",
+    "S:\\comp-glgarantias\\r-glgarantias\\backend\\temp_test.txt (Arquivo temporário) [17 Bytes]"
+  ],
+  "directoriesRemoved": [
+    "S:\\comp-glgarantias\\r-glgarantias\\backend\\dist (Artefatos de build antigos)",
+    "S:\\comp-glgarantias\\r-glgarantias\\frontend\\dist (Artefatos de build antigos)"
+  ],
+  "totalSizeRemoved": 622,
+  "totalFiles": 2,
+  "totalDirectories": 2
+}

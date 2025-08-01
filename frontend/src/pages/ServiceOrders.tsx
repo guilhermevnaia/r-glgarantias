@@ -12,6 +12,8 @@ import { ServiceOrder } from "@/services/api";
 import { useDataIntegrity, useRecordCountVerification } from "@/hooks/useDataIntegrity";
 import { useToast } from "@/hooks/use-toast";
 import { useServiceOrders, useUpdateServiceOrder, useDataSync } from "@/hooks/useGlobalData";
+import { useAI } from '@/hooks/useAI';
+import { ClassifiedDefect, ClassifiedDefectText } from '@/components/ClassifiedDefect';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   "G": "outline",
@@ -26,6 +28,8 @@ const statusLabels: { [key: string]: string } = {
 };
 
 const ServiceOrders = () => {
+  // 🤖 DADOS DA IA
+  const { classifications } = useAI();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
@@ -226,7 +230,13 @@ const ServiceOrders = () => {
         `"${order.engine_manufacturer || ''}"`,
         `"${order.engine_description || ''}"`,
         `"${order.vehicle_model || ''}"`,
-        `"${order.raw_defect_description || ''}"`,
+        `"${(() => {
+          const classification = classifications.find(c => c.service_order_id === order.id);
+          if (classification && classification.defect_categories) {
+            return classification.defect_categories.category_name;
+          }
+          return order.raw_defect_description || 'Não Classificado';
+        })()}"`,
         `"${order.responsible_mechanic || ''}"`,
         `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
         `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
@@ -472,7 +482,13 @@ const ServiceOrders = () => {
         `"${order.engine_manufacturer || ''}"`,
         `"${order.engine_description || ''}"`,
         `"${order.vehicle_model || ''}"`,
-        `"${order.raw_defect_description || ''}"`,
+        `"${(() => {
+          const classification = classifications.find(c => c.service_order_id === order.id);
+          if (classification && classification.defect_categories) {
+            return classification.defect_categories.category_name;
+          }
+          return order.raw_defect_description || 'Não Classificado';
+        })()}"`,
         `"${order.responsible_mechanic || ''}"`,
         `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
         `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
@@ -756,8 +772,12 @@ const ServiceOrders = () => {
                           <TableCell className="text-foreground max-w-32 truncate" title={order.vehicle_model || ''}>
                             {order.vehicle_model || '-'}
                           </TableCell>
-                          <TableCell className="text-foreground max-w-48 truncate" title={order.raw_defect_description || ''}>
-                            {order.raw_defect_description || '-'}
+                          <TableCell className="text-foreground max-w-48">
+                            <ClassifiedDefectText 
+                              order={order}
+                              classification={classifications.find(c => c.service_order_id === order.id)}
+                              maxLength={30}
+                            />
                           </TableCell>
                           <TableCell className="text-foreground max-w-32 truncate" title={order.responsible_mechanic || ''}>
                             {order.responsible_mechanic || '-'}

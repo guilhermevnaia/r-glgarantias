@@ -1,0 +1,247 @@
+{
+  "table": "defect_categories",
+  "timestamp": "2025-08-01T19:33:00.932Z",
+  "totalRecords": 11,
+  "data": [
+    {
+      "id": 10,
+      "category_name": "Perda de Peças",
+      "description": "Problemas relacionados à perda ou extravio de peças ou componentes",
+      "color_hex": "#FFC080",
+      "icon": "wrench",
+      "created_at": "2025-08-01T18:13:14.898069",
+      "updated_at": "2025-08-01T18:23:05.168801",
+      "is_active": true,
+      "ai_confidence": 0.95,
+      "sample_defects": [
+        "PERDEU 48 TRAVAS DE VALVULAS"
+      ],
+      "keywords": [
+        "perda",
+        "peça",
+        "extravio"
+      ],
+      "total_occurrences": 2
+    },
+    {
+      "id": 12,
+      "category_name": "Problemas de Registro",
+      "description": "Problemas relacionados a erros de registro ou procedimentos",
+      "color_hex": "#8BC34A",
+      "icon": "file",
+      "created_at": "2025-08-01T18:23:24.475962",
+      "updated_at": "2025-08-01T18:23:24.475962",
+      "is_active": true,
+      "ai_confidence": 0.9,
+      "sample_defects": [
+        "TESTE SEM SERVICE ORDER ID"
+      ],
+      "keywords": [
+        "registro",
+        "erro",
+        "procedimento"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 3,
+      "category_name": "Falhas de Ignição",
+      "description": "Problemas para ligar ou manter funcionamento",
+      "color_hex": "#8B5CF6",
+      "icon": "zap",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T13:59:41.716714",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "NÃO PEGA",
+        "NÃO LIGA",
+        "FALHA NA PARTIDA"
+      ],
+      "keywords": [
+        "não pega",
+        "não liga",
+        "não funciona",
+        "falha"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 7,
+      "category_name": "Testes e Verificações",
+      "description": "Problemas relacionados a testes e verificações de sistemas ou componentes",
+      "color_hex": "#4CAF50",
+      "icon": "check",
+      "created_at": "2025-08-01T13:59:58.997786",
+      "updated_at": "2025-08-01T13:59:58.997786",
+      "is_active": true,
+      "ai_confidence": 0.9,
+      "sample_defects": [
+        "teste"
+      ],
+      "keywords": [
+        "teste",
+        "verificação",
+        "inspeção"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 5,
+      "category_name": "Problemas Elétricos",
+      "description": "Falhas no sistema elétrico",
+      "color_hex": "#EAB308",
+      "icon": "zap",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T15:47:14.565208",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "PROBLEMA ELÉTRICO",
+        "FALHA NO CHICOTE",
+        "BATERIA"
+      ],
+      "keywords": [
+        "elétrico",
+        "bateria",
+        "alternador",
+        "chicote"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 8,
+      "category_name": "Testes e Verificações Especiais",
+      "description": "Problemas relacionados a testes e verificações de sistemas ou componentes que não se encaixam em outras categorias.",
+      "color_hex": "#4CAF50",
+      "icon": "chart",
+      "created_at": "2025-08-01T15:47:20.089244",
+      "updated_at": "2025-08-01T15:47:20.089244",
+      "is_active": true,
+      "ai_confidence": 0.9,
+      "sample_defects": [
+        "teste"
+      ],
+      "keywords": [
+        "teste",
+        "verificação",
+        "inspeção",
+        "análise"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 13,
+      "category_name": "Erros de Teste",
+      "description": "Problemas relacionados a erros ou falhas durante testes ou verificações de sistemas ou componentes.",
+      "color_hex": "#FFC107",
+      "icon": "bug",
+      "created_at": "2025-08-01T18:23:50.036329",
+      "updated_at": "2025-08-01T18:23:50.036329",
+      "is_active": true,
+      "ai_confidence": 0.9,
+      "sample_defects": [
+        "TESTE COM ERRO DETALHADO"
+      ],
+      "keywords": [
+        "erro",
+        "teste",
+        "verificação",
+        "falha"
+      ],
+      "total_occurrences": 1
+    },
+    {
+      "id": 1,
+      "category_name": "Vazamentos",
+      "description": "Problemas relacionados a vazamentos de fluidos",
+      "color_hex": "#EF4444",
+      "icon": "droplets",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T18:53:52.479829",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "VAZAMENTO DE ÓLEO",
+        "VAZAMENTO DE ÁGUA",
+        "VAZAMENTO NO RETENTOR"
+      ],
+      "keywords": [
+        "vazamento",
+        "vaza",
+        "goteira",
+        "escape"
+      ],
+      "total_occurrences": 8
+    },
+    {
+      "id": 4,
+      "category_name": "Ruídos Anômalos",
+      "description": "Barulhos estranhos ou anormais",
+      "color_hex": "#06B6D4",
+      "icon": "volume-2",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T17:55:02.338886",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "BARULHO NO MOTOR",
+        "RUÍDO ESTRANHO",
+        "BATIDA"
+      ],
+      "keywords": [
+        "barulho",
+        "ruído",
+        "som",
+        "batida"
+      ],
+      "total_occurrences": 2
+    },
+    {
+      "id": 2,
+      "category_name": "Superaquecimento",
+      "description": "Problemas de temperatura elevada do motor",
+      "color_hex": "#F97316",
+      "icon": "thermometer",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T18:11:09.598966",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "ESQUENTANDO",
+        "MOTOR QUENTE",
+        "SUPERAQUECIMENTO"
+      ],
+      "keywords": [
+        "esquenta",
+        "quente",
+        "temperatura",
+        "aquecimento"
+      ],
+      "total_occurrences": 3
+    },
+    {
+      "id": 6,
+      "category_name": "Desgaste de Componentes",
+      "description": "Peças desgastadas que precisam substituição",
+      "color_hex": "#64748B",
+      "icon": "settings",
+      "created_at": "2025-08-01T13:49:42.068213",
+      "updated_at": "2025-08-01T18:11:43.030087",
+      "is_active": true,
+      "ai_confidence": null,
+      "sample_defects": [
+        "DESGASTE",
+        "PEÇA GASTA",
+        "PRECISA TROCAR"
+      ],
+      "keywords": [
+        "desgaste",
+        "gasto",
+        "troca",
+        "substituir"
+      ],
+      "total_occurrences": 1
+    }
+  ]
+}

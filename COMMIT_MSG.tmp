@@ -1,3 +1,0 @@
-feat: Adicionar validador de dados empresariais
-
-Adiciona o EnterpriseDataValidator.ts para garantir a integridade e o formato correto dos dados empresariais antes do processamento. Este validador será crucial para novas integrações de dados.

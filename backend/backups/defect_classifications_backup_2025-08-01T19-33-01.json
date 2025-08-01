@@ -1,0 +1,37 @@
+{
+  "table": "defect_classifications",
+  "timestamp": "2025-08-01T19:33:01.015Z",
+  "totalRecords": 2,
+  "data": [
+    {
+      "id": 2,
+      "service_order_id": 42093,
+      "original_defect_description": "VAZAMENTO NA ROSCA DO TUBO",
+      "category_id": 1,
+      "ai_confidence": 0.95,
+      "is_reviewed": false,
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2025-08-01T15:51:06.509182",
+      "updated_at": "2025-08-01T15:51:06.509182",
+      "ai_reasoning": "O defeito é um vazamento de fluido, especificamente na rocha do tubo, o que é um tipo comum de vazamento.",
+      "alternative_categories": [
+        8
+      ]
+    },
+    {
+      "id": 3,
+      "service_order_id": 42088,
+      "original_defect_description": "TESTE DE INSERÇÃO MANUAL",
+      "category_id": 1,
+      "ai_confidence": 0.99,
+      "is_reviewed": false,
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2025-08-01T18:22:35.248858",
+      "updated_at": "2025-08-01T18:22:35.248858",
+      "ai_reasoning": "Teste manual para verificar se insert funciona",
+      "alternative_categories": []
+    }
+  ]
+}

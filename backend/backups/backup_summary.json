@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-08-01T19:33:26.779Z",
+  "backupResults": {
+    "service_orders": true,
+    "users": true,
+    "defect_categories": true,
+    "defect_classifications": true
+  },
+  "totalTables": 4,
+  "successfulTables": 4,
+  "failedTables": 0
+}

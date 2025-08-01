@@ -32,7 +32,7 @@ const Settings = () => {
   const [editingMechanic, setEditingMechanic] = useState<Mechanic | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newMechanic, setNewMechanic] = useState({ name: '', email: '' });
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'user' as 'admin' | 'user' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'user' as 'admin' | 'manager' | 'user' });
   const [showAddMechanic, setShowAddMechanic] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -184,14 +184,15 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-8 p-8 bg-apple-gray-50 min-h-screen">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <SettingsIcon className="h-8 w-8 text-gray-600" />
-          Configurações do Sistema
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <SettingsIcon className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
+          <span className="hidden sm:inline">Configurações do Sistema</span>
+          <span className="sm:hidden">Configurações</span>
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Gerencie mecânicos, usuários e configurações gerais do sistema
         </p>
       </div>
@@ -211,22 +212,24 @@ const Settings = () => {
       )}
 
       {/* Tabs de Configuração */}
-      <Tabs defaultValue="mechanics" className="w-full">
+      <Tabs defaultValue="users" className="w-full">
         <div className="flex justify-center">
-          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
-            <TabsTrigger 
-              value="mechanics" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              <Wrench className="h-4 w-4 mr-2" />
-              Mecânicos
-            </TabsTrigger>
+          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-4 sm:mb-6 h-10">
             <TabsTrigger 
               value="users" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
             >
-              <Users className="h-4 w-4 mr-2" />
-              Usuários
+              <Users className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Usuários</span>
+              <span className="sm:hidden">Users</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="mechanics" 
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+            >
+              <Wrench className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Mecânicos</span>
+              <span className="sm:hidden">Mecânicos</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -406,22 +409,24 @@ const Settings = () => {
         {/* Gerenciamento de Usuários */}
         <TabsContent value="users" className="space-y-6">
           <Card className="bg-white border border-gray-200 shadow-sm">
-            <CardHeader className="border-b border-border">
-              <div className="flex items-center justify-between">
+            <CardHeader className="border-b border-border p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle className="text-xl font-semibold text-foreground flex items-center gap-2">
+                  <CardTitle className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
                     <Users className="h-5 w-5 text-purple-600" />
-                    Gerenciamento de Usuários
+                    <span className="hidden sm:inline">Gerenciamento de Usuários</span>
+                    <span className="sm:hidden">Usuários</span>
                   </CardTitle>
-                  <CardDescription className="text-muted-foreground">
+                  <CardDescription className="text-muted-foreground text-sm sm:text-base mt-1">
                     Gerencie usuários com acesso ao sistema
                   </CardDescription>
                 </div>
                 <Dialog open={showAddUser} onOpenChange={setShowAddUser}>
                   <DialogTrigger asChild>
-                    <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
                       <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Usuário
+                      <span className="hidden sm:inline">Adicionar Usuário</span>
+                      <span className="sm:hidden">Adicionar</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -456,10 +461,11 @@ const Settings = () => {
                         <select
                           id="userRole"
                           value={newUser.role}
-                          onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' })}
+                          onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'manager' | 'user' })}
                           className="w-full h-10 px-3 py-2 text-sm border border-input rounded-md bg-background"
                         >
                           <option value="user">Usuário</option>
+                          <option value="manager">Gerente</option>
                           <option value="admin">Administrador</option>
                         </select>
                       </div>
@@ -482,62 +488,110 @@ const Settings = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead className="font-semibold text-foreground">Nome</TableHead>
-                      <TableHead className="font-semibold text-foreground">Email</TableHead>
+                      <TableHead className="font-semibold text-foreground hidden sm:table-cell">Email</TableHead>
                       <TableHead className="font-semibold text-foreground">Função</TableHead>
                       <TableHead className="font-semibold text-foreground">Status</TableHead>
-                      <TableHead className="font-semibold text-foreground">Cadastrado em</TableHead>
+                      <TableHead className="font-semibold text-foreground hidden md:table-cell">Último Login</TableHead>
+                      <TableHead className="font-semibold text-foreground hidden lg:table-cell">Cadastrado em</TableHead>
                       <TableHead className="font-semibold text-foreground text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium text-foreground">
-                          {user.name}
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          {user.email}
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={user.role === 'admin' ? "default" : "secondary"}
-                            className={user.role === 'admin' ? "bg-purple-100 text-purple-800 hover:bg-purple-100" : ""}
-                          >
-                            {user.role === 'admin' ? 'Administrador' : 'Usuário'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={user.active ? "default" : "secondary"}
-                            className={user.active ? "bg-green-100 text-green-800 hover:bg-green-100" : ""}
-                          >
-                            {user.active ? 'Ativo' : 'Inativo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingUser(user)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`h-8 w-8 p-0 ${user.active ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}
-                            >
-                              {user.active ? <UserMinus className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
-                            </Button>
-                          </div>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          Nenhum usuário encontrado. Os usuários padrão serão carregados automaticamente.
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      users.map((user) => (
+                        <TableRow key={user.id} className="hover:bg-muted/30">
+                          <TableCell className="font-medium text-foreground">
+                            <div className="flex flex-col">
+                              <span>{user.name}</span>
+                              <span className="text-xs text-muted-foreground sm:hidden">
+                                {user.email}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-foreground hidden sm:table-cell">
+                            {user.email}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={user.role === 'admin' ? "default" : user.role === 'manager' ? "secondary" : "outline"}
+                              className={
+                                user.role === 'admin' 
+                                  ? "bg-purple-100 text-purple-800 hover:bg-purple-100" 
+                                  : user.role === 'manager'
+                                  ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                                  : "bg-gray-100 text-gray-800 hover:bg-gray-100"
+                              }
+                            >
+                              {user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Gerente' : 'Usuário'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={(user.is_active || user.active) ? "default" : "secondary"}
+                              className={(user.is_active || user.active) ? "bg-green-100 text-green-800 hover:bg-green-100" : ""}
+                            >
+                              {(user.is_active || user.active) ? 'Ativo' : 'Inativo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-foreground hidden md:table-cell">
+                            {user.last_login ? (
+                              <div className="flex flex-col">
+                                <span className="text-sm">
+                                  {new Date(user.last_login).toLocaleDateString('pt-BR')}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(user.last_login).toLocaleTimeString('pt-BR', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Nunca</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-foreground hidden lg:table-cell">
+                            <div className="flex flex-col">
+                              <span className="text-sm">
+                                {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                              </span>
+                              {user.login_count && (
+                                <span className="text-xs text-muted-foreground">
+                                  {user.login_count} login(s)
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingUser(user)}
+                                className="h-8 w-8 p-0"
+                                title="Editar usuário"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`h-8 w-8 p-0 ${(user.is_active || user.active) ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}
+                                title={(user.is_active || user.active) ? 'Desativar usuário' : 'Ativar usuário'}
+                              >
+                                {(user.is_active || user.active) ? <UserMinus className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>

@@ -1,40 +1,96 @@
 import express from 'express';
 import multer from 'multer';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
+import cors from 'cors';
 import { UploadController } from './controllers/UploadController';
 import { UploadControllerV2 } from './controllers/UploadControllerV2';
 import { StatsController } from './controllers/StatsController';
 import { IntegrityController } from './controllers/IntegrityController';
 import { SettingsController } from './controllers/SettingsController';
 import { continuousMonitoring } from './services/ContinuousMonitoringService';
+import aiRoutes from './routes/aiRoutes';
+import authRoutes from './routes/authRoutes';
+
+// 🔒 MIDDLEWARES DE SEGURANÇA
+import { 
+  helmetConfig, 
+  corsOptions, 
+  customSecurityHeaders,
+  botProtection,
+  securityLogger,
+  preventPathTraversal,
+  requestTimeout
+} from './middleware/securityMiddleware';
+import { 
+  apiRateLimit, 
+  loginRateLimit, 
+  uploadRateLimit, 
+  aiRateLimit,
+  dynamicRateLimit
+} from './middleware/rateLimitMiddleware';
+import { 
+  sanitizeHTML, 
+  preventSQLInjection,
+  handleValidationErrors
+} from './middleware/validationMiddleware';
+import { authenticateToken, optionalAuth } from './middleware/authMiddleware';
 
 dotenv.config();
 
 const app = express();
-const port = parseInt(process.env.PORT || '4000', 10);
+const port = parseInt(process.env.PORT || '3010', 10);
+
+// 🛡️ APLICAR MIDDLEWARES DE SEGURANÇA (ORDEM IMPORTANTE!)
+
+// 1. Timeout para requisições
+app.use(requestTimeout(30000)); // 30 segundos
+
+// 2. Headers de segurança
+app.use(helmetConfig);
+app.use(customSecurityHeaders);
+
+// 3. CORS configurado
+app.use(cors(corsOptions));
+
+// 4. Logging de segurança
+app.use(securityLogger);
+
+// 5. Proteção contra bots
+app.use(botProtection);
+
+// 6. Prevenção de path traversal
+app.use(preventPathTraversal);
+
+// 7. Body parsing com limite de tamanho
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 8. Sanitização de entrada
+app.use(sanitizeHTML);
+app.use(preventSQLInjection);
+
+// 9. Rate limiting dinâmico
+app.use(dynamicRateLimit);
 
 // Configuração do multer para upload de arquivos
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
+    fileSize: 50 * 1024 * 1024, // 50MB (reduzido para segurança)
   },
-});
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS - permitir requisições de qualquer origem
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
+  fileFilter: (req, file, cb) => {
+    // Permitir apenas tipos específicos
+    const allowedMimes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv'
+    ];
+    
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de arquivo não permitido'));
+    }
   }
 });
 
@@ -77,29 +133,29 @@ app.post('/api/v1/upload', upload.single('file'), (req, res) => {
   uploadController.uploadExcel(req, res);
 });
 
-// NOVA ROTA DE UPLOAD DEFINITIVA COM PYTHON PANDAS
-app.post('/api/v2/upload', upload.single('file'), (req, res) => {
+// NOVA ROTA DE UPLOAD DEFINITIVA COM PYTHON PANDAS (PROTEGIDA)
+app.post('/api/v2/upload', authenticateToken, uploadRateLimit, upload.single('file'), (req, res) => {
   uploadControllerV2.uploadExcelDefinitive(req, res);
 });
 
-// Health check do sistema Python
+// Health check do sistema Python (PÚBLICO)
 app.get('/api/v2/health', (req, res) => {
   uploadControllerV2.healthCheck(req, res);
 });
 
-// Instalar dependências Python
-app.post('/api/v2/install-dependencies', (req, res) => {
+// Instalar dependências Python (APENAS ADMIN)
+app.post('/api/v2/install-dependencies', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin']), (req, res) => {
   uploadControllerV2.installDependencies(req, res);
 });
 
-// ✅ NOVAS ROTAS DE PROTEÇÃO DE DADOS EDITADOS
+// ✅ NOVAS ROTAS DE PROTEÇÃO DE DADOS EDITADOS (PROTEGIDAS)
 // Relatório de dados editados pelo usuário
-app.get('/api/v2/edited-data-report', (req, res) => {
+app.get('/api/v2/edited-data-report', authenticateToken, (req, res) => {
   uploadControllerV2.getEditedDataReport(req, res);
 });
 
 // Resetar proteção de uma ordem específica
-app.post('/api/v2/reset-protection/:orderNumber', (req, res) => {
+app.post('/api/v2/reset-protection/:orderNumber', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin', 'manager']), (req, res) => {
   uploadControllerV2.resetOrderProtection(req, res);
 });
 
@@ -108,20 +164,20 @@ app.get('/api/v1/test', (req, res) => {
   res.json({ message: 'API funcionando', timestamp: new Date().toISOString() });
 });
 
-// Rotas de estatísticas e dados
-app.get('/api/v1/stats', (req, res) => {
+// Rotas de estatísticas e dados (PROTEGIDAS)
+app.get('/api/v1/stats', authenticateToken, (req, res) => {
   statsController.getStats(req, res);
 });
 
-app.get('/api/v1/service-orders', (req, res) => {
+app.get('/api/v1/service-orders', authenticateToken, (req, res) => {
   statsController.getServiceOrders(req, res);
 });
 
-app.put('/api/v1/service-orders/:id', (req, res) => {
+app.put('/api/v1/service-orders/:id', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin', 'manager']), (req, res) => {
   statsController.updateServiceOrder(req, res);
 });
 
-app.get('/api/v1/upload-logs', (req, res) => {
+app.get('/api/v1/upload-logs', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin', 'manager']), (req, res) => {
   statsController.getUploadLogs(req, res);
 });
 
@@ -183,6 +239,21 @@ app.put('/api/v1/users/:id', (req, res) => {
 app.delete('/api/v1/users/:id', (req, res) => {
   settingsController.removeUser(req, res);
 });
+
+// 🔐 ROTAS DE AUTENTICAÇÃO (PÚBLICAS)
+app.use('/api/v1/auth', authRoutes);
+
+// 🧪 TESTE DE AUTH
+app.post('/api/v1/test-auth', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'Endpoint de teste funcionando',
+    body: req.body
+  });
+});
+
+// 🤖 ROTAS DE INTELIGÊNCIA ARTIFICIAL (PROTEGIDAS)
+app.use('/api/v1/ai', authenticateToken, aiRoutes);
 
 // Middleware de tratamento de erros
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

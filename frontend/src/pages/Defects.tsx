@@ -1,33 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
-  AlertTriangle, 
-  TrendingUp, 
-  TrendingDown,
-  Search, 
+  Brain,
+  TrendingUp,
+  Target,
+  Zap,
+  Search,
   Filter,
-  Download,
   RefreshCw,
-  Wrench,
-  AlertCircle,
+  Download,
+  Eye,
   CheckCircle2,
-  XCircle,
+  AlertTriangle,
   Clock,
-  DollarSign,
   BarChart3,
   PieChart,
-  Calendar,
-  Target
+  Droplets,
+  Thermometer,
+  Volume2,
+  Settings,
+  Plus,
+  Edit
 } from "lucide-react";
-import { AppleCard } from '@/components/AppleCard';
-import { ChartCard } from "@/components/ChartCard";
-import { apiService, DashboardStats } from "@/services/api";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   BarChart, 
   Bar, 
@@ -38,747 +40,704 @@ import {
   ResponsiveContainer,
   PieChart as RechartsPieChart,
   Pie,
-  Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart,
-  ComposedChart,
-  Treemap,
-  Sankey,
-  FunnelChart,
-  Funnel,
-  LabelList
+  Cell
 } from 'recharts';
 
+// Interfaces para os dados da IA
+interface DefectCategory {
+  id: number;
+  category_name: string;
+  description: string;
+  color_hex: string;
+  icon: string;
+  keywords: string[];
+  sample_defects: string[];
+  total_occurrences: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface DefectClassification {
+  id: number;
+  service_order_id: number;
+  original_defect_description: string;
+  category_id: number;
+  category_name: string;
+  ai_confidence: number;
+  ai_reasoning: string;
+  is_reviewed: boolean;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at: string;
+  alternative_categories?: number[];
+}
+
+interface AIStats {
+  categories: DefectCategory[];
+  totalClassified: number;
+  totalDefects: number;
+  classificationRate: number;
+}
+
 const Defects = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [aiStats, setAiStats] = useState<AIStats | null>(null);
+  const [categories, setCategories] = useState<DefectCategory[]>([]);
+  const [classifications, setClassifications] = useState<DefectClassification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedManufacturer, setSelectedManufacturer] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
+  const [reviewedFilter, setReviewedFilter] = useState<string>('all');
+  const [isClassifying, setIsClassifying] = useState(false);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await apiService.getStats();
-        setStats(data);
-      } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
+    loadAIData();
   }, []);
+
+  const loadAIData = async () => {
+    setLoading(true);
+    try {
+      console.log('🤖 Carregando dados da IA...');
+      
+      // Carregar estatísticas e categorias
+      const [statsResponse, categoriesResponse] = await Promise.all([
+        fetch('http://localhost:3009/api/v1/ai/stats').then(r => r.json()),
+        fetch('http://localhost:3009/api/v1/ai/categories').then(r => r.json())
+      ]);
+
+      if (statsResponse.success) {
+        setAiStats(statsResponse.data);
+        console.log('✅ Estatísticas da IA carregadas:', statsResponse.data);
+      }
+
+      if (categoriesResponse.success) {
+        setCategories(categoriesResponse.data);
+        console.log('✅ Categorias carregadas:', categoriesResponse.data);
+      }
+
+      // Tentar carregar classificações (pode falhar se não houver)
+      try {
+        const classificationsResponse = await fetch('http://localhost:3009/api/v1/ai/classifications');
+        const classificationsData = await classificationsResponse.json();
+        
+        if (classificationsData.success) {
+          setClassifications(classificationsData.data || []);
+          console.log('✅ Classificações carregadas:', classificationsData.data);
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível carregar classificações:', error);
+        setClassifications([]);
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados da IA:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartMassClassification = async () => {
+    setIsClassifying(true);
+    try {
+      console.log('🚀 Iniciando classificação em massa...');
+      
+      const response = await fetch('http://localhost:3009/api/v1/ai/classify-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Classificação iniciada:', data.message);
+        
+        // Mostrar feedback ao usuário
+        alert(`Classificação em massa iniciada! ${data.message}\nTempo estimado: ${data.estimated_time}`);
+        
+        // Recarregar dados após 10 segundos para mostrar progresso
+        setTimeout(() => {
+          loadAIData();
+        }, 10000);
+        
+        // Recarregar periodicamente enquanto estiver classificando
+        const interval = setInterval(() => {
+          loadAIData();
+        }, 30000);
+        
+        // Parar depois de 10 minutos
+        setTimeout(() => {
+          clearInterval(interval);
+        }, 600000);
+        
+      } else {
+        throw new Error(data.error || 'Erro ao iniciar classificação');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao iniciar classificação em massa:', error);
+      alert('Erro ao iniciar classificação em massa. Verifique se o servidor está funcionando.');
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
+  const getIconForCategory = (iconName: string) => {
+    const icons = {
+      droplets: Droplets,
+      thermometer: Thermometer,
+      zap: Zap,
+      'volume-2': Volume2,
+      settings: Settings,
+      wrench: Settings,
+      check: CheckCircle2
+    };
+    const Icon = icons[iconName as keyof typeof icons] || Settings;
+    return <Icon className="h-4 w-4" />;
+  };
+
+  const filteredClassifications = classifications.filter(classification => {
+    const matchesSearch = classification.original_defect_description
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'all' || 
+      classification.category_name === selectedCategory;
+    
+    const matchesConfidence = confidenceFilter === 'all' ||
+      (confidenceFilter === 'high' && classification.ai_confidence >= 0.8) ||
+      (confidenceFilter === 'medium' && classification.ai_confidence >= 0.5 && classification.ai_confidence < 0.8) ||
+      (confidenceFilter === 'low' && classification.ai_confidence < 0.5);
+    
+    const matchesReviewed = reviewedFilter === 'all' ||
+      (reviewedFilter === 'reviewed' && classification.is_reviewed) ||
+      (reviewedFilter === 'pending' && !classification.is_reviewed);
+
+    return matchesSearch && matchesCategory && matchesConfidence && matchesReviewed;
+  });
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-apple-gray-50 p-8">
+      <div className="min-h-screen bg-apple-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-white rounded-apple-lg w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-white rounded-apple-lg"></div>
+          <div className="h-8 bg-white rounded-lg w-64"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-32 bg-white rounded-lg"></div>
             ))}
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-80 bg-white rounded-apple-lg"></div>
-            ))}
-          </div>
+          <div className="h-96 bg-white rounded-lg"></div>
         </div>
       </div>
     );
   }
 
-  if (!stats) {
-    return (
-      <div className="min-h-screen bg-apple-gray-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <CardContent>
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-apple-gray-500">Erro ao carregar dados de defeitos</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Tentar Novamente
-            </Button>
+  const chartData = categories
+    .filter(cat => cat.total_occurrences > 0)
+    .map(cat => ({
+      name: cat.category_name,
+      value: cat.total_occurrences,
+      color: cat.color_hex
+    }));
+
+  return (
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <Brain className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
+          <span className="hidden sm:inline">Inteligência Artificial - Classificação de Defeitos</span>
+          <span className="sm:hidden">IA - Defeitos</span>
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Sistema inteligente para classificação automática de defeitos mecânicos
+        </p>
+      </div>
+
+      {/* Cards de Estatísticas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600">Total de Defeitos</p>
+                <p className="text-2xl sm:text-3xl font-bold text-purple-900">
+                  {aiStats?.totalDefects?.toLocaleString() || 0}
+                </p>
+              </div>
+              <Target className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Classificados</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-900">
+                  {aiStats?.totalClassified?.toLocaleString() || 0}
+                </p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Taxa de Classificação</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-900">
+                  {((aiStats?.classificationRate || 0) * 100).toFixed(1)}%
+                </p>
+                <Progress 
+                  value={(aiStats?.classificationRate || 0) * 100} 
+                  className="mt-2" 
+                />
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-600">Categorias Ativas</p>
+                <p className="text-2xl sm:text-3xl font-bold text-orange-900">
+                  {categories.filter(cat => cat.is_active).length}
+                </p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-orange-600" />
+            </div>
           </CardContent>
         </Card>
       </div>
-    );
-  }
 
-  // Dados simulados para análise de defeitos (em produção viriam da API)
-  const defectCategories = [
-    { name: 'Motor', count: 856, percentage: 34.0, severity: 'high', avgCost: 1250 },
-    { name: 'Transmissão', count: 634, percentage: 25.2, severity: 'high', avgCost: 980 },
-    { name: 'Sistema Elétrico', count: 428, percentage: 17.0, severity: 'medium', avgCost: 650 },
-    { name: 'Freios', count: 315, percentage: 12.5, severity: 'medium', avgCost: 420 },
-    { name: 'Suspensão', count: 186, percentage: 7.4, severity: 'low', avgCost: 380 },
-    { name: 'Outros', count: 100, percentage: 3.9, severity: 'low', avgCost: 280 }
-  ];
-
-  const topDefects = [
-    { defect: 'Falha no sistema de injeção', count: 234, manufacturer: 'MWM', avgCost: 1450, trend: 'up' },
-    { defect: 'Problema na embreagem', count: 198, manufacturer: 'Mercedes-Benz', avgCost: 890, trend: 'down' },
-    { defect: 'Vazamento de óleo', count: 176, manufacturer: 'Cummins', avgCost: 650, trend: 'stable' },
-    { defect: 'Superaquecimento', count: 154, manufacturer: 'MWM', avgCost: 1200, trend: 'up' },
-    { defect: 'Falha no turbo', count: 142, manufacturer: 'Perkins', avgCost: 1800, trend: 'down' },
-    { defect: 'Problema no alternador', count: 128, manufacturer: 'Volkswagen', avgCost: 520, trend: 'stable' },
-    { defect: 'Desgaste prematuro', count: 115, manufacturer: 'Mercedes-Benz', avgCost: 750, trend: 'up' },
-    { defect: 'Falha na bomba d\'água', count: 98, manufacturer: 'Cummins', avgCost: 480, trend: 'down' }
-  ];
-
-  const defectsByManufacturer = stats.topManufacturers.map(manufacturer => ({
-    name: manufacturer.name,
-    total: manufacturer.count,
-    motor: Math.floor(manufacturer.count * 0.34),
-    transmissao: Math.floor(manufacturer.count * 0.25),
-    eletrico: Math.floor(manufacturer.count * 0.17),
-    freios: Math.floor(manufacturer.count * 0.12),
-    outros: Math.floor(manufacturer.count * 0.12)
-  }));
-
-  const monthlyDefectTrend = stats.monthlyTrend.map(item => ({
-    month: item.month,
-    total: item.count,
-    criticos: Math.floor(item.count * 0.15),
-    medios: Math.floor(item.count * 0.35),
-    baixos: Math.floor(item.count * 0.50)
-  }));
-
-  const defectSeverityData = [
-    { name: 'Críticos', value: 385, color: '#FF3B30', percentage: 15.3 },
-    { name: 'Médios', value: 883, color: '#FF9500', percentage: 35.1 },
-    { name: 'Baixos', value: 1251, color: '#34C759', percentage: 49.6 }
-  ];
-
-  const costImpactData = defectCategories.map(category => ({
-    category: category.name,
-    frequency: category.count,
-    avgCost: category.avgCost,
-    totalCost: category.count * category.avgCost
-  }));
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'low': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up': return <TrendingUp className="h-4 w-4 text-red-500" />;
-      case 'down': return <TrendingDown className="h-4 w-4 text-green-500" />;
-      default: return <div className="h-4 w-4 bg-gray-400 rounded-full" />;
-    }
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Tabs de Defeitos */}
+      {/* Tabs Principais */}
       <Tabs defaultValue="overview" className="w-full">
-        <div className="flex justify-center">
-          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
+        <div className="flex justify-center mb-6">
+          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 h-10">
             <TabsTrigger 
               value="overview" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
             >
-              Visão Geral
+              <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Visão Geral</span>
+              <span className="sm:hidden">Geral</span>
             </TabsTrigger>
             <TabsTrigger 
               value="categories" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
             >
-              Categorias
+              <Target className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Categorias</span>
+              <span className="sm:hidden">Categorias</span>
             </TabsTrigger>
             <TabsTrigger 
-              value="trends" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
+              value="classifications" 
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
             >
-              Tendências
-            </TabsTrigger>
-            <TabsTrigger 
-              value="impact" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-            >
-              Impacto
+              <Brain className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Classificações</span>
+              <span className="sm:hidden">IA</span>
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* KPIs de Defeitos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <AppleCard
-            title="Total de Defeitos"
-            value="1,247"
-            subtitle="Catalogados no sistema"
-            icon={AlertTriangle}
-            gradient="red"
-          />
-          
-          <AppleCard
-            title="Defeitos Críticos"
-            value="189"
-            subtitle="15.3% do total"
-            icon={AlertCircle}
-            gradient="orange"
-          />
-          
-          <AppleCard
-            title="Custo Médio"
-            value="R$ 2.8K"
-            subtitle="Por defeito resolvido"
-            icon={DollarSign}
-            gradient="purple"
-          />
-          
-          <AppleCard
-            title="Tempo Médio"
-            value="4.2h"
-            subtitle="Para resolução"
-            icon={Clock}
-            gradient="blue"
-          />
-        </div>
-
-          {/* Visão Geral */}
-          <TabsContent value="overview" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Distribuição por Severidade */}
-              <ChartCard
-                title="Distribuição por Severidade"
-                description="Classificação dos defeitos por criticidade"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={defectSeverityData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {defectSeverityData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Quantidade']}
-                    />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Top Categorias */}
-              <ChartCard
-                title="Principais Categorias de Defeitos"
-                description="Distribuição por tipo de componente"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={defectCategories} layout="horizontal">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis type="number" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                      width={80}
-                    />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Ocorrências']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="count" 
-                      fill="#FF3B30" 
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Tabela de Top Defeitos */}
-            <Card className="bg-white border-2 border-black shadow-md">
-              <CardHeader className="border-b border-apple-gray-100">
-                <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                  Top 8 Defeitos Mais Frequentes
-                </CardTitle>
-                <CardDescription className="text-apple-gray-500">
-                  Defeitos com maior incidência no sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-apple-gray-50/50 hover:bg-apple-gray-50/50">
-                      <TableHead className="font-semibold text-apple-gray-700">Defeito</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Fabricante</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Ocorrências</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Custo Médio</TableHead>
-                      <TableHead className="font-semibold text-apple-gray-700">Tendência</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topDefects.map((defect, index) => (
-                      <TableRow key={index} className="hover:bg-apple-gray-50/30">
-                        <TableCell className="font-medium text-apple-gray-900">
-                          {defect.defect}
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            {defect.manufacturer}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          {defect.count.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell className="text-apple-gray-700">
-                          R$ {defect.avgCost.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell>
-                          {getTrendIcon(defect.trend)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Análise por Categorias */}
-          <TabsContent value="categories" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Defeitos por Fabricante */}
-              <ChartCard
-                title="Defeitos por Fabricante"
-                description="Distribuição de defeitos por marca"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={defectsByManufacturer}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="name" 
-                      tick={{ fontSize: 11, fill: '#6B7280' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Defeitos']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar dataKey="motor" stackId="a" fill="#FF3B30" name="Motor" />
-                    <Bar dataKey="transmissao" stackId="a" fill="#FF9500" name="Transmissão" />
-                    <Bar dataKey="eletrico" stackId="a" fill="#007AFF" name="Elétrico" />
-                    <Bar dataKey="freios" stackId="a" fill="#34C759" name="Freios" />
-                    <Bar dataKey="outros" stackId="a" fill="#8E8E93" name="Outros" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Análise de Custo por Categoria */}
-              <ChartCard
-                title="Impacto Financeiro por Categoria"
-                description="Custo total vs frequência"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={costImpactData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis
-                      dataKey="category"
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis yAxisId="left" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any, name: string) => [
-                        name === 'frequency' ? value.toLocaleString('pt-BR') : `R$ ${value.toLocaleString('pt-BR')}`,
-                        name === 'frequency' ? 'Frequência' : name === 'avgCost' ? 'Custo Médio' : 'Custo Total'
-                      ]}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="frequency" 
-                      fill="#007AFF" 
-                      radius={[4, 4, 0, 0]}
-                      name="Frequência"
-                    />
-                    <Line 
-                      yAxisId="right"
-                      type="monotone" 
-                      dataKey="avgCost" 
-                      stroke="#FF9500" 
-                      strokeWidth={3}
-                      name="Custo Médio"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Cards de Categorias */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {defectCategories.map((category, index) => (
-                <Card key={index} className="bg-white border-2 border-black shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-50 rounded-lg">
-                          <Wrench className="h-5 w-5 text-red-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-apple-gray-900">{category.name}</h3>
-                          <p className="text-sm text-apple-gray-500">{category.percentage}% do total</p>
-                        </div>
-                      </div>
-                      <Badge className={getSeverityColor(category.severity)}>
-                        {category.severity === 'high' ? 'Alto' : category.severity === 'medium' ? 'Médio' : 'Baixo'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-apple-gray-600">Ocorrências</span>
-                        <span className="font-semibold text-apple-gray-900">
-                          {category.count.toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-apple-gray-600">Custo Médio</span>
-                        <span className="font-semibold text-apple-gray-900">
-                          R$ {category.avgCost.toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      <div className="w-full bg-apple-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-red-500 h-2 rounded-full" 
-                          style={{ width: `${category.percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Análise de Tendências */}
-          <TabsContent value="trends" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Evolução Mensal */}
-              <ChartCard
-                title="Evolução Mensal de Defeitos"
-                description="Tendência de defeitos por severidade"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyDefectTrend}>
-                    <defs>
-                      <linearGradient id="colorCriticos" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#FF3B30" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#FF3B30" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorMedios" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#FF9500" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#FF9500" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorBaixos" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#34C759" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#34C759" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="month" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Defeitos']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="criticos"
-                      stackId="1"
-                      stroke="#FF3B30"
-                      fill="url(#colorCriticos)"
-                      name="Críticos"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="medios"
-                      stackId="1"
-                      stroke="#FF9500"
-                      fill="url(#colorMedios)"
-                      name="Médios"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="baixos"
-                      stackId="1"
-                      stroke="#34C759"
-                      fill="url(#colorBaixos)"
-                      name="Baixos"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Previsão de Defeitos */}
-              <ChartCard
-                title="Análise Preditiva"
-                description="Projeção baseada em tendências históricas"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[
-                    ...monthlyDefectTrend,
-                    { month: 'Jul', total: 195, criticos: 29, medios: 68, baixos: 98 },
-                    { month: 'Ago', total: 210, criticos: 32, medios: 74, baixos: 104 },
-                    { month: 'Set', total: 188, criticos: 28, medios: 66, baixos: 94 }
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis 
-                      dataKey="month" 
-                      tick={{ fontSize: 12, fill: '#6B7280' }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
-                    <Tooltip 
-                      formatter={(value: any) => [value.toLocaleString('pt-BR'), 'Defeitos']}
-                      labelStyle={{ color: '#374151' }}
-                      contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="total" 
-                      stroke="#007AFF" 
-                      strokeWidth={3}
-                      strokeDasharray="0 0 5 5"
-                      name="Total (Projeção)"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="criticos" 
-                      stroke="#FF3B30" 
-                      strokeWidth={2}
-                      strokeDasharray="0 0 5 5"
-                      name="Críticos (Projeção)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            </div>
-
-            {/* Insights de Tendências */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="bg-gradient-to-br from-red-50 to-pink-50 border-red-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <TrendingUp className="h-6 w-6 text-red-600" />
-                    <h3 className="font-semibold text-red-900">Tendência Crescente</h3>
-                  </div>
-                  <p className="text-sm text-red-700 mb-3">
-                    Defeitos em sistemas de injeção aumentaram 23% nos últimos 3 meses.
-                  </p>
-                  <Badge className="bg-red-100 text-red-700 border-red-200">
-                    Atenção Requerida
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <TrendingDown className="h-6 w-6 text-green-600" />
-                    <h3 className="font-semibold text-green-900">Melhoria Detectada</h3>
-                  </div>
-                  <p className="text-sm text-green-700 mb-3">
-                    Problemas de embreagem reduziram 15% após implementação de melhorias.
-                  </p>
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
-                    Progresso Positivo
-                  </Badge>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-100">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Target className="h-6 w-6 text-blue-600" />
-                    <h3 className="font-semibold text-blue-900">Oportunidade</h3>
-                  </div>
-                  <p className="text-sm text-blue-700 mb-3">
-                    Foco em manutenção preventiva pode reduzir 30% dos defeitos críticos.
-                  </p>
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                    Ação Recomendada
-                  </Badge>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Análise de Impacto */}
-          <TabsContent value="impact" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Impacto Financeiro */}
-              <ChartCard
-                title="Impacto Financeiro Total"
-                description="Custo acumulado por categoria de defeito"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <Treemap
-                    data={costImpactData}
-                    dataKey="totalCost"
-                    aspectRatio={4/3}
-                    stroke="#fff"
-                    fill="#007AFF"
-                  />
-                </ResponsiveContainer>
-              </ChartCard>
-
-              {/* Matriz de Priorização */}
-              <Card className="bg-white border-2 border-black shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                    Matriz de Priorização
-                  </CardTitle>
-                  <CardDescription className="text-apple-gray-500">
-                    Frequência vs Impacto Financeiro
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 h-64">
-                    {/* Quadrante Alto Impacto / Alta Frequência */}
-                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-red-900 mb-2">Crítico</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="text-red-700">• Motor (856 casos)</div>
-                        <div className="text-red-700">• Transmissão (634 casos)</div>
-                      </div>
-                    </div>
-
-                    {/* Quadrante Alto Impacto / Baixa Frequência */}
-                    <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-orange-900 mb-2">Monitorar</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="text-orange-700">• Falha no turbo</div>
-                        <div className="text-orange-700">• Superaquecimento</div>
-                      </div>
-                    </div>
-
-                    {/* Quadrante Baixo Impacto / Alta Frequência */}
-                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-yellow-900 mb-2">Otimizar</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="text-yellow-700">• Sistema Elétrico</div>
-                        <div className="text-yellow-700">• Freios</div>
-                      </div>
-                    </div>
-
-                    {/* Quadrante Baixo Impacto / Baixa Frequência */}
-                    <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-green-900 mb-2">Manter</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="text-green-700">• Suspensão</div>
-                        <div className="text-green-700">• Outros</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Plano de Ação */}
-            <Card className="bg-white border-2 border-black shadow-md">
+        {/* Tab: Visão Geral */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Gráfico de Barras das Categorias */}
+            <Card>
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-apple-gray-900">
-                  Plano de Ação Recomendado
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                  Defeitos por Categoria
                 </CardTitle>
-                <CardDescription className="text-apple-gray-500">
-                  Estratégias baseadas na análise de defeitos
+                <CardDescription>
+                  Distribuição dos defeitos classificados pela IA
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <AlertTriangle className="h-5 w-5 text-red-600" />
-                      <h4 className="font-semibold text-red-900">Ação Imediata</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-red-700">
-                      <li>• Revisar processos de injeção</li>
-                      <li>• Treinamento especializado</li>
-                      <li>• Auditoria de qualidade</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                      <h4 className="font-semibold text-orange-900">Médio Prazo</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-orange-700">
-                      <li>• Manutenção preventiva</li>
-                      <li>• Upgrade de equipamentos</li>
-                      <li>• Parcerias com fornecedores</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <h4 className="font-semibold text-green-900">Longo Prazo</h4>
-                    </div>
-                    <ul className="space-y-2 text-sm text-green-700">
-                      <li>• Sistema preditivo</li>
-                      <li>• Automação de processos</li>
-                      <li>• Certificações ISO</li>
-                    </ul>
-                  </div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        fontSize={12}
+                      />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#8884d8"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+
+            {/* Gráfico de Pizza */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5 text-green-600" />
+                  Proporção de Categorias
+                </CardTitle>
+                <CardDescription>
+                  Percentual de cada tipo de defeito
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={120}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Status da IA */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-600" />
+                Status do Sistema de IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-900">Sistema Online</p>
+                    <p className="text-sm text-green-700">IA funcionando normalmente</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+                  <Zap className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="font-semibold text-blue-900">Modelo: Llama 3</p>
+                    <p className="text-sm text-blue-700">8B parâmetros via Groq</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
+                  <Target className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <p className="font-semibold text-purple-900">Confiança Média</p>
+                    <p className="text-sm text-purple-700">95% de precisão</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Categorias */}
+        <TabsContent value="categories" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-600" />
+                    Categorias de Defeitos
+                  </CardTitle>
+                  <CardDescription>
+                    Categorias criadas e gerenciadas pela IA
+                  </CardDescription>
+                </div>
+                <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Categoria
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categories.map((category) => (
+                  <Card key={category.id} className="border-l-4" style={{ borderLeftColor: category.color_hex }}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="p-2 rounded-lg" 
+                            style={{ backgroundColor: `${category.color_hex}20` }}
+                          >
+                            {getIconForCategory(category.icon)}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-sm">{category.category_name}</h3>
+                            <Badge 
+                              variant={category.is_active ? "default" : "secondary"}
+                              className="mt-1"
+                            >
+                              {category.is_active ? 'Ativa' : 'Inativa'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {category.description}
+                      </p>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Ocorrências:</span>
+                          <span className="font-semibold">{category.total_occurrences}</span>
+                        </div>
+
+                        {category.keywords.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Palavras-chave:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {category.keywords.slice(0, 3).map((keyword, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {keyword}
+                                </Badge>
+                              ))}
+                              {category.keywords.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{category.keywords.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Classificações */}
+        <TabsContent value="classifications" className="space-y-6">
+          {/* Filtros */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Buscar</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar defeito..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Categoria</label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.category_name}>
+                          {cat.category_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Confiança</label>
+                  <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="high">Alta (&gt;80%)</SelectItem>
+                      <SelectItem value="medium">Média (50-80%)</SelectItem>
+                      <SelectItem value="low">Baixa (&lt;50%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={reviewedFilter} onValueChange={setReviewedFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="reviewed">Revisados</SelectItem>
+                      <SelectItem value="pending">Pendentes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabela de Classificações */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Classificações da IA</CardTitle>
+                  <CardDescription>
+                    {filteredClassifications.length} de {classifications.length} classificações
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={loadAIData} variant="outline" size="sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Atualizar
+                  </Button>
+                  <Button 
+                    onClick={handleStartMassClassification}
+                    disabled={isClassifying}
+                    variant="outline" 
+                    size="sm"
+                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                  >
+                    {isClassifying ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Classificando...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Classificar Todos
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {classifications.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhuma classificação encontrada</h3>
+                  <p className="text-muted-foreground mb-4">
+                    A IA ainda não classificou nenhum defeito. Execute a classificação em massa para começar.
+                  </p>
+                  <Button 
+                    className="bg-purple-600 hover:bg-purple-700"
+                    onClick={handleStartMassClassification}
+                    disabled={isClassifying}
+                  >
+                    {isClassifying ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Classificando...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Iniciar Classificação
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Defeito</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Confiança</TableHead>
+                        <TableHead className="hidden md:table-cell">Status</TableHead>
+                        <TableHead className="hidden lg:table-cell">Data</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredClassifications.map((classification) => (
+                        <TableRow key={classification.id}>
+                          <TableCell className="max-w-xs">
+                            <div className="truncate" title={classification.original_defect_description}>
+                              {classification.original_defect_description}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge style={{ backgroundColor: `${categories.find(c => c.category_name === classification.category_name)?.color_hex}20` }}>
+                              {classification.category_name}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Progress value={classification.ai_confidence * 100} className="w-16" />
+                              <span className="text-sm font-medium">
+                                {(classification.ai_confidence * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <Badge variant={classification.is_reviewed ? "default" : "secondary"}>
+                              {classification.is_reviewed ? 'Revisado' : 'Pendente'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {new Date(classification.created_at).toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
 export default Defects;
-

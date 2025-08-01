@@ -16,58 +16,33 @@ export class SettingsController {
     try {
       console.log('👨‍🔧 Buscando todos os mecânicos...');
 
-      // Buscar mecânicos da tabela system_mechanics (se existir) ou criar baseado nos dados existentes
-      let { data: mechanics, error } = await supabase
-        .from('system_mechanics')
-        .select('*')
-        .order('name');
+      // Buscar mecânicos únicos diretamente dos service_orders
+      const { data: orders, error: ordersError } = await supabase
+        .from('service_orders')
+        .select('responsible_mechanic')
+        .not('responsible_mechanic', 'is', null);
 
-      if (error && error.code === 'PGRST116') {
-        // Tabela não existe, criar baseado nos mecânicos dos service_orders
-        console.log('📋 Tabela system_mechanics não existe, extraindo mecânicos dos service_orders...');
-        
-        const { data: orders, error: ordersError } = await supabase
-          .from('service_orders')
-          .select('responsible_mechanic')
-          .not('responsible_mechanic', 'is', null);
-
-        if (ordersError) {
-          console.error('❌ Erro ao buscar ordens:', ordersError);
-          return res.status(500).json({ error: 'Erro ao buscar mecânicos' });
-        }
-
-        // Extrair mecânicos únicos
-        const uniqueMechanics = [...new Set(orders?.map(o => o.responsible_mechanic).filter(Boolean))];
-        
-        mechanics = uniqueMechanics.map((name, index) => ({
-          id: index + 1,
-          name,
-          email: null,
-          active: true,
-          totalOrders: orders?.filter(o => o.responsible_mechanic === name).length || 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }));
-
-        console.log(`✅ Encontrados ${mechanics.length} mecânicos únicos`);
-      } else if (error) {
-        console.error('❌ Erro ao buscar mecânicos:', error);
+      if (ordersError) {
+        console.error('❌ Erro ao buscar ordens:', ordersError);
         return res.status(500).json({ error: 'Erro ao buscar mecânicos' });
       }
 
-      // Para cada mecânico, calcular total de ordens
-      if (mechanics && mechanics.length > 0) {
-        for (const mechanic of mechanics) {
-          const { count } = await supabase
-            .from('service_orders')
-            .select('*', { count: 'exact', head: true })
-            .eq('responsible_mechanic', mechanic.name);
-          
-          mechanic.totalOrders = count || 0;
-        }
-      }
+      // Extrair mecânicos únicos
+      const uniqueMechanics = [...new Set(orders?.map(o => o.responsible_mechanic).filter(Boolean))];
+      
+      const mechanics = uniqueMechanics.map((name, index) => ({
+        id: index + 1,
+        name,
+        email: null,
+        active: true,
+        totalOrders: orders?.filter(o => o.responsible_mechanic === name).length || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
 
+      console.log(`✅ Encontrados ${mechanics.length} mecânicos únicos`);
       console.log(`✅ Retornando ${mechanics?.length || 0} mecânicos`);
+      
       res.json({
         success: true,
         data: mechanics || []

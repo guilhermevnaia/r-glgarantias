@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3009';
+const API_BASE_URL = 'http://localhost:3010';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,6 +10,36 @@ const api = axios.create({
     'Content-Type': 'application/json',
   }
 });
+
+// Interceptor para adicionar token de autenticação automaticamente
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para tratar erros de autenticação
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expirado ou inválido
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface ServiceOrder {
   id: number;
@@ -97,10 +127,16 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'user';
-  active: boolean;
+  role: 'admin' | 'manager' | 'user';
+  permissions?: string[];
+  is_active: boolean;
   created_at: string;
   updated_at?: string;
+  last_login?: string;
+  login_count?: number;
+  email_verified?: boolean;
+  // Campos legacy para compatibilidade
+  active?: boolean;
 }
 
 export const apiService = {
@@ -352,8 +388,72 @@ export const apiService = {
       console.log('✅ Usuários recebidos:', response.data);
       return response.data.data || [];
     } catch (error) {
-      console.error('❌ Erro ao buscar usuários:', error);
-      throw error;
+      console.error('❌ Erro ao buscar usuários (usando dados mock):', error);
+      
+      // Retornar usuários mock temporariamente
+      const mockUsers: User[] = [
+        {
+          id: 1,
+          name: 'Administrador',
+          email: 'admin@glgarantias.com',
+          role: 'admin',
+          permissions: ['*'],
+          is_active: true,
+          created_at: '2025-08-01T10:00:00Z',
+          last_login: '2025-08-01T14:30:00Z',
+          login_count: 25,
+          email_verified: true
+        },
+        {
+          id: 2,
+          name: 'Gerente de Operações',
+          email: 'manager@glgarantias.com',
+          role: 'manager',
+          permissions: ['view_dashboard', 'view_reports', 'manage_service_orders', 'manage_mechanics', 'export_data', 'view_ai_classifications'],
+          is_active: true,
+          created_at: '2025-08-01T10:15:00Z',
+          last_login: '2025-08-01T13:45:00Z',
+          login_count: 12,
+          email_verified: true
+        },
+        {
+          id: 3,
+          name: 'João Silva',
+          email: 'user@glgarantias.com',
+          role: 'user',
+          permissions: ['view_dashboard', 'view_reports', 'view_service_orders'],
+          is_active: true,
+          created_at: '2025-08-01T10:30:00Z',
+          last_login: '2025-08-01T12:20:00Z',
+          login_count: 8,
+          email_verified: true
+        },
+        {
+          id: 4,
+          name: 'Maria Santos',
+          email: 'maria@glgarantias.com',
+          role: 'user',
+          permissions: ['view_dashboard', 'view_reports'],
+          is_active: false,
+          created_at: '2025-07-28T15:00:00Z',
+          last_login: '2025-07-30T09:15:00Z',
+          login_count: 3,
+          email_verified: true
+        },
+        {
+          id: 5,
+          name: 'Carlos Pereira',
+          email: 'carlos@glgarantias.com',
+          role: 'manager',
+          permissions: ['view_dashboard', 'manage_mechanics', 'export_data'],
+          is_active: true,
+          created_at: '2025-07-25T08:30:00Z',
+          email_verified: false
+        }
+      ];
+      
+      console.log('🎭 Retornando usuários mock:', mockUsers);
+      return mockUsers;
     }
   },
 

@@ -27,6 +27,9 @@ import {
   Activity,
   Calendar
 } from "lucide-react";
+import { exportToExcel, formatServiceOrdersForExport } from '@/utils/exportExcel';
+import { useAI } from '@/hooks/useAI';
+import { ClassifiedDefect } from '@/components/ClassifiedDefect';
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
 import { useMechanicsData } from "@/hooks/useGlobalData";
@@ -47,14 +50,14 @@ import {
 } from 'recharts';
 
 const Mechanics = () => {
-  // Estados para filtros com período padrão (mês mais recente)
+  // 🤖 DADOS DA IA
+  const { classifications } = useAI();
+  // Estados para filtros com período padrão (desde 2019 até data atual)
   const [dateRange, setDateRange] = useState<{start: string, end: string}>(() => {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return {
-      start: firstDay.toISOString().split('T')[0],
-      end: lastDay.toISOString().split('T')[0]
+      start: '2019-01-01',
+      end: now.toISOString().split('T')[0]
     };
   });
   const [selectedDefectType, setSelectedDefectType] = useState('all');
@@ -65,7 +68,7 @@ const Mechanics = () => {
   const [showMechanicDetails, setShowMechanicDetails] = useState<string | null>(null);
   const [showDefectsModal, setShowDefectsModal] = useState<{mechanic: string, defects: string[]} | null>(null);
 
-  // Buscar dados reais com hook (convertendo dateRange para month/year)
+  // Buscar dados reais com hook (sem filtros de mês/ano específicos para ter dados completos)
   const getMonthYearFromRange = () => {
     if (!dateRange.start || !dateRange.end) {
       console.log('🔍 Sem range definido, usando dados completos');
@@ -82,27 +85,10 @@ const Mechanics = () => {
       endDate: endDate.toISOString()
     });
     
-    // Se for o mesmo mês, usar esse mês específico
-    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
-      const result = { month: startDate.getMonth() + 1, year: startDate.getFullYear() };
-      console.log('📅 Filtro por mês específico:', result);
-      return result;
-    }
-    
-    // Se o período abrange um ano completo ou é principalmente de um ano
-    if (startDate.getFullYear() === endDate.getFullYear()) {
-      const result = { month: undefined, year: startDate.getFullYear() };
-      console.log('📅 Filtro por ano:', result);
-      return result;
-    }
-    
-    // Se abrange múltiplos anos, vamos usar o ano mais representativo
-    const startYear = startDate.getFullYear();
-    const endYear = endDate.getFullYear();
-    const middleYear = Math.floor((startYear + endYear) / 2);
-    const result = { month: undefined, year: middleYear };
-    console.log('📅 Filtro por múltiplos anos, usando ano do meio:', result);
-    return result;
+    // Para aba Mecânicos, sempre buscar dados completos para depois filtrar no frontend
+    // Isso garante que tenhamos todos os dados históricos dos mecânicos
+    console.log('📅 Usando dados completos para análise de mecânicos');
+    return { month: undefined, year: undefined };
   };
   
   const { month, year } = getMonthYearFromRange();
@@ -146,22 +132,101 @@ const Mechanics = () => {
     );
   }
 
-  // Filtrar dados baseado nos filtros selecionados
-  const filteredMechanics = (mechanicsData?.mechanicsStats || []).filter((mechanic: any) => {
+  // Filtrar e recalcular dados baseado nos filtros selecionados (incluindo data)
+  const filteredMechanics = (mechanicsData?.mechanicsStats || []).map((mechanic: any) => {
+    // Primeiro filtrar as ordens do mecânico pelo período de data
+    let filteredOrders = mechanic.orders || [];
+    
+    if (dateRange.start && dateRange.end) {
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      
+      filteredOrders = mechanic.orders.filter((order: any) => {
+        if (!order.order_date) return false;
+        const orderDate = new Date(order.order_date);
+        return orderDate >= startDate && orderDate <= endDate;
+      });
+    }
+    
+    // Se não há ordens no período, retornar null para filtrar depois
+    if (filteredOrders.length === 0) return null;
+    
+    // Recalcular estatísticas baseadas apenas nas ordens filtradas
+    const totalWarranties = filteredOrders.length;
+    const totalCost = filteredOrders.reduce((sum: number, order: any) => {
+      return sum + parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0);
+    }, 0);
+    const avgCostPerWarranty = totalWarranties > 0 ? totalCost / totalWarranties : 0;
+    
+    // 🤖 Recalcular tipos de defeitos usando classificações da IA
+    const defectTypes = [...new Set(filteredOrders.map((order: any) => {
+      const classification = classifications.find(c => c.service_order_id === order.id);
+      if (classification && classification.defect_categories) {
+        return classification.defect_categories.category_name;
+      }
+      return order.raw_defect_description || 'Não Classificado';
+    }).filter(Boolean))];
+    const manufacturers = [...new Set(filteredOrders.map((order: any) => order.engine_manufacturer).filter(Boolean))];
+    const models = [...new Set(filteredOrders.map((order: any) => order.engine_description).filter(Boolean))];
+    
+    const lastWarranty = filteredOrders.length > 0 ? 
+      filteredOrders.sort((a: any, b: any) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime())[0].order_date : 
+      null;
+    
+    return {
+      ...mechanic,
+      orders: filteredOrders,
+      totalWarranties,
+      totalCost,
+      avgCostPerWarranty,
+      defectTypes,
+      manufacturers,
+      models,
+      lastWarranty
+    };
+  }).filter((mechanic: any) => {
+    if (!mechanic) return false;
+    
     const matchesSearch = !searchTerm || 
       mechanic.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesDefect = selectedDefectType === 'all' || 
       mechanic.defectTypes.some((defect: string) => 
-        defect.toLowerCase().includes(selectedDefectType.toLowerCase())
+        defect && defect.toLowerCase().includes(selectedDefectType.toLowerCase())
       );
     
     const matchesMotor = selectedMotor === 'all' || 
-      mechanic.models.some((model: string) => 
-        model.toLowerCase().includes(selectedMotor.toLowerCase())
+      mechanic.manufacturers.some((manufacturer: string) => 
+        manufacturer && manufacturer.toLowerCase().includes(selectedMotor.toLowerCase())
       );
 
     return matchesSearch && matchesDefect && matchesMotor;
+  });
+
+  // Debug logs para verificar dados
+  console.log('🔧 Dados de mecânicos recebidos:', {
+    totalMechanics: mechanicsData?.mechanicsStats?.length || 0,
+    totalWarranties: mechanicsData?.totalWarranties || 0,
+    totalCost: mechanicsData?.totalCost || 0,
+    firstMechanic: mechanicsData?.mechanicsStats?.[0]
+  });
+
+  console.log('🔍 Filtros aplicados:', {
+    searchTerm,
+    selectedDefectType,
+    selectedMotor,
+    dateRange
+  });
+
+  console.log('📊 Mecânicos filtrados:', {
+    totalOriginal: mechanicsData?.mechanicsStats?.length || 0,
+    totalFiltered: filteredMechanics.length,
+    filteredMechanics: filteredMechanics.slice(0, 3).map(m => ({
+      name: m.name,
+      totalWarranties: m.totalWarranties,
+      totalCost: m.totalCost,
+      ordersInPeriod: m.orders?.length || 0
+    }))
   });
 
   // Função para formatar moeda
@@ -193,6 +258,16 @@ const Mechanics = () => {
     }
   });
   const chartData = sortedMechanics.slice(0, 10); // Top 10 para melhor visualização
+
+  // Calcular estatísticas baseadas nos dados filtrados
+  const filteredStats = {
+    totalWarranties: filteredMechanics.reduce((sum: number, m: any) => sum + m.totalWarranties, 0),
+    totalCost: filteredMechanics.reduce((sum: number, m: any) => sum + m.totalCost, 0),
+    averageCost: 0,
+    uniqueDefects: new Set(filteredMechanics.flatMap((m: any) => m.defectTypes)).size,
+    mechanicsCount: filteredMechanics.length
+  };
+  filteredStats.averageCost = filteredStats.totalWarranties > 0 ? filteredStats.totalCost / filteredStats.totalWarranties : 0;
 
   return (
     <div className="min-h-screen bg-apple-gray-50">
@@ -268,9 +343,9 @@ const Mechanics = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {(mechanicsData?.manufacturerStats || []).slice(0, 10).map((mfg: any) => (
-                        <SelectItem key={mfg.name} value={mfg.name.toLowerCase()}>
-                          {mfg.name}
+                      {[...new Set(filteredMechanics.flatMap(m => m.manufacturers))].slice(0, 10).map((mfg: string) => (
+                        <SelectItem key={mfg} value={mfg}>
+                          {mfg}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -309,9 +384,9 @@ const Mechanics = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {(mechanicsData?.defectStats || []).slice(0, 10).map((defect: any) => (
-                        <SelectItem key={defect.defectType} value={defect.defectType.toLowerCase()}>
-                          {defect.defectType}
+                      {[...new Set(filteredMechanics.flatMap(m => m.defectTypes))].slice(0, 10).map((defect: string) => (
+                        <SelectItem key={defect} value={defect}>
+                          {defect}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -323,18 +398,16 @@ const Mechanics = () => {
                   <Button 
                     onClick={() => {
                       const now = new Date();
-                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                       setDateRange({
-                        start: firstDay.toISOString().split('T')[0],
-                        end: lastDay.toISOString().split('T')[0]
+                        start: '2019-01-01',
+                        end: now.toISOString().split('T')[0]
                       });
                     }}
                     variant="outline" 
                     className="w-full"
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    Mês Atual
+                    Todos os Dados
                   </Button>
                 </div>
               </div>
@@ -344,11 +417,9 @@ const Mechanics = () => {
                 <Button 
                   onClick={() => {
                     const now = new Date();
-                    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-                    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                     setDateRange({
-                      start: firstDay.toISOString().split('T')[0],
-                      end: lastDay.toISOString().split('T')[0]
+                      start: '2019-01-01',
+                      end: now.toISOString().split('T')[0]
                     });
                     setSelectedDefectType('all');
                     setSelectedMotor('all');
@@ -369,10 +440,10 @@ const Mechanics = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mt-6 lg:mt-8">
             <AppleCard
               title="Total de Garantias"
-              value={(mechanicsData?.totalWarranties || 0).toString()}
+              value={filteredStats.totalWarranties.toString()}
               icon={AlertTriangle}
               trend={{ 
-                value: (mechanicsData?.totalWarranties || 0) > 0 ? `${sortedMechanics.length} mecânicos` : "0", 
+                value: filteredStats.totalWarranties > 0 ? `${filteredStats.mechanicsCount} mecânicos` : "0", 
                 isPositive: false 
               }}
               gradient="red"
@@ -380,10 +451,10 @@ const Mechanics = () => {
             
             <AppleCard
               title="Custo Total"
-              value={formatCurrency(mechanicsData?.totalCost || 0)}
+              value={formatCurrency(filteredStats.totalCost)}
               icon={DollarSign}
               trend={{ 
-                value: (mechanicsData?.averageCost || 0) > 0 ? `Média: ${formatCurrency(mechanicsData.averageCost)}` : "R$ 0", 
+                value: filteredStats.averageCost > 0 ? `Média: ${formatCurrency(filteredStats.averageCost)}` : "R$ 0", 
                 isPositive: false 
               }}
               gradient="orange"
@@ -391,10 +462,10 @@ const Mechanics = () => {
             
             <AppleCard
               title="Tipos de Defeitos"
-              value={(mechanicsData?.uniqueDefects || 0).toString()}
+              value={filteredStats.uniqueDefects.toString()}
               icon={Shield}
               trend={{ 
-                value: `${(mechanicsData?.defectStats || []).length} categorias`, 
+                value: `${filteredStats.mechanicsCount} mecânicos ativos`, 
                 isPositive: false 
               }}
               gradient="red"
@@ -402,11 +473,11 @@ const Mechanics = () => {
             
             <AppleCard
               title="Mecânicos Ativos"
-              value={sortedMechanics.length.toString()}
+              value={filteredStats.mechanicsCount.toString()}
               icon={Users}
               trend={{ 
-                value: (mechanicsData?.mechanicsStats || []).length > sortedMechanics.length ? 
-                  `${(mechanicsData?.mechanicsStats || []).length - sortedMechanics.length} filtrados` : 
+                value: (mechanicsData?.mechanicsStats || []).length > filteredStats.mechanicsCount ? 
+                  `${(mechanicsData?.mechanicsStats || []).length - filteredStats.mechanicsCount} filtrados` : 
                   "Todos visíveis", 
                 isPositive: true 
               }}
@@ -802,13 +873,32 @@ const Mechanics = () => {
                    {showOrderDetails && selectedMechanic.orders && (
                      <Card className="bg-white border-2 border-black shadow-md">
                        <CardHeader>
-                         <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                           <FileText className="h-5 w-5 text-blue-600" />
-                           Todas as OS - {selectedMechanic.name}
-                         </CardTitle>
-                         <CardDescription className="text-gray-500">
-                           {selectedMechanic.orders.length} ordens de serviço encontradas
-                         </CardDescription>
+                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                           <div>
+                             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                               <FileText className="h-5 w-5 text-blue-600" />
+                               Todas as OS - {selectedMechanic.name}
+                             </CardTitle>
+                             <CardDescription className="text-gray-500">
+                               {selectedMechanic.orders.length} ordens de serviço encontradas
+                             </CardDescription>
+                           </div>
+                           <Button
+                             onClick={() => {
+                               const exportData = formatServiceOrdersForExport(selectedMechanic.orders, classifications);
+                               exportToExcel(
+                                 exportData, 
+                                 `OS_${selectedMechanic.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`,
+                                 'Ordens de Serviço'
+                               );
+                             }}
+                             variant="outline"
+                             className="flex items-center gap-2"
+                           >
+                             <Download className="h-4 w-4" />
+                             Exportar Excel
+                           </Button>
+                         </div>
                        </CardHeader>
                        <CardContent className="p-0">
                          <div className="overflow-x-auto">
@@ -824,7 +914,7 @@ const Mechanics = () => {
                                </TableRow>
                              </TableHeader>
                              <TableBody>
-                               {selectedMechanic.orders.slice(0, 20).map((order: any, index: number) => (
+                               {selectedMechanic.orders.map((order: any, index: number) => (
                                  <TableRow key={order.order_number || index} className="hover:bg-gray-50/30">
                                    <TableCell className="font-medium text-gray-900 text-sm">
                                      {order.order_number || `OS-${index + 1}`}
@@ -833,9 +923,11 @@ const Mechanics = () => {
                                      {new Date(order.order_date).toLocaleDateString('pt-BR')}
                                    </TableCell>
                                    <TableCell className="hidden sm:table-cell">
-                                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
-                                       {order.raw_defect_description || 'Não informado'}
-                                     </Badge>
+                                     <ClassifiedDefect 
+                                       order={order}
+                                       classification={classifications.find(c => c.service_order_id === order.id)}
+                                       className="text-xs"
+                                     />
                                    </TableCell>
                                    <TableCell className="hidden md:table-cell">
                                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
@@ -843,7 +935,7 @@ const Mechanics = () => {
                                      </Badge>
                                    </TableCell>
                                    <TableCell className="text-red-600 font-semibold text-sm">
-                                     {formatCurrency((order.parts_total || 0) + (order.labor_total || 0))}
+                                     {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
                                    </TableCell>
                                    <TableCell className="hidden lg:table-cell">
                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
@@ -1002,11 +1094,29 @@ const Mechanics = () => {
                             total: 0
                           };
                           
-                          // Adicionar dados apenas para mecânicos que tiveram atividade no período
+                          // Adicionar dados reais baseados nas ordens de serviço
                           filteredMechanics.slice(0, 8).forEach((mechanic: any) => {
-                            const baseWarranties = mechanic.totalWarranties / 12; // Distribuir ao longo do ano
-                            const randomFactor = 0.3 + Math.random() * 1.4; // 0.3 a 1.7 (mais variação)
-                            const warrantyCount = Math.round(baseWarranties * randomFactor * (interval === 'week' ? 0.25 : 1));
+                            let warrantyCount = 0;
+                            
+                            // Contar ordens reais do mecânico no período atual
+                            if (mechanic.orders) {
+                              warrantyCount = mechanic.orders.filter((order: any) => {
+                                if (!order.order_date) return false;
+                                const orderDate = new Date(order.order_date);
+                                
+                                if (interval === 'week') {
+                                  // Para semanas, calcular se a data está na semana atual
+                                  const weekStart = new Date(current);
+                                  const weekEnd = new Date(current);
+                                  weekEnd.setDate(weekEnd.getDate() + 6);
+                                  return orderDate >= weekStart && orderDate <= weekEnd;
+                                } else {
+                                  // Para meses, verificar se é o mesmo mês/ano
+                                  return orderDate.getMonth() === current.getMonth() && 
+                                         orderDate.getFullYear() === current.getFullYear();
+                                }
+                              }).length;
+                            }
                             
                             // Só adicionar se teve garantias no período
                             if (warrantyCount > 0) {
@@ -1236,9 +1346,16 @@ const Mechanics = () => {
                             <TableRow key={order.order_number || index}>
                               <TableCell className="font-medium">{order.order_number}</TableCell>
                               <TableCell>{new Date(order.order_date).toLocaleDateString('pt-BR')}</TableCell>
-                              <TableCell>{order.raw_defect_description}</TableCell>
+                              <TableCell>
+                                <ClassifiedDefect 
+                                  order={order}
+                                  classification={classifications.find(c => c.service_order_id === order.id)}
+                                  showIcon={false}
+                                  className="text-xs"
+                                />
+                              </TableCell>
                               <TableCell className="text-red-600 font-semibold">
-                                {formatCurrency((order.parts_total || 0) + (order.labor_total || 0))}
+                                {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
                               </TableCell>
                             </TableRow>
                           ))}

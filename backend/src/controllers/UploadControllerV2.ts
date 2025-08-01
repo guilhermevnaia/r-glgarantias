@@ -4,6 +4,7 @@ import EditProtectionService from '../services/EditProtectionService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
+import { GroqAIService } from '../services/GroqAIService';
 
 dotenv.config();
 
@@ -14,10 +15,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 class UploadControllerV2 {
   private pythonService: PythonExcelService;
   private editProtectionService: EditProtectionService;
+  private aiService: GroqAIService;
 
   constructor() {
     this.pythonService = new PythonExcelService();
     this.editProtectionService = new EditProtectionService();
+    this.aiService = GroqAIService.getInstance();
   }
 
   /**
@@ -183,6 +186,14 @@ class UploadControllerV2 {
       };
 
       await this.logUploadResult(uploadId, 'SUCCESS', logSummary);
+
+      // 🤖 CLASSIFICAÇÃO AUTOMÁTICA DE DEFEITOS COM IA (EM BACKGROUND)
+      if (insertedCount > 0) {
+        console.log('🤖 Iniciando classificação automática de defeitos em background...');
+        this.classifyNewDefectsInBackground().catch(error => {
+          console.error('❌ Erro na classificação automática:', error);
+        });
+      }
 
       // 6. RESPOSTA FINAL OTIMIZADA
       res.json({
@@ -453,10 +464,64 @@ class UploadControllerV2 {
   }
 
   /**
+   * 🤖 CLASSIFICAÇÃO AUTOMÁTICA DE DEFEITOS EM BACKGROUND
+   * Executa após upload bem-sucedido para classificar novos defeitos
+   */
+  private async classifyNewDefectsInBackground(): Promise<void> {
+    try {
+      console.log('🤖 Buscando defeitos não classificados...');
+      
+      // Buscar OS que ainda não foram classificadas
+      const { data: unclassifiedOrders, error } = await supabase
+        .from('service_orders')
+        .select('id, raw_defect_description')
+        .not('raw_defect_description', 'is', null)
+        .not('raw_defect_description', 'eq', '')
+        .not('id', 'in', `(SELECT service_order_id FROM defect_classifications WHERE service_order_id IS NOT NULL)`)
+        .order('created_at', { ascending: false })
+        .limit(50); // Processar até 50 por vez para não sobrecarregar
+
+      if (error) {
+        console.error('❌ Erro ao buscar ordens não classificadas:', error);
+        return;
+      }
+
+      if (!unclassifiedOrders || unclassifiedOrders.length === 0) {
+        console.log('✅ Nenhum defeito novo para classificar');
+        return;
+      }
+
+      console.log(`📊 Encontrados ${unclassifiedOrders.length} defeitos para classificar`);
+
+      // Processar em lotes pequenos
+      let classified = 0;
+      for (const order of unclassifiedOrders) {
+        try {
+          const classification = await this.aiService.classifyDefect(order.raw_defect_description);
+          if (classification) {
+            await this.aiService.saveClassification(order.id, classification);
+            classified++;
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao classificar OS ${order.id}:`, error);
+        }
+
+        // Pequena pausa entre classificações para respeitar rate limits
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`🎉 Classificação automática concluída: ${classified}/${unclassifiedOrders.length} defeitos processados`);
+
+    } catch (error) {
+      console.error('❌ Erro na classificação automática em background:', error);
+    }
+  }
+
+  /**
    * RESETAR PROTEÇÃO DE UMA ORDEM ESPECÍFICA
    * (Permite que a próxima planilha sobrescreva os dados)
    */
-  async resetOrderProtection(req: Request, res: Response): Promise<void> {
+  async resetOrderProtection(req: Request, res: Response) {
     try {
       const { orderNumber } = req.params;
       
