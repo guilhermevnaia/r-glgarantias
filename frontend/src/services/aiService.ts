@@ -30,10 +30,21 @@ interface AIStats {
 }
 
 class AIService {
-  private baseUrl = 'http://localhost:3009/api/v1/ai';
+  private baseUrl = '/api/v1/ai';
   private classificationsCache = new Map<number, DefectClassification>();
   private lastCacheUpdate = 0;
   private cacheExpiry = 30000; // 30 segundos
+
+  /**
+   * Obtém headers de autenticação
+   */
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
+  }
 
   /**
    * Busca classificações do cache ou servidor
@@ -54,7 +65,15 @@ class AIService {
    */
   private async refreshClassifications(): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/classifications?limit=10000`);
+      const response = await fetch(`${this.baseUrl}/classifications?limit=10000`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        console.warn('⚠️ Token inválido para classificações da IA');
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -86,7 +105,15 @@ class AIService {
    */
   async getStats(): Promise<AIStats | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/stats`);
+      const response = await fetch(`${this.baseUrl}/stats`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        console.warn('⚠️ Token inválido para estatísticas da IA');
+        return null;
+      }
+      
       const data = await response.json();
       
       return data.success ? data.data : null;
@@ -101,7 +128,9 @@ class AIService {
    */
   async getCategory(categoryId: number): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/categories`);
+      const response = await fetch(`${this.baseUrl}/categories`, {
+        headers: this.getAuthHeaders()
+      });
       const data = await response.json();
       
       if (data.success && data.data) {

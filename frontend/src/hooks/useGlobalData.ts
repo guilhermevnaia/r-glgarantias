@@ -10,25 +10,25 @@ export const QUERY_KEYS = {
   INTEGRITY_STATUS: 'integrity-status'
 } as const;
 
-// Hook para buscar e sincronizar dados do dashboard
-export const useDashboardStats = (month?: number, year?: number) => {
+// Hook para buscar e sincronizar dados do dashboard - TODOS OS DADOS POR PADRÃO
+export const useDashboardStats = (month?: number | null, year?: number | null) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.DASHBOARD_STATS, month, year],
-    queryFn: () => apiService.getStats(month, year),
+    queryKey: [QUERY_KEYS.DASHBOARD_STATS, { month, year }],
+    queryFn: () => apiService.getStats(month, year), // Com filtros opcionais (null = todos os dados)
     staleTime: 5 * 60 * 1000, // 5 minutos
     cacheTime: 10 * 60 * 1000, // 10 minutos
     refetchOnWindowFocus: false,
   });
 };
 
-// Hook para buscar e sincronizar ordens de serviço
+// Hook para buscar e sincronizar ordens de serviço - COM FILTROS DE DATA
 export const useServiceOrders = (params: {
   page?: number;
   limit?: number;
   search?: string;
   status?: string;
-  month?: number;
   year?: number;
+  month?: number;
   manufacturer?: string;
   mechanic?: string;
   model?: string;
@@ -126,13 +126,13 @@ export const useUploadWithSync = () => {
   return { uploadWithSync };
 };
 
-// Hook para buscar dados de mecânicos processados
-export const useMechanicsData = (month?: number, year?: number) => {
-  console.log('🔧 Hook useMechanicsData ativado com:', { month, year });
+// Hook para buscar dados de mecânicos processados - SEMPRE TODOS OS DADOS
+export const useMechanicsData = () => {
+  console.log('🔧 Hook useMechanicsData ativado - buscando todos os dados');
 
   return useQuery({
     // A chave de query agora inclui 'service-orders' para refletir a nova fonte de dados
-    queryKey: [QUERY_KEYS.SERVICE_ORDERS, 'mechanics-processing', month, year],
+    queryKey: [QUERY_KEYS.SERVICE_ORDERS, 'mechanics-processing'],
     queryFn: async () => {
       console.log('📡 Iniciando busca completa de Ordens de Serviço para análise de mecânicos...');
       
@@ -141,14 +141,13 @@ export const useMechanicsData = (month?: number, year?: number) => {
       const limit = 1000; // Buscar em lotes grandes para eficiência
       let totalPages = 1;
 
-      // Loop para buscar todas as páginas de dados
+      // Loop para buscar todas as páginas de dados - SEM FILTROS DE DATA
       while (page <= totalPages) {
         console.log(`📄 Buscando página ${page} de ${totalPages}...`);
         const response = await apiService.getServiceOrders({
           page,
           limit,
-          month,
-          year,
+          // Removido: month, year - sempre todos os dados
         });
 
         if (response && response.data && response.data.length > 0) {

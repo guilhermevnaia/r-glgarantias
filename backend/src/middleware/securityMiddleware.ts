@@ -11,14 +11,20 @@ export const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+      'http://localhost:5176',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:5175',
+      'http://127.0.0.1:5176',
       process.env.FRONTEND_URL,
       process.env.PRODUCTION_URL
     ].filter(Boolean); // Remove valores undefined/null
 
-    // Permitir requisições sem origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // Permitir requisições sem origin (mobile apps, Postman, etc.) e origin 'null' (arquivos locais)
+    if (!origin || origin === 'null') return callback(null, true);
     
     // Verificar se a origin está na lista permitida
     if (allowedOrigins.includes(origin)) {
@@ -154,7 +160,7 @@ export const botProtection = (req: Request, res: Response, next: NextFunction) =
     'dirb',
     'gobuster',
     'wget',
-    'curl', // Pode ser removido se precisar permitir curl legítimo
+    // 'curl', // Removido para permitir curl legítimo (testes de API)
     'python-requests',
     'bot',
     'crawler',

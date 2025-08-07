@@ -168,6 +168,52 @@ const Settings = () => {
     }
   };
 
+  const handleUpdateUser = async (user: User) => {
+    try {
+      const updatedUser = await apiService.updateUser(user.id, {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        is_active: user.is_active
+      });
+      
+      setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+      setEditingUser(null);
+      showAlert('success', 'Usuário atualizado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar usuário:', error);
+      showAlert('error', 'Erro ao atualizar usuário');
+    }
+  };
+
+  const handleToggleUserStatus = async (id: number) => {
+    try {
+      const user = users.find(u => u.id === id);
+      if (!user) return;
+
+      const updatedUser = await apiService.updateUser(id, {
+        is_active: !user.is_active
+      });
+
+      setUsers(users.map(u => u.id === id ? updatedUser : u));
+      showAlert('success', 'Status do usuário alterado');
+    } catch (error) {
+      console.error('❌ Erro ao alterar status do usuário:', error);
+      showAlert('error', 'Erro ao alterar status do usuário');
+    }
+  };
+
+  const handleRemoveUser = async (id: number) => {
+    try {
+      await apiService.removeUser(id);
+      setUsers(users.filter(u => u.id !== id));
+      showAlert('success', 'Usuário removido com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao remover usuário:', error);
+      showAlert('error', 'Erro ao remover usuário');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-apple-gray-50 p-8">
@@ -345,7 +391,7 @@ const Settings = () => {
                           {mechanic.totalOrders}
                         </TableCell>
                         <TableCell className="text-foreground">
-                          {new Date(mechanic.created_at).toLocaleDateString('pt-BR')}
+                          {mechanic.created_at.split('T')[0].split('-').reverse().join('/')}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-2">
@@ -480,6 +526,72 @@ const Settings = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                
+                {/* Diálogo de Edição de Usuário */}
+                <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Editar Usuário</DialogTitle>
+                      <DialogDescription>
+                        Altere as informações do usuário
+                      </DialogDescription>
+                    </DialogHeader>
+                    {editingUser && (
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="editUserName">Nome *</Label>
+                          <Input
+                            id="editUserName"
+                            value={editingUser.name}
+                            onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                            placeholder="Nome completo do usuário"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="editUserEmail">Email *</Label>
+                          <Input
+                            id="editUserEmail"
+                            type="email"
+                            value={editingUser.email}
+                            onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                            placeholder="email@exemplo.com"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="editUserRole">Função</Label>
+                          <select
+                            id="editUserRole"
+                            value={editingUser.role}
+                            onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'admin' | 'manager' | 'user' })}
+                            className="w-full h-10 px-3 py-2 text-sm border border-input rounded-md bg-background"
+                          >
+                            <option value="user">Usuário</option>
+                            <option value="manager">Gerente</option>
+                            <option value="admin">Administrador</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="editUserActive"
+                            checked={editingUser.is_active}
+                            onChange={(e) => setEditingUser({ ...editingUser, is_active: e.target.checked })}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor="editUserActive">Usuário ativo</Label>
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                          <Button variant="outline" onClick={() => setEditingUser(null)}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={() => handleUpdateUser(editingUser)} className="bg-purple-600 hover:bg-purple-700">
+                            Atualizar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -543,7 +655,7 @@ const Settings = () => {
                             {user.last_login ? (
                               <div className="flex flex-col">
                                 <span className="text-sm">
-                                  {new Date(user.last_login).toLocaleDateString('pt-BR')}
+                                  {user.last_login.split('T')[0].split('-').reverse().join('/')}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(user.last_login).toLocaleTimeString('pt-BR', { 
@@ -559,7 +671,7 @@ const Settings = () => {
                           <TableCell className="text-foreground hidden lg:table-cell">
                             <div className="flex flex-col">
                               <span className="text-sm">
-                                {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                                {user.created_at.split('T')[0].split('-').reverse().join('/')}
                               </span>
                               {user.login_count && (
                                 <span className="text-xs text-muted-foreground">
@@ -582,10 +694,20 @@ const Settings = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                onClick={() => handleToggleUserStatus(user.id)}
                                 className={`h-8 w-8 p-0 ${(user.is_active || user.active) ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}
                                 title={(user.is_active || user.active) ? 'Desativar usuário' : 'Ativar usuário'}
                               >
                                 {(user.is_active || user.active) ? <UserMinus className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRemoveUser(user.id)}
+                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                                title="Remover usuário"
+                              >
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>

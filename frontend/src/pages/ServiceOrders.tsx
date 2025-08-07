@@ -32,8 +32,11 @@ const ServiceOrders = () => {
   const { classifications } = useAI();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [yearFilter, setYearFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("all");
+  
+  // 📅 FILTROS INDEPENDENTES PARA ESTA ABA - SEM COMPARTILHAR COM DASHBOARD
+  const currentDate = new Date();
+  const [yearFilter, setYearFilter] = useState("all"); // Mudando para "all" por padrão
+  const [monthFilter, setMonthFilter] = useState("all"); // Mudando para "all" por padrão
   const [manufacturerFilter, setManufacturerFilter] = useState("all");
   const [mechanicFilter, setMechanicFilter] = useState("all");
   const [modelFilter, setModelFilter] = useState("all");
@@ -41,18 +44,19 @@ const ServiceOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 50; // Registros por página
 
-  // ✅ USANDO ESTADO GLOBAL SINCRONIZADO
-  const serviceOrdersParams = {
+  // ✅ USANDO ESTADO GLOBAL SINCRONIZADO COM FILTROS DE DATA INDEPENDENTES
+  const serviceOrdersParams = useMemo(() => ({
     page: currentPage,
     limit: recordsPerPage,
     ...(searchTerm && { search: searchTerm }),
     ...(statusFilter !== "all" && { status: statusFilter }),
+    // 📅 APLICAR FILTROS DE DATA APENAS SE SELECIONADOS
     ...(yearFilter !== "all" && { year: parseInt(yearFilter) }),
     ...(monthFilter !== "all" && { month: parseInt(monthFilter) }),
     ...(manufacturerFilter !== "all" && { manufacturer: manufacturerFilter }),
     ...(mechanicFilter !== "all" && { mechanic: mechanicFilter }),
     ...(modelFilter !== "all" && { model: modelFilter }),
-  };
+  }), [currentPage, searchTerm, statusFilter, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
 
   const { data: serviceOrdersResponse, isLoading: loading, error } = useServiceOrders(serviceOrdersParams);
   const serviceOrders = serviceOrdersResponse?.data || [];
@@ -226,7 +230,7 @@ const ServiceOrders = () => {
       headers.join(","),
       ...dataToExport.map(order => [
         `"${order.order_number || ''}"`,
-        `"${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : ''}"`,
+        `"${order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : ''}"`,
         `"${order.engine_manufacturer || ''}"`,
         `"${order.engine_description || ''}"`,
         `"${order.vehicle_model || ''}"`,
@@ -344,7 +348,7 @@ const ServiceOrders = () => {
           <div class="header">
             <h1>ORDEM DE SERVIÇO</h1>
             <h2>OS: ${order.order_number}</h2>
-            <p>Data: ${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : 'N/A'}</p>
+            <p>Data: ${order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : 'N/A'}</p>
           </div>
           
           <div class="info-grid">
@@ -478,7 +482,7 @@ const ServiceOrders = () => {
       "OS,Data,Fabricante,Motor,Modelo,Defeito,Mecânico Montador,Total Peças,Total Serviços,Total",
       [
         `"${order.order_number || ''}"`,
-        `"${order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : ''}"`,
+        `"${order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : ''}"`,
         `"${order.engine_manufacturer || ''}"`,
         `"${order.engine_description || ''}"`,
         `"${order.vehicle_model || ''}"`,
@@ -763,7 +767,7 @@ const ServiceOrders = () => {
                             </div>
                           </TableCell>
                           <TableCell className="text-foreground">
-                            {order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : '-'}
+                            {order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : '-'}
                           </TableCell>
                           <TableCell className="text-foreground font-medium">{order.engine_manufacturer || '-'}</TableCell>
                           <TableCell className="text-foreground max-w-40 truncate" title={order.engine_description || ''}>
@@ -1140,7 +1144,7 @@ const ServiceOrders = () => {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Data</label>
-                      <p>{selectedOrder.order_date ? new Date(selectedOrder.order_date).toLocaleDateString('pt-BR') : 'N/A'}</p>
+                      <p>{selectedOrder.order_date ? selectedOrder.order_date.split('T')[0].split('-').reverse().join('/') : 'N/A'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Status</label>

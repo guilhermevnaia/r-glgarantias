@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { DateValidator } from '../validators/DateValidator';
+import { mechanicAutoDetection } from './MechanicAutoDetectionService';
 
 interface ProcessingResult {
   data: any[];
@@ -216,6 +217,27 @@ class CleanDataProcessor {
       const pct = ((count / validRows.length) * 100).toFixed(1);
       console.log(`     ${year}: ${count} (${pct}%)`);
     });
+    
+    // 🔍 DETECÇÃO AUTOMÁTICA DE MECÂNICOS
+    try {
+      const mechanicNames = validRows
+        .map(row => row.responsible_mechanic)
+        .filter(name => name && name.trim());
+      
+      if (mechanicNames.length > 0) {
+        console.log('🔍 Iniciando detecção automática de mecânicos...');
+        const detectionResult = await mechanicAutoDetection.detectAndRegisterNewMechanics(mechanicNames);
+        
+        if (detectionResult.newMechanics.length > 0) {
+          console.log(`✅ ${detectionResult.newMechanics.length} novos mecânicos detectados e registrados automaticamente!`);
+          console.log(`📝 Novos mecânicos: ${detectionResult.newMechanics.join(', ')}`);
+        } else {
+          console.log('ℹ️ Nenhum mecânico novo detectado');
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Erro na detecção automática de mecânicos (não crítico):', error);
+    }
     
     return {
       data: validRows,

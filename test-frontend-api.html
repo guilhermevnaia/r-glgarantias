@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Frontend API</title>
+</head>
+<body>
+    <h1>Teste de Conectividade API</h1>
+    <div id="results"></div>
+    
+    <script>
+    async function testAPI() {
+        const results = document.getElementById('results');
+        
+        try {
+            // 1. Teste de login
+            results.innerHTML += '<h2>1. Testando Login...</h2>';
+            const loginResponse = await fetch('http://localhost:3010/api/v1/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: 'admin@glgarantias.com',
+                    password: 'Admin123'
+                })
+            });
+            
+            const loginData = await loginResponse.json();
+            console.log('Login response:', loginData);
+            
+            if (loginData.success) {
+                results.innerHTML += '<p style="color: green;">✅ Login OK</p>';
+                const token = loginData.data.token;
+                
+                // 2. Teste de dados com token
+                results.innerHTML += '<h2>2. Testando Dados com Token...</h2>';
+                const statsResponse = await fetch('http://localhost:3010/api/v1/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const statsData = await statsResponse.json();
+                console.log('Stats response:', statsData);
+                
+                if (statsData.totalOrders) {
+                    results.innerHTML += `<p style="color: green;">✅ Dados OK - ${statsData.totalOrders} ordens</p>`;
+                    results.innerHTML += `<p>💰 Total: R$ ${statsData.financialSummary.totalValue.toFixed(2)}</p>`;
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Sem dados</p>';
+                }
+                
+            } else {
+                results.innerHTML += '<p style="color: red;">❌ Login falhou</p>';
+            }
+            
+        } catch (error) {
+            console.error('Erro:', error);
+            results.innerHTML += `<p style="color: red;">❌ Erro: ${error.message}</p>`;
+        }
+    }
+    
+    // Executar teste automaticamente
+    testAPI();
+    </script>
+</body>
+</html>

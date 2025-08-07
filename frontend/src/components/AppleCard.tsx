@@ -74,13 +74,8 @@ export const AppleCard: React.FC<AppleCardProps> = ({
             </div>
             {trend && (
               <div className="flex items-center gap-2">
-                {trend.isPositive ? (
-                  <ArrowDownRight className="h-4 w-4 text-green-500" />
-                ) : (
-                  <ArrowUpRight className="h-4 w-4 text-red-500" />
-                )}
-                <span className="text-sm text-gray-500">
-                  {trend.value} vs mês anterior
+                <span className="text-xs text-gray-500 font-medium">
+                  {trend.value}
                 </span>
               </div>
             )}

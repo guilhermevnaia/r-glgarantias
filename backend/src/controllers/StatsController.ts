@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export class StatsController {
@@ -82,15 +82,42 @@ export class StatsController {
       if (month && year) {
         // Filtro por mês e ano específicos
         const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-        const endDate = `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês usando uma abordagem mais robusta
+        const lastDayOfMonth = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`;
+        
+        console.log(`🔍 DEBUG: Filtrando para ${month}/${year}`);
+        console.log(`🔍 DEBUG: startDate = ${startDate}`);
+        console.log(`🔍 DEBUG: endDate = ${endDate}`);
+        console.log(`🔍 DEBUG: lastDayOfMonth = ${lastDayOfMonth}`);
+        
+        // ✅ NOVA ABORDAGEM: Usar Date objects para comparação mais precisa
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
         
         orders = validYearOrders.filter(order => {
           if (!order.order_date) return false;
-          const orderDate = order.order_date.split('T')[0];
-          return orderDate >= startDate && orderDate <= endDate;
+          
+          // Converter a data da ordem para Date object
+          const orderDateObj = new Date(order.order_date);
+          const orderDateStr = order.order_date.split('T')[0];
+          
+          // Comparar usando Date objects (mais preciso)
+          const isInRange = orderDateObj >= startDateObj && orderDateObj <= endDateObj;
+          
+          // Log detalhado para debug (apenas primeiras 5 OS para não poluir o log)
+          if (validYearOrders.indexOf(order) < 5) {
+            if (isInRange) {
+              console.log(`✅ DEBUG: OS ${order.order_number} - Data: ${orderDateStr} (INCLUÍDA) - DateObj: ${orderDateObj.toISOString()}`);
+            } else {
+              console.log(`❌ DEBUG: OS ${order.order_number} - Data: ${orderDateStr} (EXCLUÍDA) - DateObj: ${orderDateObj.toISOString()} - Range: ${startDateObj.toISOString()} até ${endDateObj.toISOString()}`);
+            }
+          }
+          
+          return isInRange;
         });
         
-        console.log(`🔍 Filtrado para ${month}/${year}: ${orders.length} registros`);
+        console.log(`🔍 Filtrado para ${month}/${year}: ${orders.length} registros (${startDate} até ${endDate})`);
       } else if (year) {
         // Filtro apenas por ano
         const startDate = `${year}-01-01`;
@@ -253,8 +280,10 @@ export class StatsController {
         const startDate = month 
           ? `${year}-${month.toString().padStart(2, '0')}-01`
           : `${year}-01-01`;
+        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês
+        const lastDayOfMonth = month ? new Date(year, month, 0).getDate() : 31;
         const endDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
+          ? `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`
           : `${year}-12-31`;
         
         query = query.gte('order_date', startDate).lte('order_date', endDate);
@@ -305,8 +334,10 @@ export class StatsController {
         const startDate = month 
           ? `${year}-${month.toString().padStart(2, '0')}-01`
           : `${year}-01-01`;
+        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês
+        const lastDayOfMonth = month ? new Date(year, month, 0).getDate() : 31;
         const endDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
+          ? `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`
           : `${year}-12-31`;
         
         countQuery = countQuery.gte('order_date', startDate).lte('order_date', endDate);

@@ -48,7 +48,7 @@ export const formatServiceOrdersForExport = (orders: any[], classifications?: an
     
     return {
       'Número OS': order.order_number || '',
-      'Data': order.order_date ? new Date(order.order_date).toLocaleDateString('pt-BR') : '',
+      'Data': order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : '',
       'Mecânico': order.responsible_mechanic || '',
       'Fabricante': order.engine_manufacturer || '',
       'Modelo Motor': order.engine_description || '',
@@ -58,7 +58,7 @@ export const formatServiceOrdersForExport = (orders: any[], classifications?: an
       'Valor Serviços': parseFloat(order.labor_total || 0),
       'Valor Total': parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0),
       'Status': order.order_status || '',
-      'Data Processamento': order.processed_at ? new Date(order.processed_at).toLocaleDateString('pt-BR') : ''
+      'Data Processamento': order.processed_at ? order.processed_at.split('T')[0].split('-').reverse().join('/') : ''
     };
   });
 };
@@ -72,6 +72,6 @@ export const formatMechanicsForExport = (mechanics: any[]) => {
     'Tipos de Defeitos': mechanic.defectTypes?.length || 0,
     'Fabricantes': mechanic.manufacturers?.join(', ') || '',
     'Modelos': mechanic.models?.join(', ') || '',
-    'Última Garantia': mechanic.lastWarranty ? new Date(mechanic.lastWarranty).toLocaleDateString('pt-BR') : ''
+    'Última Garantia': mechanic.lastWarranty ? mechanic.lastWarranty.split('T')[0].split('-').reverse().join('/') : ''
   }));
 };

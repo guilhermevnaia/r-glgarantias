@@ -8,8 +8,8 @@ import { useAuth } from '@/contexts/AuthContext'; // Importar o hook
 
 const Login: React.FC = () => { // Remover props
   const { login } = useAuth(); // Usar o hook
-  const [email, setEmail] = useState('admin@glgarantias.com');
-  const [password, setPassword] = useState('Admin123');
+  const [email, setEmail] = useState('admin@test.com');
+  const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +20,7 @@ const Login: React.FC = () => { // Remover props
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3010/api/v1/auth/login', {
+      const response = await fetch('http://localhost:3009/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,8 +30,8 @@ const Login: React.FC = () => { // Remover props
 
       const data = await response.json();
 
-      if (data.success && data.data) {
-        // Acessar a estrutura aninhada correta
+      if (data.success && data.data?.token) {
+        // Acessar a estrutura correta do backend
         login(data.data.token, data.data.user);
       } else {
         setError(data.error || 'Erro ao fazer login');
@@ -130,9 +130,9 @@ const Login: React.FC = () => { // Remover props
 
             <div className="text-center text-xs text-gray-500 pt-4 border-t">
               <p>Credenciais padrão:</p>
-                             <p className="font-mono bg-gray-100 p-2 rounded mt-1">
-                 admin@glgarantias.com / Admin123
-               </p>
+              <p className="font-mono bg-gray-100 p-2 rounded mt-1">
+                admin@test.com / admin123
+              </p>
             </div>
           </CardContent>
         </Card>

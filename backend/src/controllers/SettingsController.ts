@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { mechanicAutoDetection } from '../services/MechanicAutoDetectionService';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export class SettingsController {
@@ -14,34 +15,12 @@ export class SettingsController {
   
   async getMechanics(req: Request, res: Response) {
     try {
-      console.log('👨‍🔧 Buscando todos os mecânicos...');
+      console.log('👨‍🔧 Buscando todos os mecânicos com data de cadastro...');
 
-      // Buscar mecânicos únicos diretamente dos service_orders
-      const { data: orders, error: ordersError } = await supabase
-        .from('service_orders')
-        .select('responsible_mechanic')
-        .not('responsible_mechanic', 'is', null);
+      // Usar o novo serviço que inclui data de cadastro correta
+      const mechanics = await mechanicAutoDetection.getAllMechanicsWithRegistrationDate();
 
-      if (ordersError) {
-        console.error('❌ Erro ao buscar ordens:', ordersError);
-        return res.status(500).json({ error: 'Erro ao buscar mecânicos' });
-      }
-
-      // Extrair mecânicos únicos
-      const uniqueMechanics = [...new Set(orders?.map(o => o.responsible_mechanic).filter(Boolean))];
-      
-      const mechanics = uniqueMechanics.map((name, index) => ({
-        id: index + 1,
-        name,
-        email: null,
-        active: true,
-        totalOrders: orders?.filter(o => o.responsible_mechanic === name).length || 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }));
-
-      console.log(`✅ Encontrados ${mechanics.length} mecânicos únicos`);
-      console.log(`✅ Retornando ${mechanics?.length || 0} mecânicos`);
+      console.log(`✅ Encontrados ${mechanics.length} mecânicos com data de cadastro`);
       
       res.json({
         success: true,
@@ -258,13 +237,13 @@ export class SettingsController {
       console.log('👥 Buscando todos os usuários...');
 
       const { data: users, error } = await supabase
-        .from('system_users')
+        .from('users')
         .select('*')
         .order('name');
 
       if (error && error.code === 'PGRST116') {
         // Tabela não existe, retornar dados mock
-        console.log('📋 Tabela system_users não existe, retornando dados mock...');
+        console.log('📋 Tabela users não existe, retornando dados mock...');
         
         const mockUsers = [
           {
@@ -272,7 +251,7 @@ export class SettingsController {
             name: 'Admin Master',
             email: 'admin@company.com',
             role: 'admin',
-            active: true,
+            is_active: true,
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z'
           }
@@ -320,7 +299,7 @@ export class SettingsController {
 
       // Verificar se o email já existe
       const { data: existing } = await supabase
-        .from('system_users')
+        .from('users')
         .select('id')
         .ilike('email', email.trim())
         .single();
@@ -329,18 +308,24 @@ export class SettingsController {
         return res.status(400).json({ error: 'Usuário com este email já existe' });
       }
 
-      // Criar usuário
+      // Criar usuário com senha padrão
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 12;
+      const defaultPassword = '123456'; // Senha padrão
+      const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+
       const userData = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
+        password_hash: passwordHash,
         role: role,
-        active: true,
+        is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
       const { data: newUser, error } = await supabase
-        .from('system_users')
+        .from('users')
         .insert([userData])
         .select()
         .single();
@@ -353,7 +338,7 @@ export class SettingsController {
       console.log('✅ Usuário criado:', newUser);
       res.status(201).json({
         success: true,
-        message: 'Usuário adicionado com sucesso',
+        message: 'Usuário adicionado com sucesso (senha padrão: 123456)',
         data: newUser
       });
 
@@ -399,15 +384,15 @@ export class SettingsController {
         processedData.role = updateData.role;
       }
 
-      if (updateData.active !== undefined) {
-        processedData.active = Boolean(updateData.active);
+      if (updateData.is_active !== undefined) {
+        processedData.is_active = Boolean(updateData.is_active);
       }
 
       processedData.updated_at = new Date().toISOString();
 
       // Verificar se o usuário existe
       const { data: existingUser, error: fetchError } = await supabase
-        .from('system_users')
+        .from('users')
         .select('*')
         .eq('id', id)
         .single();
@@ -418,7 +403,7 @@ export class SettingsController {
 
       // Atualizar usuário
       const { data: updatedUser, error } = await supabase
-        .from('system_users')
+        .from('users')
         .update(processedData)
         .eq('id', id)
         .select()
@@ -455,7 +440,7 @@ export class SettingsController {
 
       // Verificar se o usuário existe
       const { data: existingUser, error: fetchError } = await supabase
-        .from('system_users')
+        .from('users')
         .select('*')
         .eq('id', id)
         .single();
@@ -467,10 +452,10 @@ export class SettingsController {
       // Não permitir remover o último admin
       if (existingUser.role === 'admin') {
         const { count } = await supabase
-          .from('system_users')
+          .from('users')
           .select('*', { count: 'exact', head: true })
           .eq('role', 'admin')
-          .eq('active', true);
+          .eq('is_active', true);
 
         if (count && count <= 1) {
           return res.status(400).json({ 
@@ -481,7 +466,7 @@ export class SettingsController {
 
       // Remover usuário
       const { error } = await supabase
-        .from('system_users')
+        .from('users')
         .delete()
         .eq('id', id);
 

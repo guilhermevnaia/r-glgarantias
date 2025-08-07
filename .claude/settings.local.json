@@ -86,7 +86,27 @@
       "Bash(cmd /c:*)",
       "Bash(set PORT=3009)",
       "Bash(npm run:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(start \"Backend\" npm run dev)",
+      "Bash(PORT=3009 timeout 3 npm start)",
+      "Bash(PORT=3005 timeout 3 npm start)",
+      "Bash(PORT=3005 timeout 10 npm start)",
+      "Bash(PORT=3001 timeout 3 npm run dev:*)",
+      "Bash(start \"S:\\comp-glgarantias\\r-glgarantias\\test-frontend-api.html\")",
+      "Bash(sed:*)",
+      "Bash(PORT=3000 timeout 10 npx vite --port 3000)",
+      "Bash(start \"Backend\" npm start)",
+      "Bash(start \"Frontend\" cmd /k \"npx vite --port 3000\")",
+      "Bash(PORT=3000 timeout 5 npm run dev)",
+      "Bash(PORT=3010 timeout 3 npm start)",
+      "Bash(PORT=4000 timeout 5 npm run dev:*)",
+      "Bash(PORT=3010 npm start)",
+      "Bash(PORT=3011 timeout 10 npm start)",
+      "Bash(PORT=3001 npx vite --port 3001)",
+      "Bash(PORT=3002 npx vite --port 3002)",
+      "Bash(PORT=3003 npx vite --port 3003)",
+      "Bash(start \"BACKEND-3009\" npm start)",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3010';
+const API_BASE_URL = 'http://localhost:3009';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -15,12 +15,18 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth-token');
+    console.log('🔑 Token no localStorage:', token ? 'EXISTE' : 'NÃO EXISTE');
+    console.log('🌐 Fazendo requisição para:', config.url);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Header Authorization adicionado');
+    } else {
+      console.log('❌ Nenhum token encontrado - requisição sem auth');
     }
     return config;
   },
   (error) => {
+    console.error('❌ Erro no interceptor de request:', error);
     return Promise.reject(error);
   }
 );
@@ -28,10 +34,13 @@ api.interceptors.request.use(
 // Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
   (response) => {
+    console.log('✅ Resposta recebida:', response.status, 'para', response.config.url);
     return response;
   },
   (error) => {
+    console.error('❌ Erro na resposta:', error.response?.status, error.response?.data);
     if (error.response?.status === 401) {
+      console.error('🔒 Token expirado ou inválido - redirecionando para login');
       // Token expirado ou inválido
       localStorage.removeItem('auth-token');
       localStorage.removeItem('user');
@@ -140,19 +149,20 @@ export interface User {
 }
 
 export const apiService = {
-  // Buscar estatísticas do dashboard
-  async getStats(month?: number, year?: number): Promise<DashboardStats> {
+  // Buscar estatísticas do dashboard - COM FILTROS OPCIONAIS
+  async getStats(month?: number | null, year?: number | null): Promise<DashboardStats> {
     try {
-      const params: any = {};
-      if (month) params.month = month;
-      if (year) params.year = year;
+      const params = new URLSearchParams();
+      if (month) params.append('month', month.toString());
+      if (year) params.append('year', year.toString());
       
-      console.log("🚀 apiService.getStats chamado");
-      console.log("📝 Parâmetros:", params);
-      console.log("🔗 URL completa:", `${API_BASE_URL}/api/v1/stats`);
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      
+      console.log("🚀 apiService.getStats chamado", { month, year });
+      console.log("🔗 URL completa:", `${API_BASE_URL}/api/v1/stats${queryString}`);
       
       console.log("🌐 Fazendo requisição axios...");
-      const response = await api.get('/api/v1/stats', { params });
+      const response = await api.get(`/api/v1/stats${queryString}`);
       console.log("📡 Resposta recebida:", response.status, response.statusText);
       console.log("📦 Total Orders na resposta:", response.data?.totalOrders);
       console.log("📦 Orders array length:", response.data?.orders?.length);
@@ -202,14 +212,14 @@ export const apiService = {
     }
   },
 
-  // Buscar ordens de serviço com paginação
+  // Buscar ordens de serviço com paginação - COM FILTROS DE DATA
   async getServiceOrders(params: {
     page?: number;
     limit?: number;
     search?: string;
     status?: string;
-    month?: number;
     year?: number;
+    month?: number;
     manufacturer?: string;
     mechanic?: string;
     model?: string;

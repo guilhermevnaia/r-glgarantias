@@ -101,8 +101,8 @@ const Defects = () => {
       
       // Carregar estatísticas e categorias
       const [statsResponse, categoriesResponse] = await Promise.all([
-        fetch('http://localhost:3009/api/v1/ai/stats').then(r => r.json()),
-        fetch('http://localhost:3009/api/v1/ai/categories').then(r => r.json())
+        fetch('/api/v1/ai/stats').then(r => r.json()),
+        fetch('/api/v1/ai/categories').then(r => r.json())
       ]);
 
       if (statsResponse.success) {
@@ -117,7 +117,7 @@ const Defects = () => {
 
       // Tentar carregar classificações (pode falhar se não houver)
       try {
-        const classificationsResponse = await fetch('http://localhost:3009/api/v1/ai/classifications');
+        const classificationsResponse = await fetch('/api/v1/ai/classifications');
         const classificationsData = await classificationsResponse.json();
         
         if (classificationsData.success) {
@@ -141,7 +141,7 @@ const Defects = () => {
     try {
       console.log('🚀 Iniciando classificação em massa...');
       
-      const response = await fetch('http://localhost:3009/api/v1/ai/classify-all', {
+      const response = await fetch('/api/v1/ai/classify-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -719,7 +719,7 @@ const Defects = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
-                            {new Date(classification.created_at).toLocaleDateString('pt-BR')}
+                            {classification.created_at.split('T')[0].split('-').reverse().join('/')}
                           </TableCell>
                           <TableCell>
                             <Button size="sm" variant="outline" className="h-8 w-8 p-0">

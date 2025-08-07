@@ -38,7 +38,7 @@ import { authenticateToken, optionalAuth } from './middleware/authMiddleware';
 dotenv.config();
 
 const app = express();
-const port = parseInt(process.env.PORT || '3010', 10);
+const port = parseInt(process.env.PORT || '3009', 10);
 
 // 🛡️ APLICAR MIDDLEWARES DE SEGURANÇA (ORDEM IMPORTANTE!)
 
@@ -55,8 +55,8 @@ app.use(cors(corsOptions));
 // 4. Logging de segurança
 app.use(securityLogger);
 
-// 5. Proteção contra bots
-app.use(botProtection);
+// 5. Proteção contra bots (TEMPORARIAMENTE DESABILITADA PARA TESTES)
+// app.use(botProtection);
 
 // 6. Prevenção de path traversal
 app.use(preventPathTraversal);

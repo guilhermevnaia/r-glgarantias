@@ -91,23 +91,17 @@ const Mechanics = () => {
     return { month: undefined, year: undefined };
   };
   
-  const { month, year } = getMonthYearFromRange();
-  console.log('🔎 Parâmetros finais para API:', { month, year });
-  const { data: mechanicsData, isLoading: loading, error } = useMechanicsData(month, year);
+  // Sempre buscar todos os dados - sem filtros
+  const { data: mechanicsData, isLoading: loading, error } = useMechanicsData();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-apple-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse space-y-6 max-w-7xl mx-auto">
-          <div className="h-8 bg-white rounded-lg w-1/3"></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-white rounded-lg"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-80 bg-white rounded-lg"></div>
+          <div className="h-8 bg-white rounded-lg w-64"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-96 bg-white rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -133,7 +127,7 @@ const Mechanics = () => {
   }
 
   // Filtrar e recalcular dados baseado nos filtros selecionados (incluindo data)
-  const filteredMechanics = (mechanicsData?.mechanicsStats || []).map((mechanic: any) => {
+  const filteredMechanics = ((mechanicsData as any)?.mechanicsStats || []).map((mechanic: any) => {
     // Primeiro filtrar as ordens do mecânico pelo período de data
     let filteredOrders = mechanic.orders || [];
     
@@ -184,49 +178,33 @@ const Mechanics = () => {
       models,
       lastWarranty
     };
-  }).filter((mechanic: any) => {
-    if (!mechanic) return false;
-    
-    const matchesSearch = !searchTerm || 
-      mechanic.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesDefect = selectedDefectType === 'all' || 
-      mechanic.defectTypes.some((defect: string) => 
-        defect && defect.toLowerCase().includes(selectedDefectType.toLowerCase())
-      );
-    
-    const matchesMotor = selectedMotor === 'all' || 
-      mechanic.manufacturers.some((manufacturer: string) => 
-        manufacturer && manufacturer.toLowerCase().includes(selectedMotor.toLowerCase())
-      );
+  }).filter(Boolean);
 
-    return matchesSearch && matchesDefect && matchesMotor;
+  // Ordenar mecânicos baseado no critério selecionado
+  const sortedMechanics = [...filteredMechanics].sort((a: any, b: any) => {
+    switch (sortBy) {
+      case 'warranties':
+        return b.totalWarranties - a.totalWarranties;
+      case 'totalCost':
+        return b.totalCost - a.totalCost;
+      case 'avgCost':
+        return b.avgCostPerWarranty - a.avgCostPerWarranty;
+      case 'defects':
+        return b.defectTypes.length - a.defectTypes.length;
+      default:
+        return b.totalWarranties - a.totalWarranties;
+    }
   });
 
   // Debug logs para verificar dados
-  console.log('🔧 Dados de mecânicos recebidos:', {
-    totalMechanics: mechanicsData?.mechanicsStats?.length || 0,
-    totalWarranties: mechanicsData?.totalWarranties || 0,
-    totalCost: mechanicsData?.totalCost || 0,
-    firstMechanic: mechanicsData?.mechanicsStats?.[0]
-  });
-
-  console.log('🔍 Filtros aplicados:', {
+  console.log('🔍 Dados filtrados:', {
+    totalMechanics: (mechanicsData as any)?.mechanicsStats?.length || 0,
+    filteredCount: filteredMechanics.length,
+    sortedCount: sortedMechanics.length,
+    dateRange,
     searchTerm,
     selectedDefectType,
-    selectedMotor,
-    dateRange
-  });
-
-  console.log('📊 Mecânicos filtrados:', {
-    totalOriginal: mechanicsData?.mechanicsStats?.length || 0,
-    totalFiltered: filteredMechanics.length,
-    filteredMechanics: filteredMechanics.slice(0, 3).map(m => ({
-      name: m.name,
-      totalWarranties: m.totalWarranties,
-      totalCost: m.totalCost,
-      ordersInPeriod: m.orders?.length || 0
-    }))
+    selectedMotor
   });
 
   // Função para formatar moeda
@@ -242,63 +220,405 @@ const Mechanics = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  // Calcular estatísticas baseadas nos dados filtrados
+  const totalWarranties = sortedMechanics.reduce((sum: number, mechanic: any) => sum + mechanic.totalWarranties, 0);
+  const totalCost = sortedMechanics.reduce((sum: number, mechanic: any) => sum + mechanic.totalCost, 0);
+  const avgCostPerWarranty = totalWarranties > 0 ? totalCost / totalWarranties : 0;
+  const totalMechanics = sortedMechanics.length;
+
   // Dados para gráficos com ordenação
-  const sortedMechanics = [...filteredMechanics].sort((a: any, b: any) => {
-    switch (sortBy) {
-      case 'warranties':
-        return b.totalWarranties - a.totalWarranties;
-      case 'totalCost':
-        return b.totalCost - a.totalCost;
-      case 'avgCost':
-        return b.avgCostPerWarranty - a.avgCostPerWarranty;
-      case 'defects':
-        return b.defectTypes.length - a.defectTypes.length;
-      default:
-        return b.totalWarranties - a.totalWarranties;
-    }
-  });
   const chartData = sortedMechanics.slice(0, 10); // Top 10 para melhor visualização
 
-  // Calcular estatísticas baseadas nos dados filtrados
-  const filteredStats = {
-    totalWarranties: filteredMechanics.reduce((sum: number, m: any) => sum + m.totalWarranties, 0),
-    totalCost: filteredMechanics.reduce((sum: number, m: any) => sum + m.totalCost, 0),
-    averageCost: 0,
-    uniqueDefects: new Set(filteredMechanics.flatMap((m: any) => m.defectTypes)).size,
-    mechanicsCount: filteredMechanics.length
+  // Função para renderizar o modal de detalhes do mecânico
+  const renderMechanicDetailsModal = () => {
+    if (!showMechanicDetails) return null;
+    
+    const mechanic = sortedMechanics.find(m => m.name === showMechanicDetails);
+    if (!mechanic) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{mechanic.name}</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMechanicDetails(null)}
+              >
+                ×
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="text-center p-4 bg-red-50 rounded-lg">
+                <p className="text-2xl font-bold text-red-600">{mechanic.totalWarranties}</p>
+                <p className="text-sm text-gray-600">Total de Garantias</p>
+              </div>
+              <div className="text-center p-4 bg-orange-50 rounded-lg">
+                <p className="text-2xl font-bold text-orange-600">{formatCurrency(mechanic.totalCost)}</p>
+                <p className="text-sm text-gray-600">Custo Total</p>
+              </div>
+              <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(mechanic.avgCostPerWarranty)}</p>
+                <p className="text-sm text-gray-600">Custo Médio</p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{mechanic.defectTypes.length}</p>
+                <p className="text-sm text-gray-600">Tipos de Defeitos</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Tipos de Defeitos</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {mechanic.defectTypes.map((defect: string, index: number) => (
+                    <div key={index} className="p-2 bg-red-50 rounded text-sm">
+                      {defect}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Modelos de Motor</h3>
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                  {mechanic.models.map((model: string, index: number) => (
+                    <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      {model}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {mechanic.orders && mechanic.orders.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-3">Ordens de Serviço</h3>
+                <div className="overflow-x-auto max-h-60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>OS</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Defeito</TableHead>
+                        <TableHead>Custo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mechanic.orders.slice(0, 10).map((order: any, index: number) => (
+                        <TableRow key={order.order_number || index}>
+                          <TableCell className="font-medium">{order.order_number}</TableCell>
+                          <TableCell>{order.order_date.split('T')[0].split('-').reverse().join('/')}</TableCell>
+                          <TableCell>
+                            <ClassifiedDefect 
+                              order={order}
+                              classification={classifications.find(c => c.service_order_id === order.id)}
+                              showIcon={false}
+                              className="text-xs"
+                            />
+                          </TableCell>
+                          <TableCell className="text-red-600 font-semibold">
+                            {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
-  filteredStats.averageCost = filteredStats.totalWarranties > 0 ? filteredStats.totalCost / filteredStats.totalWarranties : 0;
+
+  // Função para renderizar detalhes do mecânico selecionado
+  const renderSelectedMechanicDetails = () => {
+    if (!searchTerm) return null;
+    
+    const selectedMechanic = filteredMechanics.find((m: any) => m.name === searchTerm);
+    if (!selectedMechanic) return null;
+    
+    return (
+      <div className="space-y-6">
+        
+        {/* Card Principal do Mecânico - Responsivo */}
+        <Card className="bg-gradient-to-br from-red-50 to-pink-50 border-red-200 shadow-md">
+          <CardContent className="p-4 lg:p-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+              <Avatar className="h-16 w-16 flex-shrink-0">
+                <AvatarFallback className="text-lg font-semibold bg-white">
+                  {getInitials(selectedMechanic.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-center sm:text-left">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedMechanic.name}</h2>
+                <p className="text-gray-600">
+                  {selectedMechanic.totalWarranties} garantias • 
+                  Média: {formatCurrency(selectedMechanic.avgCostPerWarranty)}
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                <p className="text-xl lg:text-2xl font-bold text-red-600">{selectedMechanic.totalWarranties}</p>
+                <p className="text-xs lg:text-sm text-gray-600">Total de Garantias</p>
+              </div>
+              <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                <p className="text-xl lg:text-2xl font-bold text-red-600">
+                  <span className="hidden sm:inline">{formatCurrency(selectedMechanic.totalCost)}</span>
+                  <span className="sm:hidden">{formatCurrency(selectedMechanic.totalCost / 1000)}k</span>
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600">Custo Total</p>
+              </div>
+              <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                <p className="text-xl lg:text-2xl font-bold text-orange-600">
+                  <span className="hidden sm:inline">{formatCurrency(selectedMechanic.avgCostPerWarranty)}</span>
+                  <span className="sm:hidden">{formatCurrency(selectedMechanic.avgCostPerWarranty / 1000)}k</span>
+                </p>
+                <p className="text-xs lg:text-sm text-gray-600">Custo Médio</p>
+              </div>
+              <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
+                <p className="text-xl lg:text-2xl font-bold text-blue-600">{selectedMechanic.defectTypes.length}</p>
+                <p className="text-xs lg:text-sm text-gray-600">Tipos de Defeitos</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Detalhes em Grid Responsivo */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          
+          {/* Tipos de Defeitos */}
+          <Card className="bg-white border-2 border-black shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-red-600" />
+                Tipos de Defeitos Causados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {selectedMechanic.defectTypes.slice(0, 5).map((defect: string, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                    <span className="font-medium text-gray-900 text-sm truncate flex-1 mr-2" title={defect}>
+                      {defect}
+                    </span>
+                    <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs flex-shrink-0">
+                      #{index + 1}
+                    </Badge>
+                  </div>
+                ))}
+                {selectedMechanic.defectTypes.length > 5 && (
+                  <div className="text-center text-sm text-gray-500 pt-2">
+                    +{selectedMechanic.defectTypes.length - 5} outros tipos
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Modelos e Fabricantes */}
+          <Card className="bg-white border-2 border-black shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Modelos e Fabricantes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Modelos Trabalhados:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMechanic.models.slice(0, 3).map((model: string, index: number) => (
+                      <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                        {model}
+                      </Badge>
+                    ))}
+                    {selectedMechanic.models.length > 3 && (
+                      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">
+                        +{selectedMechanic.models.length - 3} outros
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Fabricantes:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMechanic.manufacturers.map((mfg: string, index: number) => (
+                      <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                        {mfg}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Histórico de Garantias */}
+         <Card className="bg-white border-2 border-black shadow-md">
+           <CardHeader>
+             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+               <Calendar className="h-5 w-5 text-purple-600" />
+               Histórico de Garantias
+             </CardTitle>
+           </CardHeader>
+           <CardContent>
+             <div className="space-y-3">
+               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-purple-50 rounded-lg gap-2">
+                 <div>
+                   <p className="font-medium text-gray-900">Última Garantia</p>
+                   <p className="text-sm text-gray-600">
+                     {selectedMechanic.lastWarranty ? 
+                       selectedMechanic.lastWarranty.split('T')[0].split('-').reverse().join('/') : 
+                       'Não informado'
+                     }
+                   </p>
+                 </div>
+                 <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 self-start sm:self-center">
+                   Recente
+                 </Badge>
+               </div>
+               <div className="text-center p-4 bg-gray-50 rounded-lg">
+                 <p className="text-sm text-gray-600">
+                   Total de {selectedMechanic.totalWarranties} garantias registradas
+                 </p>
+               </div>
+               <div className="flex justify-center">
+                 <Button 
+                   onClick={() => setShowOrderDetails(!showOrderDetails)}
+                   variant="outline"
+                   className="flex items-center gap-2"
+                 >
+                   <FileText className="h-4 w-4" />
+                   {showOrderDetails ? 'Ocultar Detalhes' : 'Ver Todas as OS'}
+                 </Button>
+               </div>
+             </div>
+           </CardContent>
+         </Card>
+
+         {/* Lista das Ordens de Serviço */}
+         {showOrderDetails && selectedMechanic.orders && (
+           <Card className="bg-white border-2 border-black shadow-md">
+             <CardHeader>
+               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                 <div>
+                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                     <FileText className="h-5 w-5 text-blue-600" />
+                     Todas as OS - {selectedMechanic.name}
+                   </CardTitle>
+                   <CardDescription className="text-gray-500">
+                     {selectedMechanic.orders.length} ordens de serviço encontradas
+                   </CardDescription>
+                 </div>
+                 <Button
+                   onClick={() => {
+                     const exportData = formatServiceOrdersForExport(selectedMechanic.orders, classifications);
+                     exportToExcel(
+                       exportData, 
+                       `OS_${selectedMechanic.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`,
+                       'Ordens de Serviço'
+                     );
+                   }}
+                   variant="outline"
+                   className="flex items-center gap-2"
+                 >
+                   <Download className="h-4 w-4" />
+                   Exportar Excel
+                 </Button>
+               </div>
+             </CardHeader>
+             <CardContent className="p-0">
+               <div className="overflow-x-auto">
+                 <Table>
+                   <TableHeader>
+                     <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                       <TableHead className="font-semibold text-gray-700 min-w-[100px]">OS</TableHead>
+                       <TableHead className="font-semibold text-gray-700 min-w-[100px]">Data</TableHead>
+                       <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden sm:table-cell">Defeito</TableHead>
+                       <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden md:table-cell">Modelo</TableHead>
+                       <TableHead className="font-semibold text-gray-700 min-w-[100px]">Custo</TableHead>
+                       <TableHead className="font-semibold text-gray-700 min-w-[80px] hidden lg:table-cell">Status</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {selectedMechanic.orders.map((order: any, index: number) => (
+                       <TableRow key={order.order_number || index} className="hover:bg-gray-50/30">
+                         <TableCell className="font-medium text-gray-900 text-sm">
+                           {order.order_number || `OS-${index + 1}`}
+                         </TableCell>
+                         <TableCell className="text-gray-600 text-sm">
+                           {order.order_date.split('T')[0].split('-').reverse().join('/')}
+                         </TableCell>
+                         <TableCell className="hidden sm:table-cell">
+                           <ClassifiedDefect 
+                             order={order}
+                             classification={classifications.find(c => c.service_order_id === order.id)}
+                             className="text-xs"
+                           />
+                         </TableCell>
+                         <TableCell className="hidden md:table-cell">
+                           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                             {order.engine_description || 'Não informado'}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-red-600 font-semibold text-sm">
+                           {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
+                         </TableCell>
+                         <TableCell className="hidden lg:table-cell">
+                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                             {order.order_status || 'G'}
+                           </Badge>
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </div>
+               {selectedMechanic.orders.length > 20 && (
+                 <div className="p-4 text-center text-sm text-gray-500 border-t">
+                   Mostrando primeiras 20 de {selectedMechanic.orders.length} ordens
+                 </div>
+               )}
+             </CardContent>
+           </Card>
+         )}
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-apple-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 lg:space-y-8">
-        
-        {/* Tabs de Análise */}
-        <Tabs defaultValue="ranking" className="w-full">
-          <div className="flex justify-center">
-            <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-6 h-10">
-              <TabsTrigger 
-                value="ranking" 
-                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
-              >
-                <span className="hidden sm:inline">Ranking de Garantias</span>
-                <span className="sm:hidden">Ranking</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="analysis" 
-                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
-              >
-                <span className="hidden sm:inline">Análise Individual</span>
-                <span className="sm:hidden">Individual</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="comparison" 
-                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-4 lg:px-6"
-              >
-                Comparativo
-              </TabsTrigger>
-            </TabsList>
-          </div>
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
+          <span className="hidden sm:inline">Análise de Mecânicos</span>
+          <span className="sm:hidden">Mecânicos</span>
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Análise detalhada do desempenho e atividades dos mecânicos
+        </p>
+      </div>
+      
+      {/* Tabs de Análise */}
+      <Tabs defaultValue="ranking" className="w-full">
+        <div className="flex justify-center">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsTrigger value="ranking">Ranking</TabsTrigger>
+            <TabsTrigger value="analytics">Análises</TabsTrigger>
+            <TabsTrigger value="comparison">Comparativo</TabsTrigger>
+          </TabsList>
+        </div>
 
           {/* Filtros Responsivos */}
           <Card className="bg-white border-2 border-black shadow-md">
@@ -436,53 +756,61 @@ const Mechanics = () => {
             </CardContent>
           </Card>
 
-          {/* KPIs Responsivos */}
+          {/* Resumo Estatístico */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mt-6 lg:mt-8">
-            <AppleCard
-              title="Total de Garantias"
-              value={filteredStats.totalWarranties.toString()}
-              icon={AlertTriangle}
-              trend={{ 
-                value: filteredStats.totalWarranties > 0 ? `${filteredStats.mechanicsCount} mecânicos` : "0", 
-                isPositive: false 
-              }}
-              gradient="red"
-            />
+            <Card className="bg-white border-2 border-black shadow-md">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900">
+                  Total de Garantias
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <p className="text-3xl font-bold text-red-600">{totalWarranties}</p>
+                <p className="text-sm text-gray-500">{totalMechanics} mecânicos ativos</p>
+              </CardContent>
+            </Card>
             
-            <AppleCard
-              title="Custo Total"
-              value={formatCurrency(filteredStats.totalCost)}
-              icon={DollarSign}
-              trend={{ 
-                value: filteredStats.averageCost > 0 ? `Média: ${formatCurrency(filteredStats.averageCost)}` : "R$ 0", 
-                isPositive: false 
-              }}
-              gradient="orange"
-            />
+            <Card className="bg-white border-2 border-black shadow-md">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900">
+                  Custo Total
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <p className="text-3xl font-bold text-orange-600">{formatCurrency(totalCost)}</p>
+                <p className="text-sm text-gray-500">Média: {formatCurrency(avgCostPerWarranty)}</p>
+              </CardContent>
+            </Card>
             
-            <AppleCard
-              title="Tipos de Defeitos"
-              value={filteredStats.uniqueDefects.toString()}
-              icon={Shield}
-              trend={{ 
-                value: `${filteredStats.mechanicsCount} mecânicos ativos`, 
-                isPositive: false 
-              }}
-              gradient="red"
-            />
+            <Card className="bg-white border-2 border-black shadow-md">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900">
+                  Tipos de Defeitos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <p className="text-3xl font-bold text-red-600">
+                  {new Set(sortedMechanics.flatMap((m: any) => m.defectTypes)).size}
+                </p>
+                <p className="text-sm text-gray-500">Únicos no período</p>
+              </CardContent>
+            </Card>
             
-            <AppleCard
-              title="Mecânicos Ativos"
-              value={filteredStats.mechanicsCount.toString()}
-              icon={Users}
-              trend={{ 
-                value: (mechanicsData?.mechanicsStats || []).length > filteredStats.mechanicsCount ? 
-                  `${(mechanicsData?.mechanicsStats || []).length - filteredStats.mechanicsCount} filtrados` : 
-                  "Todos visíveis", 
-                isPositive: true 
-              }}
-              gradient="blue"
-            />
+            <Card className="bg-white border-2 border-black shadow-md">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="text-lg font-semibold text-gray-900">
+                  Mecânicos Ativos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <p className="text-3xl font-bold text-blue-600">{totalMechanics}</p>
+                <p className="text-sm text-gray-500">
+                  {((mechanicsData as any)?.mechanicsStats || []).length > totalMechanics ? 
+                    `${((mechanicsData as any)?.mechanicsStats || []).length - totalMechanics} filtrados` : 
+                    "Todos visíveis"}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Ranking de Garantias */}
@@ -656,7 +984,7 @@ const Mechanics = () => {
           </TabsContent>
 
           {/* Análise Individual */}
-          <TabsContent value="analysis" className="space-y-6 lg:space-y-8 mt-6 lg:mt-8">
+          <TabsContent value="analytics" className="space-y-6 lg:space-y-8 mt-6 lg:mt-8">
             
             {/* Seletor de Mecânico */}
             <Card className="bg-white border-2 border-black shadow-md">
@@ -702,262 +1030,7 @@ const Mechanics = () => {
             </Card>
 
             {/* Detalhes do Mecânico Selecionado */}
-            {searchTerm && (() => {
-              const selectedMechanic = filteredMechanics.find((m: any) => m.name === searchTerm);
-              if (!selectedMechanic) return null;
-              
-              return (
-                <div className="space-y-6">
-                  
-                  {/* Card Principal do Mecânico - Responsivo */}
-                  <Card className="bg-gradient-to-br from-red-50 to-pink-50 border-red-200 shadow-md">
-                    <CardContent className="p-4 lg:p-6">
-                      <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-                        <Avatar className="h-16 w-16 flex-shrink-0">
-                          <AvatarFallback className="text-lg font-semibold bg-white">
-                            {getInitials(selectedMechanic.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="text-center sm:text-left">
-                          <h2 className="text-2xl font-bold text-gray-900">{selectedMechanic.name}</h2>
-                          <p className="text-gray-600">
-                            {selectedMechanic.totalWarranties} garantias • 
-                            Média: {formatCurrency(selectedMechanic.avgCostPerWarranty)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
-                          <p className="text-xl lg:text-2xl font-bold text-red-600">{selectedMechanic.totalWarranties}</p>
-                          <p className="text-xs lg:text-sm text-gray-600">Total de Garantias</p>
-                        </div>
-                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
-                          <p className="text-xl lg:text-2xl font-bold text-red-600">
-                            <span className="hidden sm:inline">{formatCurrency(selectedMechanic.totalCost)}</span>
-                            <span className="sm:hidden">{formatCurrency(selectedMechanic.totalCost / 1000)}k</span>
-                          </p>
-                          <p className="text-xs lg:text-sm text-gray-600">Custo Total</p>
-                        </div>
-                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
-                          <p className="text-xl lg:text-2xl font-bold text-orange-600">
-                            <span className="hidden sm:inline">{formatCurrency(selectedMechanic.avgCostPerWarranty)}</span>
-                            <span className="sm:hidden">{formatCurrency(selectedMechanic.avgCostPerWarranty / 1000)}k</span>
-                          </p>
-                          <p className="text-xs lg:text-sm text-gray-600">Custo Médio</p>
-                        </div>
-                        <div className="text-center p-3 lg:p-4 bg-white rounded-lg">
-                          <p className="text-xl lg:text-2xl font-bold text-blue-600">{selectedMechanic.defectTypes.length}</p>
-                          <p className="text-xs lg:text-sm text-gray-600">Tipos de Defeitos</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Detalhes em Grid Responsivo */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    
-                    {/* Tipos de Defeitos */}
-                    <Card className="bg-white border-2 border-black shadow-md">
-                      <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <Wrench className="h-5 w-5 text-red-600" />
-                          Tipos de Defeitos Causados
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {selectedMechanic.defectTypes.slice(0, 5).map((defect: string, index: number) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                              <span className="font-medium text-gray-900 text-sm truncate flex-1 mr-2" title={defect}>
-                                {defect}
-                              </span>
-                              <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs flex-shrink-0">
-                                #{index + 1}
-                              </Badge>
-                            </div>
-                          ))}
-                          {selectedMechanic.defectTypes.length > 5 && (
-                            <div className="text-center text-sm text-gray-500 pt-2">
-                              +{selectedMechanic.defectTypes.length - 5} outros tipos
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Modelos e Fabricantes */}
-                    <Card className="bg-white border-2 border-black shadow-md">
-                      <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <FileText className="h-5 w-5 text-blue-600" />
-                          Modelos e Fabricantes
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Modelos Trabalhados:</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedMechanic.models.slice(0, 3).map((model: string, index: number) => (
-                                <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                                  {model}
-                                </Badge>
-                              ))}
-                              {selectedMechanic.models.length > 3 && (
-                                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">
-                                  +{selectedMechanic.models.length - 3} outros
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Fabricantes:</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedMechanic.manufacturers.map((mfg: string, index: number) => (
-                                <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                                  {mfg}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Histórico de Garantias */}
-                   <Card className="bg-white border-2 border-black shadow-md">
-                     <CardHeader>
-                       <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                         <Calendar className="h-5 w-5 text-purple-600" />
-                         Histórico de Garantias
-                       </CardTitle>
-                     </CardHeader>
-                     <CardContent>
-                       <div className="space-y-3">
-                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-purple-50 rounded-lg gap-2">
-                           <div>
-                             <p className="font-medium text-gray-900">Última Garantia</p>
-                             <p className="text-sm text-gray-600">
-                               {selectedMechanic.lastWarranty ? 
-                                 new Date(selectedMechanic.lastWarranty).toLocaleDateString('pt-BR') : 
-                                 'Não informado'
-                               }
-                             </p>
-                           </div>
-                           <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 self-start sm:self-center">
-                             Recente
-                           </Badge>
-                         </div>
-                         <div className="text-center p-4 bg-gray-50 rounded-lg">
-                           <p className="text-sm text-gray-600">
-                             Total de {selectedMechanic.totalWarranties} garantias registradas
-                           </p>
-                         </div>
-                         <div className="flex justify-center">
-                           <Button 
-                             onClick={() => setShowOrderDetails(!showOrderDetails)}
-                             variant="outline"
-                             className="flex items-center gap-2"
-                           >
-                             <FileText className="h-4 w-4" />
-                             {showOrderDetails ? 'Ocultar Detalhes' : 'Ver Todas as OS'}
-                           </Button>
-                         </div>
-                       </div>
-                     </CardContent>
-                   </Card>
-
-                   {/* Lista das Ordens de Serviço */}
-                   {showOrderDetails && selectedMechanic.orders && (
-                     <Card className="bg-white border-2 border-black shadow-md">
-                       <CardHeader>
-                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                           <div>
-                             <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                               <FileText className="h-5 w-5 text-blue-600" />
-                               Todas as OS - {selectedMechanic.name}
-                             </CardTitle>
-                             <CardDescription className="text-gray-500">
-                               {selectedMechanic.orders.length} ordens de serviço encontradas
-                             </CardDescription>
-                           </div>
-                           <Button
-                             onClick={() => {
-                               const exportData = formatServiceOrdersForExport(selectedMechanic.orders, classifications);
-                               exportToExcel(
-                                 exportData, 
-                                 `OS_${selectedMechanic.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`,
-                                 'Ordens de Serviço'
-                               );
-                             }}
-                             variant="outline"
-                             className="flex items-center gap-2"
-                           >
-                             <Download className="h-4 w-4" />
-                             Exportar Excel
-                           </Button>
-                         </div>
-                       </CardHeader>
-                       <CardContent className="p-0">
-                         <div className="overflow-x-auto">
-                           <Table>
-                             <TableHeader>
-                               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">OS</TableHead>
-                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">Data</TableHead>
-                                 <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden sm:table-cell">Defeito</TableHead>
-                                 <TableHead className="font-semibold text-gray-700 min-w-[150px] hidden md:table-cell">Modelo</TableHead>
-                                 <TableHead className="font-semibold text-gray-700 min-w-[100px]">Custo</TableHead>
-                                 <TableHead className="font-semibold text-gray-700 min-w-[80px] hidden lg:table-cell">Status</TableHead>
-                               </TableRow>
-                             </TableHeader>
-                             <TableBody>
-                               {selectedMechanic.orders.map((order: any, index: number) => (
-                                 <TableRow key={order.order_number || index} className="hover:bg-gray-50/30">
-                                   <TableCell className="font-medium text-gray-900 text-sm">
-                                     {order.order_number || `OS-${index + 1}`}
-                                   </TableCell>
-                                   <TableCell className="text-gray-600 text-sm">
-                                     {new Date(order.order_date).toLocaleDateString('pt-BR')}
-                                   </TableCell>
-                                   <TableCell className="hidden sm:table-cell">
-                                     <ClassifiedDefect 
-                                       order={order}
-                                       classification={classifications.find(c => c.service_order_id === order.id)}
-                                       className="text-xs"
-                                     />
-                                   </TableCell>
-                                   <TableCell className="hidden md:table-cell">
-                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                                       {order.engine_description || 'Não informado'}
-                                     </Badge>
-                                   </TableCell>
-                                   <TableCell className="text-red-600 font-semibold text-sm">
-                                     {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
-                                   </TableCell>
-                                   <TableCell className="hidden lg:table-cell">
-                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                                       {order.order_status || 'G'}
-                                     </Badge>
-                                   </TableCell>
-                                 </TableRow>
-                               ))}
-                             </TableBody>
-                           </Table>
-                         </div>
-                         {selectedMechanic.orders.length > 20 && (
-                           <div className="p-4 text-center text-sm text-gray-500 border-t">
-                             Mostrando primeiras 20 de {selectedMechanic.orders.length} ordens
-                           </div>
-                         )}
-                       </CardContent>
-                     </Card>
-                   )}
-                </div>
-              );
-            })()}
+            {renderSelectedMechanicDetails()}
           </TabsContent>
 
           {/* Comparativo */}
@@ -1244,7 +1317,7 @@ const Mechanics = () => {
                         </p>
                         <p className="text-sm text-gray-600">
                           {dateRange.start && dateRange.end
-                            ? `${new Date(dateRange.start).toLocaleDateString('pt-BR')} - ${new Date(dateRange.end).toLocaleDateString('pt-BR')}`
+                            ? `${dateRange.start.split('T')[0].split('-').reverse().join('/')} - ${dateRange.end.split('T')[0].split('-').reverse().join('/')}`
                             : 'Período atual'
                           }
                         </p>
@@ -1263,112 +1336,9 @@ const Mechanics = () => {
               </Card>
           </TabsContent>
         </Tabs>
-      </div>
       
       {/* Modal de Detalhes do Mecânico */}
-      {showMechanicDetails && (() => {
-        const mechanic = sortedMechanics.find(m => m.name === showMechanicDetails);
-        if (!mechanic) return null;
-        
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">{mechanic.name}</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowMechanicDetails(null)}
-                  >
-                    ×
-                  </Button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
-                    <p className="text-2xl font-bold text-red-600">{mechanic.totalWarranties}</p>
-                    <p className="text-sm text-gray-600">Total de Garantias</p>
-                  </div>
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(mechanic.totalCost)}</p>
-                    <p className="text-sm text-gray-600">Custo Total</p>
-                  </div>
-                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                    <p className="text-2xl font-bold text-yellow-600">{formatCurrency(mechanic.avgCostPerWarranty)}</p>
-                    <p className="text-sm text-gray-600">Custo Médio</p>
-                  </div>
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-600">{mechanic.defectTypes.length}</p>
-                    <p className="text-sm text-gray-600">Tipos de Defeitos</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Tipos de Defeitos</h3>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {mechanic.defectTypes.map((defect: string, index: number) => (
-                        <div key={index} className="p-2 bg-red-50 rounded text-sm">
-                          {defect}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Modelos de Motor</h3>
-                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                      {mechanic.models.map((model: string, index: number) => (
-                        <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          {model}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                {mechanic.orders && mechanic.orders.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-3">Ordens de Serviço</h3>
-                    <div className="overflow-x-auto max-h-60">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>OS</TableHead>
-                            <TableHead>Data</TableHead>
-                            <TableHead>Defeito</TableHead>
-                            <TableHead>Custo</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mechanic.orders.slice(0, 10).map((order: any, index: number) => (
-                            <TableRow key={order.order_number || index}>
-                              <TableCell className="font-medium">{order.order_number}</TableCell>
-                              <TableCell>{new Date(order.order_date).toLocaleDateString('pt-BR')}</TableCell>
-                              <TableCell>
-                                <ClassifiedDefect 
-                                  order={order}
-                                  classification={classifications.find(c => c.service_order_id === order.id)}
-                                  showIcon={false}
-                                  className="text-xs"
-                                />
-                              </TableCell>
-                              <TableCell className="text-red-600 font-semibold">
-                                {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {renderMechanicDetailsModal()}
       
       {/* Modal de Lista de Defeitos */}
       {showDefectsModal && (
