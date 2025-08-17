@@ -19,6 +19,10 @@
 ### 🔥 **OPÇÃO RÁPIDA - Render (Recomendado)**
 
 #### Passo 1: Deploy Backend (5 minutos)
+
+**✅ BACKEND JÁ FUNCIONANDO**: `https://gl-garantias-backend.onrender.com`
+
+**Se quiser criar outro**, siga:
 1. **Acesse**: https://render.com
 2. **Login**: Use GitHub 
 3. **New** → **Web Service**
@@ -97,12 +101,9 @@
    
    **5.3** Preencha:
    - **NOME**: `VITE_API_URL`
-   - **VALOR**: `https://[seu-backend-render].onrender.com`
-   
-   **⚠️ IMPORTANTE**: Substitua `[seu-backend-render]` pela URL real do seu backend no Render
-   
-   **Exemplo**: Se sua URL do Render for `https://gl-garantias-backend.onrender.com`, então coloque:
    - **VALOR**: `https://gl-garantias-backend.onrender.com`
+   
+   **✅ USE EXATAMENTE**: `https://gl-garantias-backend.onrender.com`
    
    **5.4** Clique **"Add"** para salvar
 

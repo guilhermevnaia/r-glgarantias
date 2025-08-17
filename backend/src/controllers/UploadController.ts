@@ -140,15 +140,13 @@ class UploadController {
           console.log(`🤖 Iniciando classificação automática PERMANENTE de ${insertedCount} novos registros...`);
           try {
             // Usar sistema hierárquico permanente + fallback para sistema antigo
-            const { autoClassifyNewOrders } = require('../../SISTEMA_HIERARQUICO_BACKUP.js');
+            // Sistema de classificação automática via contingência ativo
             
             Promise.all([
-              autoClassifyNewOrders(), // Sistema principal permanente
-              this.hierarchicalAI.classifyUnclassifiedHierarchically(), // Fallback 1
-              this.aiService.classifyUnclassifiedDefects() // Fallback 2
+              this.hierarchicalAI.classifyUnclassifiedHierarchically(), // Sistema hierárquico
+              this.aiService.classifyUnclassifiedDefects() // Fallback
             ]).then((results) => {
-              console.log(`✅ Classificação automática TRIPLA concluída:`);
-              console.log(`   Sistema Permanente: ${results[0]?.successful || 0} defeitos`);
+              console.log(`✅ Classificação automática DUPLA concluída:`);
               console.log(`   Hierárquico: Executado com sucesso`);
               console.log(`   Simple AI: Executado com sucesso`);
             }).catch((error: any) => {

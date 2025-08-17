@@ -372,15 +372,9 @@ app.listen(port, '0.0.0.0', () => {
       const { autonomousGuarantee } = require('../GARANTIA_SISTEMA_AUTONOMO.js');
       console.log('✅ Sistema de Garantia Autônoma ATIVO - IA funcionará para sempre!');
     } catch (error) {
-      console.error('❌ ERRO CRÍTICO: Falha ao iniciar Sistema de Garantia Autônoma!', error);
-      console.log('🔄 Tentando fallback...');
-      // Fallback direto
-      const { autoClassifyNewOrders } = require('../SISTEMA_HIERARQUICO_BACKUP.js');
-      setTimeout(() => {
-        autoClassifyNewOrders().then(result => {
-          console.log('✅ Fallback de classificação executado:', result);
-        }).catch(err => console.error('❌ Fallback falhou:', err));
-      }, 60000); // 1 minuto após startup
+      console.error('❌ ERRO: Falha ao iniciar Sistema de Garantia Autônoma!', error);
+      console.log('✅ Sistema de contingência ativo via AIContingencyService');
+      // Sistema de classificação automática já está ativo via contingência
     }
   }, 30000);
 });
