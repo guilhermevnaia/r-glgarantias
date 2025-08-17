@@ -135,3 +135,4 @@ Implementei uma aba de relatórios **muito mais simples e direta**, exatamente c
 *Sistema: GLú Garantias*
 *Versão: 2.0 - Simples e Profissional*
 *Data: Janeiro 2025*
+

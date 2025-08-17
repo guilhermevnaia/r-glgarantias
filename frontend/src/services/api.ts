@@ -9,6 +9,7 @@ const api = axios.create({
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   }
+});
 
 // TEMPORÁRIO: SEM AUTENTICAÇÃO PARA TESTE
 api.interceptors.request.use(
@@ -19,6 +20,7 @@ api.interceptors.request.use(
     console.error('❌ Erro no interceptor de request:', error);
     return Promise.reject(error);
   }
+);
 
 // Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
@@ -36,6 +38,7 @@ api.interceptors.response.use(
     }
     return Promise.reject(error);
   }
+);
 
 export interface ServiceOrder {
   id: number;
@@ -253,6 +256,7 @@ export const apiService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+      });
 
       return response.data;
     } catch (error) {

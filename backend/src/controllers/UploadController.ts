@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { CleanDataProcessor } from '../services/CleanDataProcessor';
 import { SimpleAIService } from '../services/SimpleAIService';
+import { AutonomousHierarchicalAI } from '../services/AutonomousHierarchicalAI';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,10 +15,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 class UploadController {
   private processor: CleanDataProcessor;
   private aiService: SimpleAIService;
+  private hierarchicalAI: AutonomousHierarchicalAI;
 
   constructor() {
     this.processor = new CleanDataProcessor();
     this.aiService = SimpleAIService.getInstance();
+    this.hierarchicalAI = AutonomousHierarchicalAI.getInstance();
   }
 
   async uploadExcel(req: Request, res: Response): Promise<void> {
@@ -132,22 +135,27 @@ class UploadController {
         console.log(`   Erros: ${errorCount}`);
         console.log(`   Total esperado no banco: ${skippedCount + insertedCount}`);
 
-        // 5. CLASSIFICAR AUTOMATICAMENTE COM IA (NOVOS REGISTROS)
+        // 5. CLASSIFICAR AUTOMATICAMENTE COM SISTEMA PERMANENTE (NOVOS REGISTROS)
         if (insertedCount > 0) {
-          console.log(`🤖 Iniciando classificação automática de ${insertedCount} novos registros...`);
+          console.log(`🤖 Iniciando classificação automática PERMANENTE de ${insertedCount} novos registros...`);
           try {
-            // Usar EnhancedLocalAI para maior confiabilidade
-            // Usar SimpleAIService como fallback
-            const fallbackAI = this.aiService;
+            // Usar sistema hierárquico permanente + fallback para sistema antigo
+            const { autoClassifyNewOrders } = require('../../SISTEMA_HIERARQUICO_BACKUP.js');
             
-            // Executar em background para não travar o upload (apenas novos defeitos)
-            fallbackAI.classifyUnclassifiedDefects().then(() => {
-              console.log(`✅ Classificação automática de novos registros concluída com sucesso`);
+            Promise.all([
+              autoClassifyNewOrders(), // Sistema principal permanente
+              this.hierarchicalAI.classifyUnclassifiedHierarchically(), // Fallback 1
+              this.aiService.classifyUnclassifiedDefects() // Fallback 2
+            ]).then((results) => {
+              console.log(`✅ Classificação automática TRIPLA concluída:`);
+              console.log(`   Sistema Permanente: ${results[0]?.successful || 0} defeitos`);
+              console.log(`   Hierárquico: Executado com sucesso`);
+              console.log(`   Simple AI: Executado com sucesso`);
             }).catch((error: any) => {
               console.error('❌ Erro na classificação automática pós-upload:', error);
             });
             
-            console.log(`✅ Classificação automática iniciada em background (EnhancedLocalAI)`);
+            console.log(`✅ Classificação automática DUPLA iniciada em background (Hierárquica + Simples)`);
           } catch (aiError) {
             console.error('❌ Erro ao iniciar classificação automática:', aiError);
           }

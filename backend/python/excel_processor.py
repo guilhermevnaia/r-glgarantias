@@ -317,9 +317,16 @@ class DefinitiveExcelProcessor:
         
         # 7. EXTRAIR OUTROS CAMPOS COM VALIDAÇÃO
         try:
-            parts_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['parts_total'], 0))
+            # 7. EXTRAIR E CORRIGIR VALORES FINANCEIROS
+            parts_total_original = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['parts_total'], 0))
             labor_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['labor_total'], 0))
-            grand_total = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['grand_total'], 0))
+            grand_total_original = self._safe_float_conversion(row.get(self.REQUIRED_COLUMNS['grand_total'], 0))
+
+            # ✅ REGRA DE NEGÓCIO: Dividir o valor das peças por 2
+            parts_total_corrigido = parts_total_original / 2
+            
+            # Recalcular o grand_total com base no novo valor das peças
+            grand_total_calculado = parts_total_corrigido + labor_total
             
             # 8. CONSTRUIR REGISTRO FINAL
             processed_row = {
@@ -331,10 +338,17 @@ class DefinitiveExcelProcessor:
                 'vehicle_model': self._safe_string_conversion(row.get(self.REQUIRED_COLUMNS['vehicle_model'])),
                 'raw_defect_description': self._safe_string_conversion(row.get(self.REQUIRED_COLUMNS['defect_description'])),
                 'responsible_mechanic': self._safe_string_conversion(row.get(self.REQUIRED_COLUMNS['mechanic'])),
-                'parts_total': parts_total,
+                
+                # Usar os valores corrigidos e calculados
+                'parts_total': parts_total_corrigido,
                 'labor_total': labor_total,
-                'grand_total': grand_total,
-                'calculation_verified': abs((parts_total + labor_total) - grand_total) < 0.01
+                'grand_total': grand_total_calculado,
+                
+                # Manter os valores originais para auditoria (usando coluna correta)
+                'original_parts_value': parts_total_original,
+                
+                # Verificação de consistência
+                'calculation_verified': abs(grand_total_calculado - grand_total_original) < 0.01
             }
             
             # 9. ATUALIZAR ESTATÍSTICAS

@@ -188,3 +188,4 @@ A aba "Relatórios" foi completamente refeita seguindo o design padrão do front
 *Implementado em: Janeiro 2025*
 *Sistema: GLú Garantias*
 *Versão: 1.0.0*
+

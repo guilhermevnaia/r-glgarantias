@@ -11,135 +11,73 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export class StatsController {
   async getStats(req: Request, res: Response) {
     try {
-      const month = req.query.month ? parseInt(req.query.month as string) : null;
-      const year = req.query.year ? parseInt(req.query.year as string) : null;
-      
-      // Validar range de anos permitidos
-      if (year && (year < 2019 || year > 2025)) {
-        console.log(`❌ Ano inválido solicitado: ${year}`);
-        return res.status(400).json({ error: 'Ano deve estar entre 2019 e 2025' });
-      }
-      
-      // Validar mês
-      if (month && (month < 1 || month > 12)) {
-        console.log(`❌ Mês inválido solicitado: ${month}`);
-        return res.status(400).json({ error: 'Mês deve estar entre 1 e 12' });
-      }
-      
-      console.log(`📊 Carregando dados completos...`);
-      
-      // Buscar contagem total primeiro
-      const { count: totalCount } = await supabase
-        .from('service_orders')
-        .select('*', { count: 'exact', head: true });
+      const { month, year, search, status, manufacturer, mechanic, model } = req.query;
 
-      console.log(`🔢 Total de registros no banco: ${totalCount}`);
+      console.log('📊 Carregando estatísticas com filtros:', { month, year, search, status, manufacturer, mechanic, model });
 
-      // Buscar todos os registros em batches
-      let allOrders: any[] = [];
-      
-      try {
-        const [page1, page2, page3] = await Promise.all([
-          supabase.from('service_orders').select('*').range(0, 999),
-          supabase.from('service_orders').select('*').range(1000, 1999),
-          supabase.from('service_orders').select('*').range(2000, 2999)
-        ]);
+      let query = supabase.from('service_orders').select('*');
 
-        if (page1.data) {
-          allOrders = allOrders.concat(page1.data);
-          console.log(`📄 Página 1: ${page1.data.length} registros`);
+      // Aplicar filtros de data
+      if (year) {
+        const yearNum = parseInt(year as string);
+        if (yearNum < 2019 || yearNum > 2025) {
+          return res.status(400).json({ error: 'Ano deve estar entre 2019 e 2025' });
         }
+        const monthNum = month ? parseInt(month as string) : null;
+        if (monthNum && (monthNum < 1 || monthNum > 12)) {
+          return res.status(400).json({ error: 'Mês deve estar entre 1 e 12' });
+        }
+
+        const startDate = monthNum ? `${yearNum}-${String(monthNum).padStart(2, '0')}-01` : `${yearNum}-01-01`;
+        const lastDayOfMonth = monthNum ? new Date(yearNum, monthNum, 0).getDate() : 31;
+        const endDate = monthNum ? `${yearNum}-${String(monthNum).padStart(2, '0')}-${lastDayOfMonth}` : `${yearNum}-12-31`;
         
-        if (page2.data) {
-          allOrders = allOrders.concat(page2.data);
-          console.log(`📄 Página 2: ${page2.data.length} registros`);
-        }
-        
-        if (page3.data) {
-          allOrders = allOrders.concat(page3.data);
-          console.log(`📄 Página 3: ${page3.data.length} registros`);
-        }
+        query = query.gte('order_date', startDate).lte('order_date', endDate);
+        console.log(`📅 Filtro de data: ${startDate} até ${endDate}`);
+      } else {
+        // Filtrar sempre por range válido (2019-2025)
+        query = query.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
+      }
 
-        console.log(`✅ Total carregado: ${allOrders.length}`);
+      // Filtro por status
+      if (status && status !== 'all') {
+        query = query.eq('order_status', status as string);
+        console.log(`🏷️ Filtro de status: ${status}`);
+      }
 
-      } catch (error) {
+      // Filtro por fabricante
+      if (manufacturer && manufacturer !== 'all') {
+        query = query.eq('engine_manufacturer', manufacturer as string);
+        console.log(`🏭 Filtro de fabricante: ${manufacturer}`);
+      }
+
+      // Filtro por mecânico
+      if (mechanic && mechanic !== 'all') {
+        query = query.eq('responsible_mechanic', mechanic as string);
+        console.log(`👨‍🔧 Filtro de mecânico: ${mechanic}`);
+      }
+
+      // Filtro por modelo
+      if (model && model !== 'all') {
+        query = query.eq('vehicle_model', model as string);
+        console.log(`🚗 Filtro de modelo: ${model}`);
+      }
+
+      // Filtro de busca textual
+      if (search && (search as string).trim()) {
+        const searchQuery = search as string;
+        query = query.or(`order_number.ilike.%${searchQuery}%,engine_manufacturer.ilike.%${searchQuery}%,engine_description.ilike.%${searchQuery}%,vehicle_model.ilike.%${searchQuery}%,raw_defect_description.ilike.%${searchQuery}%,responsible_mechanic.ilike.%${searchQuery}%`);
+        console.log(`🔍 Filtro de busca: ${search}`);
+      }
+
+      const { data: orders, error } = await query;
+
+      if (error) {
         console.error('❌ Erro ao buscar dados:', error);
         return res.status(500).json({ error: 'Erro ao buscar dados' });
       }
 
-      // Aplicar filtro base: apenas dados de 2019-2025
-      const validYearOrders = allOrders.filter(order => {
-        if (!order.order_date) return false;
-        const orderYear = new Date(order.order_date).getFullYear();
-        return orderYear >= 2019 && orderYear <= 2025;
-      });
-
-      console.log(`🗓️ Dados filtrados por ano (2019-2025): ${validYearOrders.length} registros`);
-
-      // Aplicar filtro se necessário
-      let orders = validYearOrders;
-      
-      if (month && year) {
-        // Filtro por mês e ano específicos
-        const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês usando uma abordagem mais robusta
-        const lastDayOfMonth = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`;
-        
-        console.log(`🔍 DEBUG: Filtrando para ${month}/${year}`);
-        console.log(`🔍 DEBUG: startDate = ${startDate}`);
-        console.log(`🔍 DEBUG: endDate = ${endDate}`);
-        console.log(`🔍 DEBUG: lastDayOfMonth = ${lastDayOfMonth}`);
-        
-        // ✅ NOVA ABORDAGEM: Usar Date objects para comparação mais precisa
-        const startDateObj = new Date(startDate);
-        const endDateObj = new Date(endDate);
-        
-        orders = validYearOrders.filter(order => {
-          if (!order.order_date) return false;
-          
-          // Converter a data da ordem para Date object
-          const orderDateObj = new Date(order.order_date);
-          const orderDateStr = order.order_date.split('T')[0];
-          
-          // Comparar usando Date objects (mais preciso)
-          const isInRange = orderDateObj >= startDateObj && orderDateObj <= endDateObj;
-          
-          // Log detalhado para debug (apenas primeiras 5 OS para não poluir o log)
-          if (validYearOrders.indexOf(order) < 5) {
-            if (isInRange) {
-              console.log(`✅ DEBUG: OS ${order.order_number} - Data: ${orderDateStr} (INCLUÍDA) - DateObj: ${orderDateObj.toISOString()}`);
-            } else {
-              console.log(`❌ DEBUG: OS ${order.order_number} - Data: ${orderDateStr} (EXCLUÍDA) - DateObj: ${orderDateObj.toISOString()} - Range: ${startDateObj.toISOString()} até ${endDateObj.toISOString()}`);
-            }
-          }
-          
-          return isInRange;
-        });
-        
-        console.log(`🔍 Filtrado para ${month}/${year}: ${orders.length} registros (${startDate} até ${endDate})`);
-      } else if (year) {
-        // Filtro apenas por ano
-        const startDate = `${year}-01-01`;
-        const endDate = `${year}-12-31`;
-        
-        orders = validYearOrders.filter(order => {
-          if (!order.order_date) return false;
-          const orderDate = order.order_date.split('T')[0];
-          return orderDate >= startDate && orderDate <= endDate;
-        });
-        
-        console.log(`🔍 Filtrado para ano ${year}: ${orders.length} registros`);
-      } else if (month) {
-        // Filtro apenas por mês (todos os anos)
-        orders = validYearOrders.filter(order => {
-          if (!order.order_date) return false;
-          const orderMonth = new Date(order.order_date).getMonth() + 1;
-          return orderMonth === month;
-        });
-        
-        console.log(`🔍 Filtrado para mês ${month}: ${orders.length} registros`);
-      }
+      console.log(`✅ Total de registros encontrados: ${orders.length}`);
 
       if (orders.length === 0) {
         console.log('⚠️ Nenhum dado encontrado');
@@ -163,14 +101,9 @@ export class StatsController {
         GU: orders.filter(o => o.order_status === 'GU').length
       };
 
-      const totalValue = orders.reduce((sum, order) => {
-        const parts = parseFloat(order.original_parts_value || order.parts_total || 0);
-        const labor = parseFloat(order.labor_total || 0);
-        return sum + parts + labor;
-      }, 0);
-
-      const partsTotal = orders.reduce((sum, order) => sum + parseFloat(order.original_parts_value || order.parts_total || 0), 0);
+      const partsTotal = orders.reduce((sum, order) => sum + parseFloat(order.parts_total || 0), 0);
       const laborTotal = orders.reduce((sum, order) => sum + parseFloat(order.labor_total || 0), 0);
+      const totalValue = partsTotal + laborTotal;
 
       const manufacturerCount: Record<string, number> = {};
       orders.forEach(order => {
@@ -209,7 +142,8 @@ export class StatsController {
           }
           
           monthlyData[monthKey].count++;
-          const parts = parseFloat(order.original_parts_value || order.parts_total || 0);
+          // Usar parts_total que já está dividido por 2 + labor_total
+          const parts = parseFloat(order.parts_total || 0);
           const labor = parseFloat(order.labor_total || 0);
           monthlyData[monthKey].value += parts + labor;
         }

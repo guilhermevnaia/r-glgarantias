@@ -10,17 +10,24 @@ export const corsOptions = {
     // Lista de origens permitidas
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:3001',
       'http://localhost:5173',
       'http://localhost:5174',
       'http://localhost:5175',
       'http://localhost:5176',
       'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',
       'http://127.0.0.1:5175',
       'http://127.0.0.1:5176',
       process.env.FRONTEND_URL,
-      process.env.PRODUCTION_URL
+      process.env.PRODUCTION_URL,
+      // URLs de produção gratuitas
+      'https://*.vercel.app',
+      'https://*.netlify.app',
+      'https://*.railway.app',
+      'https://*.render.com'
     ].filter(Boolean); // Remove valores undefined/null
 
     // Permitir requisições sem origin (mobile apps, Postman, etc.) e origin 'null' (arquivos locais)

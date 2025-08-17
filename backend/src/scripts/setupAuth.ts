@@ -81,7 +81,7 @@ async function setupAuthSystem() {
     console.log('👑 Criando usuário admin inicial...');
     
     const adminEmail = 'admin@glgarantias.com';
-    const adminPassword = 'Admin123!@#';
+    const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'Admin123!@#';
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(adminPassword, saltRounds);
 

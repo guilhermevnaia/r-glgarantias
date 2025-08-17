@@ -1,30 +1,36 @@
 # Dependencies
 node_modules/
-package-lock.json
+*/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Production builds
+dist/
+build/
+*.tgz
+*.tar.gz
+
 # Environment variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.production
+.env.development
 
-# Build outputs
-dist/
-build/
-out/
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# IDE and Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# OS Files
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -33,35 +39,125 @@ out/
 ehthumbs.db
 Thumbs.db
 
-# Logs
-*.log
-logs/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Temporary folders and files
+# Temporary files
 tmp/
 temp/
-scripts/temp/
-scripts/logs/
+*.tmp
+*.temp
 
-# Data files (Excel, backups)
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+backup_*
+emergency_*
+
+# Test files (keep essential ones)
+test-*.js
+teste-*.js
+debug-*.js
+*-debug.*
+*.test.backup
+
+# Development scripts
+clean-*.js
+organize-*.js
+fix-*.js
+
+# Data files
 *.xlsx
 *.xls
 *.csv
-*.backup
+!example.xlsx
 
-# Coverage and test outputs
+# Reports and analysis
+relatorio_*.json
+validacao_*.json
+cleanup_report.json
+analyze_*.json
+
+# Windows batch files
+*.bat
+!start.bat
+
+# Temporary directories
+TEMP_*/
+OLD_*/
+BACKUP_*/
+
+# Cache
+.cache/
+*.cache
+
+# Coverage
 coverage/
-.nyc_output
 *.lcov
 
-# Cache directories
-.cache
-.parcel-cache
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
 .npm
+
+# Optional eslint cache
 .eslintcache
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test

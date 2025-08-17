@@ -396,7 +396,6 @@ const HierarchicalAnalysisView: React.FC = () => {
       };
 
       setData(mockData);
-      :', mockData);
       
     } catch (error) {
       console.error('❌ Erro ao carregar dados hierárquicos:', error);
@@ -451,6 +450,10 @@ const HierarchicalAnalysisView: React.FC = () => {
           avgCost: subgroup.metrics.avg_cost,
           group: group.name,
           color: subgroup.color_hex
+        });
+      });
+    });
+    
     return allSubgroups
       .sort((a, b) => b.cases - a.cases)
       .slice(0, 5); // Top 5 subgrupos
@@ -471,6 +474,10 @@ const HierarchicalAnalysisView: React.FC = () => {
           const monthData = monthlyData.get(trend.month);
           monthData.total += trend.count;
           monthData.groups[group.name] = (monthData.groups[group.name] || 0) + trend.count;
+        });
+      });
+    });
+    
     return Array.from(monthlyData.values()).sort((a, b) => a.month.localeCompare(b.month));
   };
 

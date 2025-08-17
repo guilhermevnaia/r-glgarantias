@@ -72,7 +72,7 @@ class CleanDataProcessor {
     console.log(`📊 Total de linhas na planilha: ${dataRows.length} (${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
     console.log(`📋 Cabeçalhos encontrados: ${headers.join(', ')}`);
     
-    // 3. MAPEAR COLUNAS
+    // 3. MAPEAR COLUNAS (CORRIGIDO PARA USAR COLUNAS CORRETAS)
     const colIndexMap = {
       orderNumber: headers.indexOf('NOrdem_OSv'),
       orderDate: headers.indexOf('Data_OSv'),
@@ -82,9 +82,9 @@ class CleanDataProcessor {
       vehicleModel: headers.indexOf('ModeloVei_Osv'),
       defectDesc: headers.indexOf('ObsCorpo_OSv'),
       mechanic: headers.indexOf('RazaoSocial_Cli'),
-      partsTotal: headers.indexOf('TotalProd_OSv'),
-      laborTotal: headers.indexOf('TotalServ_OSv'),
-      grandTotal: headers.indexOf('Total_OSv')
+      partsTotal: headers.indexOf('TOT. PÇ'),           // CORREÇÃO: Usar coluna correta
+      laborTotal: headers.indexOf('TOT. SERV.'),        // CORREÇÃO: Usar coluna correta
+      grandTotal: headers.indexOf('TOT')                // CORREÇÃO: Usar coluna correta
     };
     
     // Verificar se colunas obrigatórias existem
@@ -260,7 +260,7 @@ class CleanDataProcessor {
   
   private transformRow(row: any[], colIndexMap: any, validDate: Date): any {
     const originalPartsValue = parseFloat(row[colIndexMap.partsTotal]) || 0;
-    const partsTotal = originalPartsValue / 2; // Divisão por 2 conforme regra
+    const partsTotal = originalPartsValue / 2; // DIVISÃO POR 2 REATIVADA conforme solicitado
     const laborTotal = parseFloat(row[colIndexMap.laborTotal]) || 0;
     const grandTotal = parseFloat(row[colIndexMap.grandTotal]) || 0;
     
@@ -276,9 +276,9 @@ class CleanDataProcessor {
       responsible_mechanic: row[colIndexMap.mechanic] ? String(row[colIndexMap.mechanic]).trim() : null,
       parts_total: partsTotal,
       labor_total: laborTotal,
-      grand_total: grandTotal,
+      grand_total: grandTotal, // Usar valor da planilha correta
       order_status: String(row[colIndexMap.orderStatus]).trim(),
-      original_parts_value: originalPartsValue,
+      original_parts_value: originalPartsValue, // Salvar valor original antes da divisão
       calculation_verified: calculationVerified
     };
   }
