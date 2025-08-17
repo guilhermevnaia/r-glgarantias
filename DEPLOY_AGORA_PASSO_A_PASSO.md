@@ -30,7 +30,7 @@
    Region: Ohio (US East)
    Branch: main
    Root Directory: backend
-   Build Command: npm install
+   Build Command: npm install && npm run build
    Start Command: npm start
    ```
 

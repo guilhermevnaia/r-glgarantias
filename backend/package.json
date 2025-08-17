@@ -8,6 +8,7 @@
     "build:production": "npm ci && tsc",
     "start": "node dist/app.js",
     "start:production": "NODE_ENV=production node dist/app.js",
+    "start:render": "npm run build && node dist/app.js",
     "dev": "ts-node src/app.ts",
     "backup": "ts-node src/scripts/backupSystem.ts backup",
     "backup:list": "ts-node src/scripts/backupSystem.ts list",
