@@ -54,15 +54,15 @@ def create_integrity_table_via_rest():
         )
         
         if response.status_code == 200:
-            print("✅ Tabela data_integrity_logs criada com sucesso via REST API!")
+            print("Tabela data_integrity_logs criada com sucesso via REST API!")
             return True
         else:
-            print(f"❌ Erro ao criar tabela via REST API: {response.status_code}")
+            print(f"Erro ao criar tabela via REST API: {response.status_code}")
             print(f"Resposta: {response.text}")
             return False
             
     except Exception as e:
-        print(f"❌ Erro ao criar tabela via REST API: {e}")
+        print(f"Erro ao criar tabela via REST API: {e}")
         return False
 
 def create_integrity_table_via_supabase_client():
@@ -81,7 +81,7 @@ def create_integrity_table_via_supabase_client():
         }
         
         result = supabase.table("data_integrity_logs").insert(test_log).execute()
-        print("✅ Tabela data_integrity_logs criada com sucesso!")
+        print("Tabela data_integrity_logs criada com sucesso!")
         
         # Deletar o registro de teste
         if result.data and result.data[0]:
@@ -91,7 +91,7 @@ def create_integrity_table_via_supabase_client():
         return True
         
     except Exception as e:
-        print(f"❌ Erro ao criar tabela via cliente Supabase: {e}")
+        print(f"Erro ao criar tabela via cliente Supabase: {e}")
         return False
 
 def test_integrity_table():
@@ -110,7 +110,7 @@ def test_integrity_table():
         }
         
         result = supabase.table("data_integrity_logs").insert(test_log).execute()
-        print("✅ Tabela data_integrity_logs está funcionando perfeitamente!")
+        print("Tabela data_integrity_logs está funcionando perfeitamente!")
         
         # Deletar o registro de teste
         if result.data and result.data[0]:
@@ -120,28 +120,28 @@ def test_integrity_table():
         return True
         
     except Exception as e:
-        print(f"❌ Erro ao testar tabela: {e}")
+        print(f"Erro ao testar tabela: {e}")
         return False
 
 def main():
-    print("🔧 Criando tabela data_integrity_logs no Supabase...")
+    print("Criando tabela data_integrity_logs no Supabase...")
     print()
     
     # Primeiro, tentar criar via REST API
     print("1. Tentando criar via REST API...")
     if create_integrity_table_via_rest():
-        print("✅ Sucesso!")
+        print("Sucesso!")
     else:
-        print("❌ Falhou, tentando método alternativo...")
+        print("Falhou, tentando método alternativo...")
         
         # Se falhar, tentar via cliente Supabase
         print("2. Tentando criar via cliente Supabase...")
         if create_integrity_table_via_supabase_client():
-            print("✅ Sucesso!")
+            print("Sucesso!")
         else:
-            print("❌ Falhou.")
+            print("Falhou.")
             print()
-            print("📋 INSTRUÇÕES MANUAIS:")
+            print("INSTRUÇÕES MANUAIS:")
             print("1. Acesse o Supabase Dashboard")
             print("2. Vá para SQL Editor")
             print("3. Execute o seguinte SQL:")
@@ -168,10 +168,10 @@ CREATE INDEX IF NOT EXISTS idx_data_integrity_logs_status ON data_integrity_logs
     print()
     print("3. Testando tabela criada...")
     if test_integrity_table():
-        print("🎉 Tabela data_integrity_logs criada e funcionando!")
-        print("✅ O sistema de monitoramento de integridade agora deve funcionar corretamente.")
+        print("Tabela data_integrity_logs criada e funcionando!")
+        print("O sistema de monitoramento de integridade agora deve funcionar corretamente.")
     else:
-        print("❌ Ainda há problemas com a tabela.")
+        print("Ainda há problemas com a tabela.")
 
 if __name__ == "__main__":
     main() 

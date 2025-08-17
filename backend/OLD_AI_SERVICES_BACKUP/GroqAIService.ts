@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import { createClient } from '@supabase/supabase-js';
+import { EnhancedLocalAIService } from './EnhancedLocalAIService';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -73,7 +74,7 @@ export class GroqAIService {
   }
 
   /**
-   * Classifica um defeito usando IA
+   * Classifica um defeito usando IA (Groq API com fallback para LocalAI)
    */
   public async classifyDefect(defectDescription: string): Promise<DefectClassification | null> {
     try {
@@ -81,50 +82,73 @@ export class GroqAIService {
         return null;
       }
 
-      console.log(`🤖 Classificando defeito: "${defectDescription}"`);
+      console.log(`🤖 GroqAI: Classificando defeito: "${defectDescription}"`);
 
       // Recarregar categorias para ter dados atualizados
       await this.loadCategories();
 
-      const prompt = this.buildClassificationPrompt(defectDescription);
-      
-      // Timeout customizado para evitar travamentos
-      const completionPromise = groq.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um especialista em classificação de defeitos mecânicos automotivos. Seja preciso e consistente.'
-          },
-          {
-            role: 'user',
-            content: prompt
+      // Primeiro tentar usar Groq API
+      try {
+        const prompt = this.buildClassificationPrompt(defectDescription);
+        
+        // Timeout customizado para evitar travamentos
+        const completionPromise = groq.chat.completions.create({
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um especialista em classificação de defeitos mecânicos automotivos. Seja preciso e consistente.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          model: 'llama3-8b-8192',
+          temperature: 0.1, // Baixa temperatura para consistência
+          max_tokens: 1000,
+          response_format: { type: 'json_object' }
+        });
+
+        // Timeout de 30 segundos para Groq API (mais estável)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout: API demorou mais que 30 segundos')), 30000);
+        });
+
+        const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
+        const response = completion.choices[0]?.message?.content;
+        if (!response) {
+          throw new Error('Resposta vazia da IA');
+        }
+
+        const result = JSON.parse(response);
+        console.log('🎯 GroqAI: Classificação bem-sucedida:', result);
+
+        // Validar e processar resultado
+        return await this.processAIResult(defectDescription, result);
+
+      } catch (groqError: any) {
+        console.warn('⚠️ GroqAI falhou, usando LocalAI como fallback:', groqError.message);
+        
+        try {
+          // Usar EnhancedLocalAI como fallback
+          const localAI = EnhancedLocalAIService.getInstance();
+          const localResult = await localAI.classifyDefect(defectDescription);
+          
+          if (localResult) {
+            console.log('✅ LocalAI: Classificação de fallback bem-sucedida');
+            return localResult;
+          } else {
+            console.error('❌ LocalAI também falhou na classificação');
+            return null;
           }
-        ],
-        model: 'llama3-8b-8192',
-        temperature: 0.1, // Baixa temperatura para consistência
-        max_tokens: 1000,
-        response_format: { type: 'json_object' }
-      });
-
-      // Timeout de 15 segundos
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: API demorou mais que 15 segundos')), 15000);
-      });
-
-      const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
-      const response = completion.choices[0]?.message?.content;
-      if (!response) {
-        throw new Error('Resposta vazia da IA');
+        } catch (localError: any) {
+          console.error('❌ Erro no LocalAI fallback:', localError.message);
+          return null;
+        }
       }
 
-      const result = JSON.parse(response);
-      console.log('🎯 Classificação da IA:', result);
-
-      // Validar e processar resultado
-      return await this.processAIResult(defectDescription, result);
-
     } catch (error) {
-      console.error('❌ Erro na classificação:', error);
+      console.error('❌ Erro crítico na classificação:', error);
       return null;
     }
   }
@@ -381,11 +405,11 @@ RETORNE APENAS UM JSON VÁLIDO COM ESTA ESTRUTURA:
   }
 
   /**
-   * Classifica todos os defeitos existentes no banco
+   * Classifica todos os defeitos existentes no banco (com fallback automático)
    */
   public async classifyAllExistingDefects(): Promise<void> {
     try {
-      console.log('🚀 Iniciando classificação de todos os defeitos existentes...');
+      console.log('🚀 GroqAI: Iniciando classificação de todos os defeitos existentes...');
 
       // Primeiro, buscar IDs das OS já classificadas
       const { data: classifiedIds } = await supabase
@@ -416,72 +440,24 @@ RETORNE APENAS UM JSON VÁLIDO COM ESTA ESTRUTURA:
 
       console.log(`📊 Encontradas ${orders.length} ordens para classificar`);
 
-      // 🚀 PROCESSAMENTO OTIMIZADO COM RETRY LOGIC
-      const batchSize = 3; // Reduzido para evitar rate limits
-      let processed = 0;
-      let failed = 0;
-      const maxRetries = 3;
+      // Usar EnhancedLocalAI diretamente para classificação em massa (mais rápido e confiável)
+      console.log('🤖 Usando EnhancedLocalAI para classificação em massa por ser mais eficiente...');
+      const localAI = EnhancedLocalAIService.getInstance();
+      await localAI.classifyAllExistingDefects();
 
-      for (let i = 0; i < orders.length; i += batchSize) {
-        const batch = orders.slice(i, i + batchSize);
-        
-        // Processar sequencialmente em vez de paralelo para evitar rate limits
-        for (const order of batch) {
-          let retryCount = 0;
-          let success = false;
-          
-          while (!success && retryCount < maxRetries) {
-            try {
-              console.log(`🔄 Processando OS ${order.id} (${processed + 1}/${orders.length}) - Tentativa ${retryCount + 1}`);
-              
-              const classification = await this.classifyDefect(order.raw_defect_description);
-              if (classification) {
-                await this.saveClassification(order.id, classification);
-                processed++;
-                success = true;
-                console.log(`✅ OS ${order.id} classificada: ${classification.category_name}`);
-              } else {
-                throw new Error('Classificação retornou null');
-              }
-            } catch (error) {
-              retryCount++;
-              console.error(`❌ Erro ao classificar OS ${order.id} (tentativa ${retryCount}):`, error);
-              
-              if (retryCount < maxRetries) {
-                // Pausa progressiva em caso de erro
-                const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-                console.log(`⏳ Aguardando ${backoffDelay}ms antes de tentar novamente...`);
-                await new Promise(resolve => setTimeout(resolve, backoffDelay));
-              } else {
-                failed++;
-                console.error(`💥 OS ${order.id} falhou após ${maxRetries} tentativas`);
-              }
-            }
-          }
-          
-          // Pausa entre cada classificação individual
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        // Log de progresso mais detalhado
-        const progressPercent = Math.round(((processed + failed) / orders.length) * 100);
-        console.log(`📈 Progresso: ${processed} sucesso, ${failed} falhas, ${progressPercent}% concluído`);
-        
-        // Pausa maior entre lotes
-        if (i + batchSize < orders.length) {
-          console.log('⏸️ Pausa entre lotes...');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 segundos entre lotes
-        }
-      }
-
-      console.log(`🎉 Classificação concluída!`);
-      console.log(`📊 Resumo final:`);
-      console.log(`  ✅ Sucessos: ${processed}`);
-      console.log(`  ❌ Falhas: ${failed}`);
-      console.log(`  📈 Taxa de sucesso: ${Math.round((processed / (processed + failed)) * 100)}%`);
+      console.log('🎉 Classificação em massa delegada para LocalAI concluída!');
 
     } catch (error) {
       console.error('❌ Erro na classificação em massa:', error);
+      console.log('🔄 Tentando usar LocalAI como fallback...');
+      
+      try {
+        const localAI = EnhancedLocalAIService.getInstance();
+        await localAI.classifyAllExistingDefects();
+        console.log('✅ Classificação em massa via EnhancedLocalAI (fallback) concluída!');
+      } catch (fallbackError) {
+        console.error('❌ Erro crítico: Tanto GroqAI quanto LocalAI falharam na classificação em massa:', fallbackError);
+      }
     }
   }
 

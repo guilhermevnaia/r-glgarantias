@@ -45,8 +45,7 @@ const Settings = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      console.log('🔄 Carregando dados das configurações...');
-      
+            
       // Carregar mecânicos e usuários em paralelo
       const [mechanicsData, usersData] = await Promise.all([
         apiService.getMechanics().catch(error => {
@@ -62,8 +61,7 @@ const Settings = () => {
       setMechanics(mechanicsData);
       setUsers(usersData);
       
-      console.log('✅ Dados carregados:', { mechanics: mechanicsData.length, users: usersData.length });
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Erro geral ao carregar dados:', error);
       showAlert('error', 'Erro ao carregar dados das configurações');
     } finally {
@@ -230,18 +228,9 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-          <SettingsIcon className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
-          <span className="hidden sm:inline">Configurações do Sistema</span>
-          <span className="sm:hidden">Configurações</span>
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Gerencie mecânicos, usuários e configurações gerais do sistema
-        </p>
-      </div>
+      <h1 className="text-3xl font-bold tracking-tight text-foreground">Configurações do Sistema</h1>
 
       {/* Alert */}
       {alert && (

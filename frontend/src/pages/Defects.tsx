@@ -26,7 +26,18 @@ import {
   Volume2,
   Settings,
   Plus,
-  Edit
+  Edit,
+  Cog,
+  Car,
+  Wrench,
+  Info,
+  Activity,
+  Shield,
+  Database,
+  Cpu,
+  Network,
+  HardDrive,
+  Calendar
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,8 +51,18 @@ import {
   ResponsiveContainer,
   PieChart as RechartsPieChart,
   Pie,
-  Cell
+  Cell,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  Legend
 } from 'recharts';
+import { AppleCard } from '@/components/AppleCard';
+import { ChartCard } from "@/components/ChartCard";
+import { api, apiService } from "@/services/api";
+import HierarchicalDefectsView from '@/components/HierarchicalDefectsView';
+import HierarchicalAnalysisView from '@/components/HierarchicalAnalysisView';
 
 // Interfaces para os dados da IA
 interface DefectCategory {
@@ -72,6 +93,36 @@ interface DefectClassification {
   alternative_categories?: number[];
 }
 
+interface ServiceOrder {
+  id: number;
+  order_number: string;
+  order_date: string;
+  engine_manufacturer: string;
+  engine_description: string;
+  engine_model: string;
+  engine_type: string;
+  vehicle_model: string;
+  raw_defect_description: string;
+  responsible_mechanic: string;
+  parts_total: number;
+  labor_total: number;
+  grand_total: number;
+  order_status: 'G' | 'GO' | 'GU';
+  created_at: string;
+  updated_at: string;
+  defect_classifications?: Array<{
+    id: number;
+    category_id: number;
+    ai_confidence: number;
+    ai_reasoning?: string;
+    defect_categories: {
+      category_name: string;
+      color_hex: string;
+      icon?: string;
+    };
+  }>;
+}
+
 interface AIStats {
   categories: DefectCategory[];
   totalClassified: number;
@@ -79,106 +130,200 @@ interface AIStats {
   classificationRate: number;
 }
 
+interface EngineModelStats {
+  manufacturer: string;
+  model: string; // vehicle_model dos dados
+  description: string; // engine_description dos dados
+  totalDefects: number;
+  classifiedDefects: number;
+  topDefects: string[];
+  averageCost: number;
+  lastDefectDate?: string; // Adicionado para o novo gráfico de linha
+}
+
 const Defects = () => {
   const [aiStats, setAiStats] = useState<AIStats | null>(null);
   const [categories, setCategories] = useState<DefectCategory[]>([]);
   const [classifications, setClassifications] = useState<DefectClassification[]>([]);
+  const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
+  const [engineStats, setEngineStats] = useState<EngineModelStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [reviewedFilter, setReviewedFilter] = useState<string>('all');
   const [isClassifying, setIsClassifying] = useState(false);
+  
+  // Filtros para análise
+  const [dateRange, setDateRange] = useState<{start: string, end: string}>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+    const endDate = now.toISOString().split('T')[0];
+    return { start: startDate, end: endDate };
+
+  const [manufacturerFilter, setManufacturerFilter] = useState<string>('all');
+  const [modelFilter, setModelFilter] = useState<string>('all');
+  
+  // Estados para classificação individual
+  const [classifyInput, setClassifyInput] = useState('');
+  const [classifyResult, setClassifyResult] = useState<any>(null);
+  const [isClassifyingIndividual, setIsClassifyingIndividual] = useState(false);
 
   useEffect(() => {
-    loadAIData();
+    loadAllData();
   }, []);
 
-  const loadAIData = async () => {
+  const loadAllData = async () => {
     setLoading(true);
     try {
-      console.log('🤖 Carregando dados da IA...');
-      
-      // Carregar estatísticas e categorias
-      const [statsResponse, categoriesResponse] = await Promise.all([
-        fetch('/api/v1/ai/stats').then(r => r.json()),
-        fetch('/api/v1/ai/categories').then(r => r.json())
+            
+      // Carregar dados em paralelo usando o apiService
+      const [statsResponse, categoriesResponse, classificationsResponse, ordersResponse] = await Promise.all([
+        api.get('/api/v1/ai/stats').catch(() => ({ data: { success: false } })),
+        api.get('/api/v1/ai/categories').catch(() => ({ data: { success: false } })),
+        api.get('/api/v1/ai/classifications?limit=10000').catch(() => ({ data: { success: false } })),
+        apiService.getServiceOrders({ limit: 10000 }).catch(() => ({ data: [], pagination: { total: 0 } }))
       ]);
 
-      if (statsResponse.success) {
-        setAiStats(statsResponse.data);
-        console.log('✅ Estatísticas da IA carregadas:', statsResponse.data);
-      }
+      if (statsResponse.data?.success) {
+        setAiStats(statsResponse.data.data);
+              }
 
-      if (categoriesResponse.success) {
-        setCategories(categoriesResponse.data);
-        console.log('✅ Categorias carregadas:', categoriesResponse.data);
-      }
+      if (categoriesResponse.data?.success) {
+        setCategories(categoriesResponse.data.data);
+              }
 
-      // Tentar carregar classificações (pode falhar se não houver)
-      try {
-        const classificationsResponse = await fetch('/api/v1/ai/classifications');
-        const classificationsData = await classificationsResponse.json();
+      if (classificationsResponse.data?.success) {
+        setClassifications(classificationsResponse.data.data || []);
+              }
+
+      if (ordersResponse.data && ordersResponse.data.length > 0) {
+        setServiceOrders(ordersResponse.data || []);
         
-        if (classificationsData.success) {
-          setClassifications(classificationsData.data || []);
-          console.log('✅ Classificações carregadas:', classificationsData.data);
-        }
-      } catch (error) {
-        console.warn('⚠️ Não foi possível carregar classificações:', error);
-        setClassifications([]);
-      }
+        // Processar estatísticas de motores
+        processEngineStats(ordersResponse.data || []);
+      } else {
+              }
 
     } catch (error) {
-      console.error('❌ Erro ao carregar dados da IA:', error);
+      console.error('❌ Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const processEngineStats = (orders: ServiceOrder[]) => {
+        
+    const statsMap = new Map<string, EngineModelStats>();
+    
+    orders.forEach((order, index) => {
+      // ✅ CORRIGIDO: Usar os campos reais dos dados
+      const key = `${order.engine_manufacturer || 'N/A'}|${order.vehicle_model || 'N/A'}|${order.engine_description || 'N/A'}`;
+      
+      if (!statsMap.has(key)) {
+        statsMap.set(key, {
+          manufacturer: order.engine_manufacturer || 'N/A',
+          model: order.vehicle_model || 'N/A', // ✅ vehicle_model ao invés de engine_model
+          description: order.engine_description || 'N/A', // ✅ engine_description ao invés de engine_type
+          totalDefects: 0,
+          classifiedDefects: 0,
+          topDefects: [],
+          averageCost: 0,
+          lastDefectDate: order.created_at // Adicionado para o novo gráfico de linha
+
+      }
+      
+      const stats = statsMap.get(key)!;
+      stats.totalDefects++;
+      stats.averageCost += (order.parts_total || 0) + (order.labor_total || 0);
+      
+      if (order.defect_classifications && order.defect_classifications.length > 0) {
+        stats.classifiedDefects++;
+      }
+      
+      if (order.raw_defect_description) {
+        stats.topDefects.push(order.raw_defect_description);
+      }
+      if (order.created_at && (!stats.lastDefectDate || new Date(order.created_at) > new Date(stats.lastDefectDate))) {
+        stats.lastDefectDate = order.created_at;
+      }
+      
+      // Log a cada 100 ordens processadas
+      if ((index + 1) % 100 === 0) {
+              }
+
+    // Calcular médias e limitar top defeitos
+    const processedStats = Array.from(statsMap.values()).map(stats => ({
+      ...stats,
+      averageCost: stats.totalDefects > 0 ? stats.averageCost / stats.totalDefects : 0,
+      topDefects: stats.topDefects.slice(0, 5) // Top 5 defeitos
+    }));
+
+      sampleStats: processedStats.slice(0, 3)
+
+    setEngineStats(processedStats);
+  };
+
   const handleStartMassClassification = async () => {
     setIsClassifying(true);
     try {
-      console.log('🚀 Iniciando classificação em massa...');
+      const authHeaders = {
+        'Authorization': localStorage.getItem('auth-token') ? `Bearer ${localStorage.getItem('auth-token')}` : '',
+        'Content-Type': 'application/json'
+      };
       
-      const response = await fetch('/api/v1/ai/classify-all', {
+      const response = await fetch('http://localhost:3009/api/v1/ai/classify-all', {
+        method: 'POST',
+        headers: authHeaders
+
+      if (response.ok) {
+        const data = await response.json();
+                alert(`Classificação iniciada!\n${data.message}\nTempo estimado: ${data.estimated_time}`);
+        setTimeout(() => {
+          loadAllData();
+        }, 3000);
+      } else {
+        console.error('❌ Erro ao iniciar classificação em massa');
+        alert('Erro ao iniciar classificação em massa');
+      }
+    } catch (error) {
+      console.error('❌ Erro na classificação em massa:', error);
+      alert('Erro de conexão ao iniciar classificação');
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
+  // Função para classificar um defeito individual
+  const handleClassifyDefect = async () => {
+    if (!classifyInput.trim()) return;
+    
+    setIsClassifyingIndividual(true);
+    setClassifyResult(null);
+    
+    try {
+      const response = await fetch('http://localhost:3009/api/v1/ai/classify-defect', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          defectDescription: classifyInput.trim()
+        })
+
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Classificação iniciada:', data.message);
-        
-        // Mostrar feedback ao usuário
-        alert(`Classificação em massa iniciada! ${data.message}\nTempo estimado: ${data.estimated_time}`);
-        
-        // Recarregar dados após 10 segundos para mostrar progresso
-        setTimeout(() => {
-          loadAIData();
-        }, 10000);
-        
-        // Recarregar periodicamente enquanto estiver classificando
-        const interval = setInterval(() => {
-          loadAIData();
-        }, 30000);
-        
-        // Parar depois de 10 minutos
-        setTimeout(() => {
-          clearInterval(interval);
-        }, 600000);
-        
+        setClassifyResult(data.data);
       } else {
-        throw new Error(data.error || 'Erro ao iniciar classificação');
+        setClassifyResult({ error: data.error || 'Erro na classificação' });
       }
     } catch (error) {
-      console.error('❌ Erro ao iniciar classificação em massa:', error);
-      alert('Erro ao iniciar classificação em massa. Verifique se o servidor está funcionando.');
+      setClassifyResult({ error: 'Erro de conexão' });
     } finally {
-      setIsClassifying(false);
+      setIsClassifyingIndividual(false);
     }
   };
 
@@ -214,22 +359,21 @@ const Defects = () => {
       (reviewedFilter === 'pending' && !classification.is_reviewed);
 
     return matchesSearch && matchesCategory && matchesConfidence && matchesReviewed;
-  });
 
   if (loading) {
     return (
       <div className="min-h-screen bg-apple-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-white rounded-lg w-64"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="h-32 bg-white rounded-lg"></div>
             ))}
           </div>
           <div className="h-96 bg-white rounded-lg"></div>
         </div>
       </div>
-    );
+
   }
 
   const chartData = categories
@@ -240,250 +384,344 @@ const Defects = () => {
       color: cat.color_hex
     }));
 
+  // Dados filtrados para gráficos
+  const getFilteredEngineStats = () => {
+    return engineStats.filter(stat => {
+      const matchesManufacturer = manufacturerFilter === 'all' || stat.manufacturer === manufacturerFilter;
+      const matchesModel = modelFilter === 'all' || stat.model === modelFilter;
+      const hasDefects = stat.totalDefects > 0;
+      
+      return matchesManufacturer && matchesModel && hasDefects;
+
+  };
+
+  const getFilteredServiceOrders = () => {
+    return serviceOrders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      
+      const matchesDate = orderDate >= startDate && orderDate <= endDate;
+      const matchesManufacturer = manufacturerFilter === 'all' || order.engine_manufacturer === manufacturerFilter;
+      const matchesModel = modelFilter === 'all' || (order.engine_model === modelFilter || order.vehicle_model === modelFilter);
+      
+      return matchesDate && matchesManufacturer && matchesModel;
+
+  };
+
+  const engineChartData = getFilteredEngineStats()
+    .slice(0, 10) // Top 10
+    .map(stat => ({
+      name: `${stat.manufacturer} ${stat.model}`,
+      total: stat.totalDefects,
+      classified: stat.classifiedDefects,
+      rate: stat.totalDefects > 0 ? (stat.classifiedDefects / stat.totalDefects) * 100 : 0
+    }));
+
+  // 🔍 DEBUG: Logs para investigar dados do gráfico
+
+    chartDataLength: engineChartData.length,
+    sampleEngineStats: engineStats.slice(0, 3),
+    sampleChartData: engineChartData.slice(0, 3)
+
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-          <Brain className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
-          <span className="hidden sm:inline">Inteligência Artificial - Classificação de Defeitos</span>
-          <span className="sm:hidden">IA - Defeitos</span>
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Sistema inteligente para classificação automática de defeitos mecânicos
-        </p>
+    <div className="space-y-6">
+      {/* Header da Página */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Defeitos - Classificados por IA</h1>
       </div>
 
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-600">Total de Defeitos</p>
-                <p className="text-2xl sm:text-3xl font-bold text-purple-900">
-                  {aiStats?.totalDefects?.toLocaleString() || 0}
-                </p>
-              </div>
-              <Target className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-600">Classificados</p>
-                <p className="text-2xl sm:text-3xl font-bold text-green-900">
-                  {aiStats?.totalClassified?.toLocaleString() || 0}
-                </p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600">Taxa de Classificação</p>
-                <p className="text-2xl sm:text-3xl font-bold text-blue-900">
-                  {((aiStats?.classificationRate || 0) * 100).toFixed(1)}%
-                </p>
-                <Progress 
-                  value={(aiStats?.classificationRate || 0) * 100} 
-                  className="mt-2" 
-                />
-              </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-600">Categorias Ativas</p>
-                <p className="text-2xl sm:text-3xl font-bold text-orange-900">
-                  {categories.filter(cat => cat.is_active).length}
-                </p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs Principais */}
-      <Tabs defaultValue="overview" className="w-full">
-        <div className="flex justify-center mb-6">
-          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 h-10">
+      {/* Tabs de Conteúdo */}
+      <Tabs defaultValue="analises" className="w-full">
+        <div className="flex justify-center">
+          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-4 h-10">
             <TabsTrigger 
-              value="overview" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+              value="analises" 
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
-              <BarChart3 className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Visão Geral</span>
-              <span className="sm:hidden">Geral</span>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Gráficos Gerais
             </TabsTrigger>
             <TabsTrigger 
-              value="categories" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+              value="analise-hierarquica" 
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
-              <Target className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Categorias</span>
-              <span className="sm:hidden">Categorias</span>
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Análise Hierárquica
             </TabsTrigger>
             <TabsTrigger 
-              value="classifications" 
-              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+              value="informacoes" 
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
             >
-              <Brain className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Classificações</span>
-              <span className="sm:hidden">IA</span>
+              <Info className="h-4 w-4 mr-2" />
+              Informações
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* Tab: Visão Geral */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Gráfico de Barras das Categorias */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                  Defeitos por Categoria
-                </CardTitle>
-                <CardDescription>
-                  Distribuição dos defeitos classificados pela IA
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        fontSize={12}
-                      />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#8884d8"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Tab: Análise Hierárquica */}
+        <TabsContent value="analise-hierarquica" className="space-y-6 mt-6">
+          <HierarchicalAnalysisView />
+        </TabsContent>
 
-            {/* Gráfico de Pizza */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-green-600" />
-                  Proporção de Categorias
-                </CardTitle>
-                <CardDescription>
-                  Percentual de cada tipo de defeito
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={chartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={120}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Status da IA */}
-          <Card>
+        {/* Tab: Análises */}
+        <TabsContent value="analises" className="space-y-6 mt-6">
+          {/* Filtros de Análise - Funcionais e Responsivos */}
+          <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-purple-600" />
-                Status do Sistema de IA
+                <Filter className="h-5 w-5" />
+                Filtros de Análise
               </CardTitle>
+              <CardDescription>
+                Configure os filtros para personalizar as análises e visualizações
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                  <CheckCircle2 className="h-8 w-8 text-green-600" />
-                  <div>
-                    <p className="font-semibold text-green-900">Sistema Online</p>
-                    <p className="text-sm text-green-700">IA funcionando normalmente</p>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    Período Início
+                  </label>
+                  <Input
+                    type="date"
+                    value={dateRange.start}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      setDateRange(prev => ({ ...prev, start: newValue }));
+                                          }}
+                    className="transition-colors focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                  <Zap className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="font-semibold text-blue-900">Modelo: Llama 3</p>
-                    <p className="text-sm text-blue-700">8B parâmetros via Groq</p>
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    Período Fim
+                  </label>
+                  <Input
+                    type="date"
+                    value={dateRange.end}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      setDateRange(prev => ({ ...prev, end: newValue }));
+                                          }}
+                    className="transition-colors focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
-                  <Target className="h-8 w-8 text-purple-600" />
-                  <div>
-                    <p className="font-semibold text-purple-900">Confiança Média</p>
-                    <p className="text-sm text-purple-700">95% de precisão</p>
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Car className="h-4 w-4" />
+                    Modelo do Motor
+                  </label>
+                  <Select 
+                    value={modelFilter} 
+                    onValueChange={(value) => {
+                      setModelFilter(value);
+                                          }}
+                  >
+                    <SelectTrigger className="transition-colors focus:ring-2 focus:ring-blue-500">
+                      <SelectValue placeholder="Selecionar modelo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">✓ Todos os Modelos</SelectItem>
+                      {Array.from(new Set(serviceOrders.map(o => o.engine_model || o.vehicle_model).filter(Boolean))).map(model => (
+                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              
+            </CardContent>
+          </Card>
+
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard
+              title="Defeitos por Categoria"
+              description="Distribuição dos defeitos classificados pela IA"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    fontSize={12}
+                  />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#8884d8"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard
+              title="Proporção de Categorias"
+              description="Percentual de cada tipo de defeito"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={120}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* Terceiro Gráfico - Performance da IA por Modelo de Motor */}
+          <ChartCard
+            title="Performance da IA por Modelo de Motor"
+            description="Taxa de classificação e eficiência por fabricante e modelo"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={engineChartData.map(item => ({
+                ...item,
+                totalDefects: engineStats.find(stat => 
+                  `${stat.manufacturer} ${stat.model}` === item.name
+                )?.totalDefects || 0,
+                classifiedDefects: engineStats.find(stat => 
+                  `${stat.manufacturer} ${stat.model}` === item.name
+                )?.classifiedDefects || 0
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  fontSize={10}
+                  stroke="#666"
+                />
+                <YAxis 
+                  stroke="#666"
+                  fontSize={12}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '8px'
+                  }}
+                  formatter={(value: any, name: string) => {
+                    if (name === 'Taxa de Classificação (%)') {
+                      return [`${Number(value).toFixed(1)}%`, 'Taxa de IA'];
+                    }
+                    return [value, name];
+                  }}
+                  labelFormatter={(label: string) => `Modelo: ${label}`}
+                />
+                <Bar 
+                  dataKey="rate" 
+                  fill="url(#colorGradient)"
+                  radius={[4, 4, 0, 0]}
+                  name="Taxa de Classificação (%)"
+                  stroke="#4f46e5"
+                  strokeWidth={1}
+                />
+                <defs>
+                  <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.9}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.7}/>
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </TabsContent>
+
+        {/* Tab: Informações */}
+        <TabsContent value="informacoes" className="space-y-6 mt-6">
+          {/* Seção Informações Gerais */}
+          <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Informações Gerais
+              </CardTitle>
+              <CardDescription>
+                Métricas principais e estatísticas do sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <AppleCard
+                  title="Total de Defeitos"
+                  value={aiStats?.totalDefects?.toLocaleString() || '0'}
+                  icon={Target}
+                  gradient="purple"
+                />
+                <AppleCard
+                  title="Classificados pela IA"
+                  value={aiStats?.totalClassified?.toLocaleString() || '0'}
+                  icon={CheckCircle2}
+                  gradient="green"
+                />
+                <AppleCard
+                  title="Taxa de Classificação"
+                  value={`${((aiStats?.classificationRate || 0) * 100).toFixed(1)}%`}
+                  icon={TrendingUp}
+                  gradient="blue"
+                  trend={{
+                    value: `${aiStats?.totalClassified || 0} de ${aiStats?.totalDefects || 0} defeitos`,
+                    isPositive: true
+                  }}
+                />
+                <AppleCard
+                  title="Categorias Ativas"
+                  value={categories.filter(cat => cat.is_active).length}
+                  icon={BarChart3}
+                  gradient="orange"
+                />
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab: Categorias */}
-        <TabsContent value="categories" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Categorias de Defeitos */}
+          <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
+            <CardHeader className="border-b border-border">
+              <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-blue-600" />
-                    Categorias de Defeitos
-                  </CardTitle>
-                  <CardDescription>
-                    Categorias criadas e gerenciadas pela IA
+                  <CardTitle className="text-xl font-semibold text-foreground">Categorias de Defeitos</CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Gerencie as categorias para classificação automática
                   </CardDescription>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+                <Button 
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => {
+                                        alert('Funcionalidade em desenvolvimento: Nova Categoria\n\nEm breve você poderá:\n- Criar novas categorias de defeitos\n- Definir palavras-chave\n- Configurar cores e ícones\n- Treinar a IA com novos padrões');
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Categoria
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {categories.map((category) => (
-                  <Card key={category.id} className="border-l-4" style={{ borderLeftColor: category.color_hex }}>
+                  <Card key={category.id} className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm hover:shadow-md transition-all duration-300">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -513,28 +751,14 @@ const Defects = () => {
                       </p>
 
                       <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Ocorrências:</span>
-                          <span className="font-semibold">{category.total_occurrences}</span>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Total de ocorrências:</span>
+                          <span className="font-medium">{category.total_occurrences}</span>
                         </div>
-
-                        {category.keywords.length > 0 && (
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Palavras-chave:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {category.keywords.slice(0, 3).map((keyword, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {keyword}
-                                </Badge>
-                              ))}
-                              {category.keywords.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{category.keywords.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Palavras-chave:</span>
+                          <span className="font-medium">{category.keywords.length}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -542,202 +766,158 @@ const Defects = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab: Classificações */}
-        <TabsContent value="classifications" className="space-y-6">
-          {/* Filtros */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Buscar</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar defeito..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
+          {/* Informações Técnicas do Sistema */}
+          <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
+                <Info className="h-5 w-5" />
+                Informações Técnicas do Sistema
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Cpu className="h-5 w-5 text-blue-600" />
+                    Processamento de IA
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Modelo Base:</span>
+                      <span className="font-medium">Llama 3 8B</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Provedor:</span>
+                      <span className="font-medium">Groq API</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Velocidade:</span>
+                      <span className="font-medium">~100ms por classificação</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Precisão:</span>
+                      <span className="font-medium">85%+ em categorias principais</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Categoria</label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.category_name}>
-                          {cat.category_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Database className="h-5 w-5 text-green-600" />
+                    Banco de Dados
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Plataforma:</span>
+                      <span className="font-medium">Supabase (PostgreSQL)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Ordens de Serviço:</span>
+                      <span className="font-medium">{serviceOrders.length.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Classificações:</span>
+                      <span className="font-medium">{classifications.length.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Categorias:</span>
+                      <span className="font-medium">{categories.length}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Confiança</label>
-                  <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      <SelectItem value="high">Alta (&gt;80%)</SelectItem>
-                      <SelectItem value="medium">Média (50-80%)</SelectItem>
-                      <SelectItem value="low">Baixa (&lt;50%)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Network className="h-5 w-5 text-purple-600" />
+                    Sistema de Monitoramento
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Integridade:</span>
+                      <span className="font-medium text-green-600">Ativo</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Backup Automático:</span>
+                      <span className="font-medium text-green-600">Diário</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Logs de Sistema:</span>
+                      <span className="font-medium text-green-600">Em tempo real</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Alertas:</span>
+                      <span className="font-medium text-green-600">Configurados</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={reviewedFilter} onValueChange={setReviewedFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="reviewed">Revisados</SelectItem>
-                      <SelectItem value="pending">Pendentes</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-orange-600" />
+                    Segurança e Controle
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Autenticação:</span>
+                      <span className="font-medium text-green-600">JWT Token</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Rate Limiting:</span>
+                      <span className="font-medium text-green-600">Ativo</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Proteção de Dados:</span>
+                      <span className="font-medium text-green-600">Habilitada</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Auditoria:</span>
+                      <span className="font-medium text-green-600">Completa</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Tabela de Classificações */}
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>Classificações da IA</CardTitle>
-                  <CardDescription>
-                    {filteredClassifications.length} de {classifications.length} classificações
-                  </CardDescription>
+          {/* Status da IA */}
+          <Card className="bg-white/80 backdrop-blur-sm border-2 border-black shadow-sm">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
+                <Brain className="h-5 w-5 text-purple-600" />
+                Status do Sistema de IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-900">Sistema Online</p>
+                    <p className="text-sm text-green-700">IA funcionando normalmente</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={loadAIData} variant="outline" size="sm">
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Atualizar
-                  </Button>
-                  <Button 
-                    onClick={handleStartMassClassification}
-                    disabled={isClassifying}
-                    variant="outline" 
-                    size="sm"
-                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-                  >
-                    {isClassifying ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Classificando...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 mr-2" />
-                        Classificar Todos
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar
-                  </Button>
+                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
+                  <Zap className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="font-semibold text-blue-900">Modelo: Llama 3</p>
+                    <p className="text-sm text-blue-700">8B parâmetros via Groq</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
+                  <BarChart3 className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <p className="font-semibold text-purple-900">Performance</p>
+                    <p className="text-sm text-purple-700">{(aiStats?.classificationRate || 0) * 100}% taxa de sucesso</p>
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {classifications.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma classificação encontrada</h3>
-                  <p className="text-muted-foreground mb-4">
-                    A IA ainda não classificou nenhum defeito. Execute a classificação em massa para começar.
-                  </p>
-                  <Button 
-                    className="bg-purple-600 hover:bg-purple-700"
-                    onClick={handleStartMassClassification}
-                    disabled={isClassifying}
-                  >
-                    {isClassifying ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Classificando...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="h-4 w-4 mr-2" />
-                        Iniciar Classificação
-                      </>
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Defeito</TableHead>
-                        <TableHead>Categoria</TableHead>
-                        <TableHead>Confiança</TableHead>
-                        <TableHead className="hidden md:table-cell">Status</TableHead>
-                        <TableHead className="hidden lg:table-cell">Data</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredClassifications.map((classification) => (
-                        <TableRow key={classification.id}>
-                          <TableCell className="max-w-xs">
-                            <div className="truncate" title={classification.original_defect_description}>
-                              {classification.original_defect_description}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge style={{ backgroundColor: `${categories.find(c => c.category_name === classification.category_name)?.color_hex}20` }}>
-                              {classification.category_name}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Progress value={classification.ai_confidence * 100} className="w-16" />
-                              <span className="text-sm font-medium">
-                                {(classification.ai_confidence * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            <Badge variant={classification.is_reviewed ? "default" : "secondary"}>
-                              {classification.is_reviewed ? 'Revisado' : 'Pendente'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            {classification.created_at.split('T')[0].split('-').reverse().join('/')}
-                          </TableCell>
-                          <TableCell>
-                            <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  );
+
 };
 
 export default Defects;

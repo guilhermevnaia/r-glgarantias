@@ -1,145 +1,376 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { 
   FileBarChart, 
   Download,
-  Filter,
-  Eye,
+  FileSpreadsheet,
+  FileText,
   Calendar,
-  DollarSign,
   Users,
   Wrench,
+  Building,
   AlertTriangle,
-  FileText,
-  Printer
+  Cog
 } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useGlobalData";
-import { exportToExcel, formatServiceOrdersForExport } from '@/utils/exportExcel';
-import { useAI } from '@/hooks/useAI';
+import { exportToProfessionalExcel } from '@/utils/exportExcelPro';
+import { exportToPDF } from '@/utils/exportPDF';
+import { exportToProfessionalPDF } from '@/utils/exportPDFProfessional';
+import { exportToSimplePDF } from '@/utils/simplePDFExport';
+import { exportToProfessionalComplePDF } from '@/utils/professionalPDFComplete';
+
+// Tipos para filtros alinhados com o novo exportPDF
+interface FilterState {
+  dateRange: {
+    startDate: string | null;
+    endDate: string | null;
+    preset: 'custom' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'thisYear' | 'lastYear' | 'all';
+  };
+  status: string[];
+  mechanics: string[];
+  manufacturers: string[];
+  groups: string[];
+}
 
 const Reports = () => {
-  // Estados para filtros
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
-  const [selectedMechanic, setSelectedMechanic] = useState<string>('all');
-  const [yearFilter, setYearFilter] = useState<string>('all');
+  // Estados principais
+  const [filters, setFilters] = useState<FilterState>({
+    dateRange: {
+      startDate: null,
+      endDate: null,
+      preset: 'all'
+    },
+    status: ['Todas as Garantias'],
+    mechanics: ['Todos os Mecânicos'],
+    manufacturers: ['Todos os Fabricantes'],
+    groups: ['Todos os Grupos']
+  });
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAdvancedPDFOptions, setShowAdvancedPDFOptions] = useState(false);
   
-  // Estados para campos do relatório
-  const [includeFinancial, setIncludeFinancial] = useState(true);
-  const [includeDefects, setIncludeDefects] = useState(true);
-  const [includeMechanics, setIncludeMechanics] = useState(true);
-  const [includeCharts, setIncludeCharts] = useState(false);
+  // Estado para configurações avançadas do PDF
+  const [pdfConfig, setPdfConfig] = useState({
+    includeCharts: true,
+    includeDetailedTables: true,
+    includeHierarchicalAnalysis: true,
+    pageFormat: 'a4' as 'a4' | 'letter',
+    orientation: 'portrait' as 'portrait' | 'landscape',
+    customTitle: '',
+    customSubtitle: ''
+  });
   
-  // Buscar dados
+  // Dados do backend
   const { data: stats, isLoading } = useDashboardStats();
-  const { classifications } = useAI();
   
-  // Dados filtrados
-  const [filteredData, setFilteredData] = useState<any>(null);
+  // Opções para filtros
+  const filterOptions = {
+    status: ['Todas as Garantias', 'G - Garantia', 'GO - Garantia Oficina', 'GU - Garantia Usinagem'],
+    mechanics: ['Todos os Mecânicos', ...((stats as any)?.orders ? [...new Set((stats as any).orders.map((o: any) => o.responsible_mechanic).filter(Boolean))] : [])],
+    manufacturers: ['Todos os Fabricantes', ...((stats as any)?.orders ? [...new Set((stats as any).orders.map((o: any) => o.engine_manufacturer).filter(Boolean))] : [])],
+    groups: ['Todos os Grupos', ...((stats as any)?.orders ? [...new Set((stats as any).orders.map((o: any) => o.defect_group).filter(Boolean))] : [])]
+  };
   
-  useEffect(() => {
-    if (!stats) return;
+  // Handlers
+  const handleCheckboxChange = (category: keyof Omit<FilterState, 'dateRange'>, value: string, checked: boolean) => {
+    setFilters(prev => {
+      const newValues = checked 
+        ? [...(prev[category] as string[]), value]
+        : (prev[category] as string[]).filter(v => v !== value);
+      
+      // Lógica para "Todos"
+      if (value.startsWith('Todos')) {
+        return { ...prev, [category]: [value] };
+      } else {
+        const filteredValues = newValues.filter(v => !v.startsWith('Todos'));
+        return { ...prev, [category]: filteredValues.length > 0 ? filteredValues : [prev[category][0]] };
+      }
+    });
+  };
+
+  const handleDatePresetChange = (preset: string) => {
+    setFilters(prev => ({
+      ...prev,
+      dateRange: { ...prev.dateRange, preset: preset as any }
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      dateRange: { startDate: null, endDate: null, preset: 'all' },
+      status: ['Todas as Garantias'],
+      mechanics: ['Todos os Mecânicos'],
+      manufacturers: ['Todos os Fabricantes'],
+      groups: ['Todos os Grupos']
+    });
+  };
+
+  // Funções auxiliares para cálculos do PDF
+  const calculateMonthlyTrend = (orders: any[]) => {
+    const monthlyData: Record<string, { count: number; value: number }> = {};
     
-    let filtered = { ...stats };
+    orders.forEach(order => {
+      const date = new Date(order.order_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { count: 0, value: 0 };
+      }
+      
+      monthlyData[monthKey].count++;
+      monthlyData[monthKey].value += parseFloat(order.grand_total || '0');
+    });
     
-    // Aplicar filtros
-    if (stats.orders) {
-      let orders = [...stats.orders];
+    return Object.entries(monthlyData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        month: new Date(month + '-01').toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' }),
+        count: data.count,
+        value: data.value
+      }));
+  };
+
+  const calculateTopMechanics = (orders: any[]) => {
+    const mechanicsData: Record<string, { count: number; value: number }> = {};
+    
+    orders.forEach(order => {
+      const mechanic = order.responsible_mechanic || 'Não Informado';
       
-      if (selectedStatus !== 'all') {
-        orders = orders.filter(order => order.order_status === selectedStatus);
+      if (!mechanicsData[mechanic]) {
+        mechanicsData[mechanic] = { count: 0, value: 0 };
       }
       
-      if (selectedManufacturer !== 'all') {
-        orders = orders.filter(order => order.engine_manufacturer === selectedManufacturer);
-      }
+      mechanicsData[mechanic].count++;
+      mechanicsData[mechanic].value += parseFloat(order.grand_total || '0');
+    });
+    
+    return Object.entries(mechanicsData)
+      .sort(([, a], [, b]) => b.count - a.count)
+      .slice(0, 15)
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        value: data.value
+      }));
+  };
+  
+  const handleExportExcel = async () => {
+    if (!(stats as any)?.orders) return;
+    
+    setIsGenerating(true);
+    try {
+      const filteredOrders = applyFilters((stats as any).orders);
       
-      if (selectedMechanic !== 'all') {
-        orders = orders.filter(order => order.responsible_mechanic === selectedMechanic);
-      }
-      
-      if (yearFilter !== 'all') {
-        const year = parseInt(yearFilter);
-        orders = orders.filter(order => new Date(order.order_date).getFullYear() === year);
-      }
-      
-      // Recalcular estatísticas
-      const totalOrders = orders.length;
-      const totalValue = orders.reduce((sum, order) => sum + (parseFloat(order.grand_total || '0')), 0);
-      const averageValue = totalOrders > 0 ? totalValue / totalOrders : 0;
-      
-      const statusDistribution = orders.reduce((acc, order) => {
-        acc[order.order_status] = (acc[order.order_status] || 0) + 1;
+      await exportToProfessionalExcel({
+        orders: filteredOrders,
+        totalOrders: filteredOrders.length,
+        totalValue: filteredOrders.reduce((sum, order) => sum + (parseFloat(order.grand_total) || 0), 0),
+        avgValue: filteredOrders.length > 0 ? filteredOrders.reduce((sum, order) => sum + (parseFloat(order.grand_total) || 0), 0) / filteredOrders.length : 0,
+        statusDistribution: {},
+        manufacturerDistribution: {}
+      }, filters as any, {
+        includeCharts: false,
+        includeAnalytics: true,
+        includeSummary: true
+      });
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleExportSimplePDF = async () => {
+    if (!(stats as any)?.orders) return;
+
+    setIsGenerating(true);
+    try {
+      const filteredOrders = applyFilters((stats as any).orders);
+      const totalOrders = filteredOrders.length;
+      const totalValue = filteredOrders.reduce((sum, order) => sum + (parseFloat(order.grand_total) || 0), 0);
+      const avgValue = totalOrders > 0 ? totalValue / totalOrders : 0;
+
+      const statusDistribution = filteredOrders.reduce((acc, order) => {
+        const status = order.order_status || 'Desconhecido';
+        acc[status] = (acc[status] || 0) + 1;
         return acc;
-      }, {} as any);
+      }, {} as Record<string, number>);
+
+      const manufacturerDistribution = filteredOrders.reduce((acc, order) => {
+        const manufacturer = order.engine_manufacturer || 'N/A';
+        acc[manufacturer] = (acc[manufacturer] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
       
-      filtered = {
-        ...stats,
-        orders,
+      const defectGroupDistribution = filteredOrders.reduce((acc, order) => {
+        const group = (order as any).defect_group || 'Não Classificado';
+        acc[group] = (acc[group] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const pdfData = {
+        orders: filteredOrders,
         totalOrders,
-        financialSummary: {
-          ...stats.financialSummary,
-          totalValue,
-          averageValue
-        },
-        statusDistribution: {
-          G: statusDistribution.G || 0,
-          GO: statusDistribution.GO || 0,
-          GU: statusDistribution.GU || 0
-        }
+        totalValue,
+        avgValue,
+        statusDistribution,
+        manufacturerDistribution,
+        defectGroupDistribution,
       };
-    }
-    
-    setFilteredData(filtered);
-  }, [stats, selectedStatus, selectedManufacturer, selectedMechanic, yearFilter]);
-  
-  const handleGenerateReport = () => {
-    if (!filteredData) return;
-    
-    const reportData = formatServiceOrdersForExport(filteredData.orders || [], classifications);
-    const fileName = `relatorio-garantias-${new Date().toISOString().split('T')[0]}`;
-    
-    const success = exportToExcel(reportData, fileName, 'Relatório de Garantias');
-    
-    if (success) {
-      console.log('✅ Relatório gerado com sucesso');
-    } else {
-      console.error('❌ Erro ao gerar relatório');
+
+      await exportToSimplePDF(pdfData, filters);
+
+    } catch (error) {
+      console.error('Erro ao gerar PDF simples:', error);
+      alert('Erro ao gerar PDF. Verifique o console para mais detalhes.');
+    } finally {
+      setIsGenerating(false);
     }
   };
-  
-  const handlePreviewReport = () => {
-    // Implementar preview em uma nova janela ou modal
-    console.log('👁️ Preview do relatório');
+
+  const handleExportPDF = async () => {
+    if (!(stats as any)?.orders) return;
+
+    setIsGenerating(true);
+    try {
+      // 1. Aplicar filtros para obter as ordens relevantes
+      const filteredOrders = applyFilters((stats as any).orders);
+
+      // 2. Calcular dados resumidos a partir das ordens filtradas
+      const totalOrders = filteredOrders.length;
+      const totalValue = filteredOrders.reduce((sum, order) => sum + (parseFloat(order.grand_total) || 0), 0);
+      const avgValue = totalOrders > 0 ? totalValue / totalOrders : 0;
+
+      // 3. Calcular distribuições
+      const statusDistribution = filteredOrders.reduce((acc, order) => {
+        const status = order.order_status || 'Desconhecido';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const manufacturerDistribution = filteredOrders.reduce((acc, order) => {
+        const manufacturer = order.engine_manufacturer || 'N/A';
+        acc[manufacturer] = (acc[manufacturer] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const defectGroupDistribution = filteredOrders.reduce((acc, order) => {
+        const group = (order as any).defect_group || 'Não Classificado';
+        acc[group] = (acc[group] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // 4. Calcular tendência mensal e top mecânicos
+      const monthlyTrend = calculateMonthlyTrend(filteredOrders);
+      const topMechanics = calculateTopMechanics(filteredOrders);
+
+      // 5. Montar o objeto FilterData completo
+      const pdfData = {
+        orders: filteredOrders,
+        totalOrders,
+        totalValue,
+        avgValue,
+        statusDistribution,
+        manufacturerDistribution,
+        defectGroupDistribution,
+        monthlyTrend,
+        topMechanics
+      };
+
+      // 6. Usar exportação PROFISSIONAL COMPLETA com gráficos, índices e fórmulas
+      await exportToProfessionalComplePDF(pdfData, filters);
+
+    } catch (error) {
+      console.error('Erro ao gerar PDF profissional:', error);
+      alert('Erro ao gerar PDF. Verifique o console para mais detalhes.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
-  
-  const handlePrintReport = () => {
-    window.print();
+
+  // Função para aplicar filtros aos dados
+  const applyFilters = (orders: any[]) => {
+    let filtered = [...orders];
+    
+    // Filtro de período
+    if (filters.dateRange.preset !== 'all') {
+      const now = new Date();
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
+      
+      switch (filters.dateRange.preset) {
+        case 'thisMonth':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          break;
+        case 'lastMonth':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          break;
+        case 'thisQuarter':
+          const quarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), quarter * 3, 1);
+          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+          break;
+        case 'thisYear':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31);
+          break;
+        case 'lastYear':
+          startDate = new Date(now.getFullYear() - 1, 0, 1);
+          endDate = new Date(now.getFullYear() - 1, 11, 31);
+          break;
+      }
+      
+      if (startDate && endDate) {
+        endDate.setHours(23, 59, 59, 999); // Incluir todo o dia final
+        filtered = filtered.filter(order => {
+          const orderDate = new Date(order.order_date);
+          return orderDate >= (startDate as Date) && orderDate <= (endDate as Date);
+        });
+      }
+    }
+    
+    // Filtros de status
+    if (filters.status.length > 0 && !filters.status.includes('Todas as Garantias')) {
+      filtered = filtered.filter(order => 
+        filters.status.some(statusFilter => {
+          const statusCode = statusFilter.split(' - ')[0];
+          return order.order_status === statusCode;
+        })
+      );
+    }
+    
+    // Filtros de mecânico
+    if (filters.mechanics.length > 0 && !filters.mechanics.includes('Todos os Mecânicos')) {
+      filtered = filtered.filter(order => filters.mechanics.includes(order.responsible_mechanic));
+    }
+    
+    // Filtros de fabricante
+    if (filters.manufacturers.length > 0 && !filters.manufacturers.includes('Todos os Fabricantes')) {
+      filtered = filtered.filter(order => filters.manufacturers.includes(order.engine_manufacturer));
+    }
+    
+    // Filtros de grupo de defeito
+    if (filters.groups.length > 0 && !filters.groups.includes('Todos os Grupos')) {
+      filtered = filtered.filter(order => filters.groups.includes(order.defect_group));
+    }
+    
+    return filtered;
   };
-  
-  // Obter valores únicos para os filtros
-  const manufacturers = stats?.orders ? 
-    [...new Set(stats.orders.map(o => o.engine_manufacturer).filter(Boolean))] : [];
-  const mechanics = stats?.orders ? 
-    [...new Set(stats.orders.map(o => o.responsible_mechanic).filter(Boolean))] : [];
-  const years = stats?.orders ? 
-    [...new Set(stats.orders.map(o => new Date(o.order_date).getFullYear()))].sort((a, b) => b - a) : [];
   
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-white p-8">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-white rounded-lg w-64"></div>
+          <div className="h-8 bg-gray-200 rounded-lg w-64"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-white rounded-lg"></div>
+              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -148,313 +379,299 @@ const Reports = () => {
   }
   
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6 p-4 md:p-6 bg-white min-h-screen">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <FileBarChart className="h-8 w-8 text-blue-600" />
-          Relatórios de Garantias
-        </h1>
-        <p className="text-gray-600">
-          Gere relatórios personalizados das ordens de serviço e garantias
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Painel de Filtros */}
-        <div className="lg:col-span-1">
-          <Card className="bg-white border shadow-sm">
-            <CardHeader className="border-b">
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Filter className="h-5 w-5 text-gray-600" />
-                Filtros do Relatório
-              </CardTitle>
-              <CardDescription>
-                Configure os parâmetros para gerar seu relatório
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              {/* Filtros */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="status">Status da Garantia</Label>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os status</SelectItem>
-                      <SelectItem value="G">G - Garantia</SelectItem>
-                      <SelectItem value="GO">GO - Garantia com Observação</SelectItem>
-                      <SelectItem value="GU">GU - Garantia Usuário</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="manufacturer">Fabricante</Label>
-                  <Select value={selectedManufacturer} onValueChange={setSelectedManufacturer}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os fabricantes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os fabricantes</SelectItem>
-                      {manufacturers.map(mfg => (
-                        <SelectItem key={mfg} value={mfg}>{mfg}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="mechanic">Mecânico Responsável</Label>
-                  <Select value={selectedMechanic} onValueChange={setSelectedMechanic}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os mecânicos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os mecânicos</SelectItem>
-                      {mechanics.map(mech => (
-                        <SelectItem key={mech} value={mech}>{mech}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="year">Ano</Label>
-                  <Select value={yearFilter} onValueChange={setYearFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os anos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os anos</SelectItem>
-                      {years.map(year => (
-                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              {/* Campos a incluir */}
-              <div className="border-t pt-4">
-                <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                  Campos a incluir no relatório:
-                </Label>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="financial" 
-                      checked={includeFinancial}
-                      onCheckedChange={setIncludeFinancial}
-                    />
-                    <Label htmlFor="financial" className="text-sm">Informações Financeiras</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="defects" 
-                      checked={includeDefects}
-                      onCheckedChange={setIncludeDefects}
-                    />
-                    <Label htmlFor="defects" className="text-sm">Descrições de Defeitos</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="mechanics" 
-                      checked={includeMechanics}
-                      onCheckedChange={setIncludeMechanics}
-                    />
-                    <Label htmlFor="mechanics" className="text-sm">Dados dos Mecânicos</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="charts" 
-                      checked={includeCharts}
-                      onCheckedChange={setIncludeCharts}
-                    />
-                    <Label htmlFor="charts" className="text-sm">Gráficos e Análises</Label>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Ações */}
-              <div className="border-t pt-4 space-y-2">
-                <Button 
-                  onClick={handleGenerateReport}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Gerar Relatório Excel
-                </Button>
-                <Button 
-                  onClick={handlePreviewReport}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Visualizar Preview
-                </Button>
-                <Button 
-                  onClick={handlePrintReport}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Imprimir Relatório
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Preview dos Dados */}
-        <div className="lg:col-span-2">
-          <Card className="bg-white border shadow-sm">
-            <CardHeader className="border-b">
-              <CardTitle className="text-lg font-semibold">Preview do Relatório</CardTitle>
-              <CardDescription>
-                Visualização dos dados que serão incluídos no relatório
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {filteredData ? (
-                <div className="space-y-6">
-                  {/* Resumo Executivo */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-900">Total de OS</span>
-                      </div>
-                      <div className="text-2xl font-bold text-blue-900">
-                        {filteredData.totalOrders?.toLocaleString('pt-BR') || 0}
-                      </div>
-                    </div>
-                    
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-900">Valor Total</span>
-                      </div>
-                      <div className="text-xl font-bold text-green-900">
-                        R$ {(filteredData.financialSummary?.totalValue || 0).toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
-                      </div>
-                    </div>
-                    
-                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-4 w-4 text-purple-600" />
-                        <span className="text-sm font-medium text-purple-900">Mecânicos</span>
-                      </div>
-                      <div className="text-2xl font-bold text-purple-900">
-                        {mechanics.length}
-                      </div>
-                    </div>
-                    
-                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-600" />
-                        <span className="text-sm font-medium text-orange-900">Garantias</span>
-                      </div>
-                      <div className="text-2xl font-bold text-orange-900">
-                        {((filteredData.statusDistribution?.G || 0) + 
-                          (filteredData.statusDistribution?.GO || 0) + 
-                          (filteredData.statusDistribution?.GU || 0)).toLocaleString('pt-BR')}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Distribuição por Status */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-gray-900 mb-3">Distribuição por Status</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {filteredData.statusDistribution?.G || 0}
-                        </div>
-                        <div className="text-sm text-gray-600">Garantia (G)</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-yellow-600">
-                          {filteredData.statusDistribution?.GO || 0}
-                        </div>
-                        <div className="text-sm text-gray-600">Garantia Obs. (GO)</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-600">
-                          {filteredData.statusDistribution?.GU || 0}
-                        </div>
-                        <div className="text-sm text-gray-600">Garantia Usuário (GU)</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Amostra dos Dados */}
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-3">
-                      Amostra dos Dados (Primeiras 5 ordens)
-                    </h3>
-                    <div className="border rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-gray-50">
-                            <TableHead className="font-semibold">OS</TableHead>
-                            <TableHead className="font-semibold">Data</TableHead>
-                            <TableHead className="font-semibold">Status</TableHead>
-                            <TableHead className="font-semibold">Fabricante</TableHead>
-                            <TableHead className="font-semibold">Valor</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(filteredData.orders || []).slice(0, 5).map((order: any) => (
-                            <TableRow key={order.id || order.order_number}>
-                              <TableCell className="font-medium">{order.order_number}</TableCell>
-                              <TableCell>
-                                {order.order_date.split('T')[0].split('-').reverse().join('/')}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={order.order_status === 'G' ? 'default' : 
-                                          order.order_status === 'GO' ? 'secondary' : 'destructive'}
-                                  className={
-                                    order.order_status === 'G' ? 'bg-blue-100 text-blue-800' :
-                                    order.order_status === 'GO' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
-                                  }
-                                >
-                                  {order.order_status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-sm">
-                                {order.engine_manufacturer || 'N/A'}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                R$ {parseFloat(order.grand_total || '0').toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <FileBarChart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Carregando dados para preview...</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <FileBarChart className="h-8 w-8 text-blue-600" />
+            Relatórios
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Selecione os filtros e exporte seus relatórios profissionais
+          </p>
         </div>
       </div>
+
+      {/* Filtros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5 text-gray-600" />
+            Filtros para Relatório
+          </CardTitle>
+          <CardDescription>
+            Marque as opções que deseja incluir no relatório
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          
+          {/* Período */}
+          <div>
+            <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              Período
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { value: 'thisMonth', label: 'Este Mês' },
+                { value: 'lastMonth', label: 'Mês Anterior' },
+                { value: 'thisQuarter', label: 'Este Trimestre' },
+                { value: 'thisYear', label: 'Este Ano' },
+                { value: 'lastYear', label: 'Ano Anterior' },
+                { value: 'all', label: 'Todos' }
+              ].map((option) => (
+                <div key={option.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`period-${option.value}`}
+                    checked={filters.dateRange.preset === option.value}
+                    onCheckedChange={() => handleDatePresetChange(option.value)}
+                  />
+                  <Label htmlFor={`period-${option.value}`} className="text-sm">
+                    {option.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Status da Garantia */}
+          <div>
+            <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Status da Garantia
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
+              {filterOptions.status.map((status) => (
+                <div key={status} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`status-${status}`}
+                    checked={filters.status.includes(status)}
+                    onCheckedChange={(checked) => handleCheckboxChange('status', status, checked as boolean)}
+                  />
+                  <Label htmlFor={`status-${status}`} className="text-sm">
+                    {status}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Mecânicos */}
+          <div>
+            <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+              <Users className="h-5 w-5 text-green-600" />
+              Mecânicos
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {filterOptions.mechanics.map((mechanic: string) => (
+                <div key={mechanic} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`mechanic-${mechanic}`}
+                    checked={filters.mechanics.includes(mechanic)}
+                    onCheckedChange={(checked) => handleCheckboxChange('mechanics', mechanic, checked as boolean)}
+                  />
+                  <Label htmlFor={`mechanic-${mechanic}`} className="text-sm">
+                    {mechanic}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Fabricantes */}
+          <div>
+            <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+              <Building className="h-5 w-5 text-purple-600" />
+              Fabricantes
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {filterOptions.manufacturers.map((manufacturer: string) => (
+                <div key={manufacturer} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`manufacturer-${manufacturer}`}
+                    checked={filters.manufacturers.includes(manufacturer)}
+                    onCheckedChange={(checked) => handleCheckboxChange('manufacturers', manufacturer, checked as boolean)}
+                  />
+                  <Label htmlFor={`manufacturer-${manufacturer}`} className="text-sm">
+                    {manufacturer}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Grupos de Defeito */}
+          <div>
+            <Label className="text-base font-semibold flex items-center gap-2 mb-3">
+              <Cog className="h-5 w-5 text-teal-600" />
+              Grupos de Defeito
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {filterOptions.groups.map((group: string) => (
+                <div key={group} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`group-${group}`}
+                    checked={filters.groups.includes(group)}
+                    onCheckedChange={(checked) => handleCheckboxChange('groups', group, checked as boolean)}
+                  />
+                  <Label htmlFor={`group-${group}`} className="text-sm">
+                    {group}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Configurações Avançadas do PDF */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Cog className="h-5 w-5 text-purple-600" />
+                Configurações do PDF
+              </Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdvancedPDFOptions(!showAdvancedPDFOptions)}
+              >
+                {showAdvancedPDFOptions ? 'Ocultar' : 'Mostrar'} Opções Avançadas
+              </Button>
+            </div>
+            
+            {showAdvancedPDFOptions && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includeCharts"
+                    checked={pdfConfig.includeCharts}
+                    onCheckedChange={(checked) => setPdfConfig(prev => ({ ...prev, includeCharts: checked as boolean }))}
+                  />
+                  <Label htmlFor="includeCharts" className="text-sm">Incluir Gráficos</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includeDetailedTables"
+                    checked={pdfConfig.includeDetailedTables}
+                    onCheckedChange={(checked) => setPdfConfig(prev => ({ ...prev, includeDetailedTables: checked as boolean }))}
+                  />
+                  <Label htmlFor="includeDetailedTables" className="text-sm">Tabelas Detalhadas</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includeHierarchicalAnalysis"
+                    checked={pdfConfig.includeHierarchicalAnalysis}
+                    onCheckedChange={(checked) => setPdfConfig(prev => ({ ...prev, includeHierarchicalAnalysis: checked as boolean }))}
+                  />
+                  <Label htmlFor="includeHierarchicalAnalysis" className="text-sm">Análise Hierárquica</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Label className="text-sm">Formato:</Label>
+                  <select 
+                    value={pdfConfig.pageFormat} 
+                    onChange={(e) => setPdfConfig(prev => ({ ...prev, pageFormat: e.target.value as 'a4' | 'letter' }))}
+                    className="border rounded px-2 py-1 text-sm"
+                  >
+                    <option value="a4">A4</option>
+                    <option value="letter">Letter</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Label className="text-sm">Orientação:</Label>
+                  <select 
+                    value={pdfConfig.orientation} 
+                    onChange={(e) => setPdfConfig(prev => ({ ...prev, orientation: e.target.value as 'portrait' | 'landscape' }))}
+                    className="border rounded px-2 py-1 text-sm"
+                  >
+                    <option value="portrait">Retrato</option>
+                    <option value="landscape">Paisagem</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Botões de Ação */}
+          <div className="flex justify-between items-center pt-4 border-t">
+            <Button onClick={clearAllFilters} variant="outline">
+              Limpar Filtros
+            </Button>
+            
+            <div className="flex gap-3">
+              <Button 
+                onClick={handleExportExcel}
+                disabled={isGenerating}
+                className="bg-green-600 hover:bg-green-700"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-5 w-5 mr-2" />
+                    Exportar Excel
+                  </>
+                )}
+              </Button>
+
+              <Button 
+                onClick={handleExportPDF}
+                disabled={isGenerating}
+                className="bg-red-600 hover:bg-red-700"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-5 w-5 mr-2" />
+                    PDF Completo (Gráficos + Fórmulas)
+                  </>
+                )}
+              </Button>
+
+              <Button 
+                onClick={handleExportSimplePDF}
+                disabled={isGenerating}
+                className="bg-purple-600 hover:bg-purple-700"
+                size="lg"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-5 w-5 mr-2" />
+                    PDF Simples
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

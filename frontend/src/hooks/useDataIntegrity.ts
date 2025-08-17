@@ -72,8 +72,7 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
     setError(null);
 
     try {
-      console.log('🔍 Frontend: Executando verificação de integridade...');
-      
+            
       const response = await fetch('/api/v1/integrity/check/complete', {
         method: 'POST',
         headers: {
@@ -97,15 +96,12 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
           checks: data.checks
         });
 
-        console.log(`✅ Verificação concluída: ${data.ok_count} OK, ${data.error_count} erros`);
-        
+                
         // Log detalhado para debug
         data.checks.forEach((check: IntegrityCheck) => {
           if (check.status === 'ERROR') {
-            console.warn(`⚠️ ${check.check_type}: ${check.details}`);
-            if (check.error_details) {
-              console.warn(`   Detalhes: ${check.error_details}`);
-            }
+                        if (check.error_details) {
+                          }
           }
         });
       } else {
@@ -182,8 +178,7 @@ export const useRecordCountVerification = (expectedCount: number) => {
         setIsValid(actual === expectedCount);
         
         if (actual !== expectedCount) {
-          console.warn(`⚠️ Discrepância de contagem: esperado ${expectedCount}, encontrado ${actual}`);
-        }
+                  }
       }
     } catch (error) {
       console.error('❌ Erro ao verificar contagem:', error);

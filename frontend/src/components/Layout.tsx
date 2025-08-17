@@ -21,8 +21,7 @@ export function Layout({ children }: LayoutProps) {
 
   const handleExport = () => {
     // Implementar exportação dos dados
-    console.log('Exportando dados do dashboard...');
-  };
+      };
 
   return (
     <SidebarProvider>

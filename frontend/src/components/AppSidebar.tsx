@@ -9,6 +9,7 @@ import {
   Users,
   FileBarChart,
   Settings,
+  Brain,
   Menu,
   X
 } from "lucide-react";

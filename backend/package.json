@@ -5,7 +5,9 @@
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc",
+    "build:production": "npm ci && tsc",
     "start": "node dist/app.js",
+    "start:production": "NODE_ENV=production node dist/app.js",
     "dev": "ts-node src/app.ts",
     "backup": "ts-node src/scripts/backupSystem.ts backup",
     "backup:list": "ts-node src/scripts/backupSystem.ts list",
@@ -13,7 +15,8 @@
     "performance:test": "ts-node src/scripts/simplePerformanceTest.ts",
     "auth:setup": "ts-node src/scripts/setupAuth.ts",
     "cleanup": "ts-node src/scripts/codeCleanup.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "health": "node -e \"const http=require('http');const req=http.request({hostname:'localhost',port:process.env.PORT||3000,path:'/health',timeout:2000},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.end();\""
   },
   "repository": {
     "type": "git",
@@ -38,6 +41,7 @@
     "@types/uuid": "^10.0.0",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -45,9 +49,11 @@
     "express-validator": "^7.2.1",
     "groq-sdk": "^0.29.0",
     "helmet": "^8.1.0",
+    "ioredis": "^5.7.0",
     "isomorphic-dompurify": "^2.26.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "uuid": "^11.1.0",

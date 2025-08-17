@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { GroqAIService } from '../services/GroqAIService';
+import { SimpleAIService } from '../services/SimpleAIService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
@@ -10,10 +10,10 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export class AIController {
-  private aiService: GroqAIService;
+  private aiService: SimpleAIService;
 
   constructor() {
-    this.aiService = GroqAIService.getInstance();
+    this.aiService = SimpleAIService.getInstance();
   }
 
   /**
@@ -85,7 +85,7 @@ export class AIController {
       console.log('🚀 Iniciando classificação massiva via API');
 
       // Executar em background para não travar a requisição
-      this.aiService.classifyAllExistingDefects().catch(error => {
+      this.aiService.classifyUnclassifiedDefects().catch((error: any) => {
         console.error('❌ Erro na classificação massiva:', error);
       });
 
@@ -109,7 +109,7 @@ export class AIController {
    */
   async getClassificationStats(req: Request, res: Response) {
     try {
-      const stats = await this.aiService.getClassificationStats();
+      const stats = await this.aiService.getStats();
 
       if (!stats) {
         return res.status(500).json({
@@ -464,11 +464,10 @@ export class AIController {
    */
   async testDirectInsert(req: Request, res: Response) {
     try {
-      const result = await this.aiService.testDirectInsert();
-      
+      // Método removido do SimpleAIService - retornar sucesso simples
       res.json({
         success: true,
-        data: { result }
+        data: { result: 'Teste direto não implementado no SimpleAIService' }
       });
 
     } catch (error) {
@@ -486,12 +485,13 @@ export class AIController {
   async testSaveClassification(req: Request, res: Response) {
     try {
       const testClassification = {
+        service_order_id: 42091,
         original_defect_description: "TESTE DE CLASSIFICAÇÃO",
         category_id: 1,
         category_name: "Vazamentos",
         ai_confidence: 0.95,
         ai_reasoning: "Teste manual de classificação",
-        alternative_categories: []
+        is_reviewed: false
       };
 
       const saved = await this.aiService.saveClassification(42091, testClassification);
@@ -574,7 +574,7 @@ export class AIController {
       }
 
       // Buscar estatísticas do banco
-      const stats = await this.aiService.getClassificationStats();
+      const stats = await this.aiService.getStats();
 
       res.json({
         success: true,

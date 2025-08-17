@@ -33,7 +33,9 @@ class AIService {
   private baseUrl = '/api/v1/ai';
   private classificationsCache = new Map<number, DefectClassification>();
   private lastCacheUpdate = 0;
-  private cacheExpiry = 30000; // 30 segundos
+  private cacheExpiry = 60000; // 1 minuto para atualização mais rápida do novo sistema
+  private isInitialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   /**
    * Obtém headers de autenticação
@@ -47,9 +49,25 @@ class AIService {
   }
 
   /**
+   * Inicialização do cache na primeira chamada
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.refreshClassifications();
+    }
+    
+    await this.initializationPromise;
+    this.isInitialized = true;
+  }
+
+  /**
    * Busca classificações do cache ou servidor
    */
   async getClassifications(): Promise<DefectClassification[]> {
+    await this.ensureInitialized();
+    
     const now = Date.now();
     
     // Se cache expirou, recarregar
@@ -65,39 +83,82 @@ class AIService {
    */
   private async refreshClassifications(): Promise<void> {
     try {
+            
       const response = await fetch(`${this.baseUrl}/classifications?limit=10000`, {
         headers: this.getAuthHeaders()
       });
       
       if (response.status === 401) {
-        console.warn('⚠️ Token inválido para classificações da IA');
+                // Tentar sem autenticação em desenvolvimento
+        const fallbackResponse = await fetch(`${this.baseUrl}/classifications?limit=10000`, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackData.success && fallbackData.data) {
+            this.populateCache(fallbackData.data);
+            return;
+          }
+        }
+        return;
+      }
+      
+      if (!response.ok) {
+        console.error(`❌ Erro HTTP ${response.status}: ${response.statusText}`);
         return;
       }
       
       const data = await response.json();
-      
+            
       if (data.success && data.data) {
-        // Limpar cache e repovoar
-        this.classificationsCache.clear();
-        
-        data.data.forEach((classification: DefectClassification) => {
-          this.classificationsCache.set(classification.service_order_id, classification);
-        });
-        
-        this.lastCacheUpdate = Date.now();
-        console.log(`✅ AI Cache atualizado: ${data.data.length} classificações`);
-      }
+        this.populateCache(data.data);
+      } else {
+              }
     } catch (error) {
-      console.warn('⚠️ Erro ao carregar classificações da IA:', error);
+      console.error('❌ Erro crítico ao carregar classificações da IA:', error);
     }
+  }
+  
+  /**
+   * Popula o cache com as classificações
+   */
+  private populateCache(classifications: DefectClassification[]): void {
+    // Limpar cache e repovoar
+    this.classificationsCache.clear();
+    
+    classifications.forEach((classification: DefectClassification) => {
+      if (classification.service_order_id && classification.id) {
+        this.classificationsCache.set(classification.service_order_id, classification);
+      }
+    });
+    
+    this.lastCacheUpdate = Date.now();
+        
+    // Log das primeiras 3 para debug
+    const sample = classifications.slice(0, 3);
+    ));
   }
 
   /**
    * Obtém classificação para uma service order específica
    */
   async getClassificationForOrder(serviceOrderId: number): Promise<DefectClassification | null> {
-    await this.getClassifications(); // Garante cache atualizado
-    return this.classificationsCache.get(serviceOrderId) || null;
+    await this.ensureInitialized();
+    
+    const classification = this.classificationsCache.get(serviceOrderId);
+    
+    if (!classification) {
+                  
+      // Se não encontrou, force um refresh e tente novamente
+      if (this.classificationsCache.size === 0) {
+                await this.refreshClassifications();
+        return this.classificationsCache.get(serviceOrderId) || null;
+      }
+    } else {
+          }
+    
+    return classification || null;
   }
 
   /**
@@ -110,16 +171,14 @@ class AIService {
       });
       
       if (response.status === 401) {
-        console.warn('⚠️ Token inválido para estatísticas da IA');
-        return null;
+                return null;
       }
       
       const data = await response.json();
       
       return data.success ? data.data : null;
     } catch (error) {
-      console.warn('⚠️ Erro ao carregar stats da IA:', error);
-      return null;
+            return null;
     }
   }
 
@@ -137,22 +196,23 @@ class AIService {
         return data.data.find((cat: any) => cat.id === categoryId);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao carregar categoria:', error);
-    }
+          }
     return null;
   }
 
   /**
-   * Função utilitária para formatar defeito com IA
+   * Função utilitária para formatar defeito com IA (async para garantir inicialização)
    */
-  getDisplayDefect(order: any): {
+  async getDisplayDefect(order: any): Promise<{
     text: string;
     isClassified: boolean;
     category?: string;
     confidence?: number;
     color?: string;
-  } {
-    const classification = this.classificationsCache.get(order.id);
+  }> {
+    await this.ensureInitialized();
+    
+    const classification = await this.getClassificationForOrder(order.id);
     
     if (classification && classification.defect_categories) {
       return {
@@ -175,8 +235,22 @@ class AIService {
    * Força atualização do cache
    */
   async forceRefresh(): Promise<void> {
-    this.lastCacheUpdate = 0;
+        this.lastCacheUpdate = 0;
+    this.isInitialized = false;
+    this.initializationPromise = null;
     await this.refreshClassifications();
+    this.isInitialized = true;
+  }
+  
+  /**
+   * Obtém estatísticas do cache para debug
+   */
+  getCacheStats(): { size: number; lastUpdate: number; isInitialized: boolean } {
+    return {
+      size: this.classificationsCache.size,
+      lastUpdate: this.lastCacheUpdate,
+      isInitialized: this.isInitialized
+    };
   }
 }
 

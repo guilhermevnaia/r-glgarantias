@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MoreHorizontal, Search, ChevronLeft, ChevronRight, Filter, X, Download, Shield, AlertTriangle, Eye, Edit, Printer, FileDown } from "lucide-react";
-import { ServiceOrder } from "@/services/api";
+import { ServiceOrder, apiService } from "@/services/api";
 import { useDataIntegrity, useRecordCountVerification } from "@/hooks/useDataIntegrity";
 import { useToast } from "@/hooks/use-toast";
 import { useServiceOrders, useUpdateServiceOrder, useDataSync } from "@/hooks/useGlobalData";
-import { useAI } from '@/hooks/useAI';
-import { ClassifiedDefect, ClassifiedDefectText } from '@/components/ClassifiedDefect';
+// Removido useAI - usando dados diretamente da API
+import { SimpleDefectCard } from '@/components/SimpleDefectCard';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
   "G": "outline",
@@ -28,8 +28,7 @@ const statusLabels: { [key: string]: string } = {
 };
 
 const ServiceOrders = () => {
-  // 🤖 DADOS DA IA
-  const { classifications } = useAI();
+  // Dados da IA vêm diretamente com as Service Orders
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   
@@ -147,7 +146,7 @@ const ServiceOrders = () => {
       const matchesModel = modelFilter === "all" || order.vehicle_model === modelFilter;
 
       return matchesYear && matchesMonth && matchesManufacturer && matchesMechanic && matchesModel;
-    });
+
   }, [serviceOrders, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
 
   const clearFilters = () => {
@@ -166,11 +165,10 @@ const ServiceOrders = () => {
     setIsExporting(true);
     try {
       // Para exportação, buscar todos os dados com os filtros aplicados
-      console.log("📤 Buscando todos os dados para exportação...");
-      
+            
       toast({
         title: "Iniciando exportação",
-        description: "Buscando todos os dados. Isso pode levar alguns segundos...",
+        description: "Buscando todos os dados. Isso pode levar alguns segundos..."
       });
 
       const exportParams: any = {
@@ -178,120 +176,106 @@ const ServiceOrders = () => {
         page: 1
       };
 
-      // Aplicar os mesmos filtros da busca
+      // Aplicar os mesmos filtros da busca na API
       if (searchTerm) exportParams.search = searchTerm;
       if (statusFilter !== "all") exportParams.status = statusFilter;
+      if (yearFilter !== "all") exportParams.year = parseInt(yearFilter);
+      if (monthFilter !== "all") exportParams.month = parseInt(monthFilter);
+      if (manufacturerFilter !== "all") exportParams.manufacturer = manufacturerFilter;
+      if (mechanicFilter !== "all") exportParams.mechanic = mechanicFilter;
+      if (modelFilter !== "all") exportParams.model = modelFilter;
 
       const response = await apiService.getServiceOrders(exportParams);
-      const allData = response.data || [];
-      
-      // Aplicar filtros locais também
-      const dataToExport = allData.filter(order => {
-        const orderYear = order.order_date ? new Date(order.order_date).getFullYear().toString() : "";
-        const matchesYear = yearFilter === "all" || orderYear === yearFilter;
-        
-        const orderMonth = order.order_date ? (new Date(order.order_date).getMonth() + 1).toString() : "";
-        const matchesMonth = monthFilter === "all" || orderMonth === monthFilter;
-        
-        const matchesManufacturer = manufacturerFilter === "all" || order.engine_manufacturer === manufacturerFilter;
-        const matchesMechanic = mechanicFilter === "all" || order.responsible_mechanic === mechanicFilter;
-        const matchesModel = modelFilter === "all" || order.vehicle_model === modelFilter;
-
-        return matchesYear && matchesMonth && matchesManufacturer && matchesMechanic && matchesModel;
-      });
+      const dataToExport = response.data || [];
       
       if (dataToExport.length === 0) {
         toast({
           title: "Nenhum dado para exportar",
           description: "Não há dados para exportar com os filtros aplicados.",
           variant: "destructive",
-        });
+
         return;
       }
 
-      console.log(`📤 Exportando ${dataToExport.length} registros...`);
+      // Definir cabeçalhos do CSV
+      const headers = [
+        "OS",
+        "Data",
+        "Fabricante",
+        "Motor",
+        "Modelo", 
+        "Defeito",
+        "Mecânico Montador",
+        "Total Peças",
+        "Total Serviços",
+        "Total"
+      ];
 
-    // Definir cabeçalhos do CSV
-    const headers = [
-      "OS",
-      "Data",
-      "Fabricante",
-      "Motor",
-      "Modelo", 
-      "Defeito",
-      "Mecânico Montador",
-      "Total Peças",
-      "Total Serviços",
-      "Total"
-    ];
+      // Converter dados para formato CSV
+      const csvContent = [
+        headers.join(","),
+        ...dataToExport.map(order => [
+          `"${order.order_number || ''}"`,
+          `"${order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : ''}"`,
+          `"${order.engine_manufacturer || ''}"`,
+          `"${order.engine_description || ''}"`,
+          `"${order.vehicle_model || ''}"`,
+          `"${(() => {
+            const classification = order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null;
+            if (classification && classification.defect_categories) {
+              return classification.defect_categories.category_name;
+            }
+            return order.raw_defect_description || 'Não Classificado';
+          })()}"`,
+          `"${order.responsible_mechanic || ''}"`,
+          `"R$ ${(order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+          `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+          `"R$ ${((order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
+        ].join(","))
+      ].join("\n");
 
-    // Converter dados para formato CSV
-    const csvContent = [
-      headers.join(","),
-      ...dataToExport.map(order => [
-        `"${order.order_number || ''}"`,
-        `"${order.order_date ? order.order_date.split('T')[0].split('-').reverse().join('/') : ''}"`,
-        `"${order.engine_manufacturer || ''}"`,
-        `"${order.engine_description || ''}"`,
-        `"${order.vehicle_model || ''}"`,
-        `"${(() => {
-          const classification = classifications.find(c => c.service_order_id === order.id);
-          if (classification && classification.defect_categories) {
-            return classification.defect_categories.category_name;
-          }
-          return order.raw_defect_description || 'Não Classificado';
-        })()}"`,
-        `"${order.responsible_mechanic || ''}"`,
-        `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
-        `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
-        `"R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
-      ].join(","))
-    ].join("\n");
-
-    // Criar e baixar arquivo
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    
-    // Nome do arquivo com filtros aplicados
-    let fileName = "ordens_servico";
-    const activeFilters = [];
-    
-    if (statusFilter !== "all") activeFilters.push(`status_${statusFilter}`);
-    if (yearFilter !== "all") activeFilters.push(`ano_${yearFilter}`);
-    if (monthFilter !== "all") activeFilters.push(`mes_${monthFilter}`);
-    if (manufacturerFilter !== "all") activeFilters.push(`fabricante_${manufacturerFilter.replace(/\s+/g, '_')}`);
-    if (mechanicFilter !== "all") activeFilters.push(`mecanico_${mechanicFilter.replace(/\s+/g, '_')}`);
-    if (modelFilter !== "all") activeFilters.push(`modelo_${modelFilter.replace(/\s+/g, '_')}`);
-    if (searchTerm) activeFilters.push("pesquisa");
-    
-    if (activeFilters.length > 0) {
-      fileName += `_filtrado_${activeFilters.join('_')}`;
-    }
-    
-    fileName += `_${new Date().toISOString().split('T')[0]}.csv`;
-    
-    link.setAttribute("download", fileName);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-      console.log(`📤 Exportados ${dataToExport.length} registros para ${fileName}`);
+      // Criar e baixar arquivo
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
       
+      link.setAttribute("href", url);
+      
+      // Nome do arquivo com filtros aplicados
+      let fileName = "ordens_servico";
+      const activeFilters = [];
+      
+      if (statusFilter !== "all") activeFilters.push(`status_${statusFilter}`);
+      if (yearFilter !== "all") activeFilters.push(`ano_${yearFilter}`);
+      if (monthFilter !== "all") activeFilters.push(`mes_${monthFilter}`);
+      if (manufacturerFilter !== "all") activeFilters.push(`fabricante_${manufacturerFilter.replace(/\s+/g, '_')}`);
+      if (mechanicFilter !== "all") activeFilters.push(`mecanico_${mechanicFilter.replace(/\s+/g, '_')}`);
+      if (modelFilter !== "all") activeFilters.push(`modelo_${modelFilter.replace(/\s+/g, '_')}`);
+      if (searchTerm) activeFilters.push("pesquisa");
+      
+      if (activeFilters.length > 0) {
+        fileName += `_filtrado_${activeFilters.join('_')}`;
+      }
+      
+      fileName += `_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      link.setAttribute("download", fileName);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
       toast({
         title: "Exportação concluída!",
         description: `${dataToExport.length} registros exportados com sucesso.`,
-      });
+
     } catch (error) {
       console.error("❌ Erro durante exportação:", error);
       toast({
         title: "Erro na exportação",
         description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
         variant: "destructive",
-      });
+
     } finally {
       setIsExporting(false);
     }
@@ -324,7 +308,7 @@ const ServiceOrders = () => {
       labor_total: order.labor_total || 0,
       grand_total: order.grand_total || 0,
       order_status: order.order_status
-    });
+
     setShowEditDialog(true);
   };
 
@@ -381,13 +365,13 @@ const ServiceOrders = () => {
           <div class="financials">
             <h3>Valores</h3>
             <div class="info-item">
-              <span class="label">Total Peças:</span> R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span class="label">Total Peças:</span> R$ ${(order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div class="info-item">
               <span class="label">Total Serviços:</span> R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div class="info-item" style="font-size: 1.2em; margin-top: 10px;">
-              <span class="label">TOTAL GERAL:</span> R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span class="label">TOTAL GERAL:</span> R$ ${((order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
         </body>
@@ -403,7 +387,7 @@ const ServiceOrders = () => {
       toast({
         title: "OS enviada para impressão",
         description: `Ordem de serviço ${order.order_number} preparada para impressão.`,
-      });
+
     }
   };
 
@@ -418,7 +402,7 @@ const ServiceOrders = () => {
           title: "❌ Erro de validação",
           description: "Número da OS é obrigatório.",
           variant: "destructive",
-        });
+
         return;
       }
 
@@ -427,21 +411,18 @@ const ServiceOrders = () => {
           title: "❌ Erro de validação", 
           description: "Status é obrigatório.",
           variant: "destructive",
-        });
+
         return;
       }
-
-      console.log('🔄 Salvando alterações da OS:', selectedOrder.id);
-      console.log('📝 Dados alterados:', editFormData);
 
       const updatedOrder = await apiService.updateServiceOrder(selectedOrder.id, editFormData);
       
       // Atualizar a lista local com os novos dados
-      setServiceOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === selectedOrder.id ? { ...order, ...updatedOrder } : order
-        )
-      );
+      // setServiceOrders(prevOrders => 
+      //   prevOrders.map(order => 
+      //     order.id === selectedOrder.id ? { ...order, ...updatedOrder } : order
+      //   )
+      // );
 
       setShowEditDialog(false);
       setEditFormData({});
@@ -450,7 +431,6 @@ const ServiceOrders = () => {
       toast({
         title: "✅ OS atualizada com sucesso!",
         description: `Ordem de serviço ${editFormData.order_number} foi atualizada. Todas as análises e dashboards foram atualizados automaticamente.`,
-      });
 
       // Verificar integridade após atualização
       setTimeout(() => {
@@ -471,7 +451,7 @@ const ServiceOrders = () => {
         title: "❌ Erro ao atualizar OS",
         description: errorMessage,
         variant: "destructive",
-      });
+
     } finally {
       setIsUpdating(false);
     }
@@ -487,16 +467,16 @@ const ServiceOrders = () => {
         `"${order.engine_description || ''}"`,
         `"${order.vehicle_model || ''}"`,
         `"${(() => {
-          const classification = classifications.find(c => c.service_order_id === order.id);
+          const classification = order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null;
           if (classification && classification.defect_categories) {
             return classification.defect_categories.category_name;
           }
           return order.raw_defect_description || 'Não Classificado';
         })()}"`,
         `"${order.responsible_mechanic || ''}"`,
-        `"R$ ${((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+        `"R$ ${(order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
         `"R$ ${(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
-        `"R$ ${(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
+        `"R$ ${((order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`
       ].join(",")
     ].join("\n");
 
@@ -514,7 +494,7 @@ const ServiceOrders = () => {
     toast({
       title: "OS exportada",
       description: `Ordem de serviço ${order.order_number} exportada com sucesso.`,
-    });
+
   };
 
   return (
@@ -570,7 +550,7 @@ const ServiceOrders = () => {
                 ) : (
                   <Download className="h-4 w-4 mr-2" />
                 )}
-                {isExporting ? "Exportando..." : "Exportar (Todos os dados)"}
+                {isExporting ? "Exportando..." : hasActiveFilters ? "Exportar (Dados Filtrados)" : "Exportar (Todos os dados)"}
               </Button>
 
               {/* Indicador de Integridade */}
@@ -601,11 +581,9 @@ const ServiceOrders = () => {
                   <AlertTriangle className="h-4 w-4 mr-2" />
                 )}
                 Integridade
-                {isCountValid === false && (
-                  <span className="ml-1 text-xs bg-red-200 text-red-800 px-1 rounded">
-                    {actualCount}/{serviceOrders.length}
-                  </span>
-                )}
+                <span className="ml-1 text-xs bg-blue-200 text-blue-800 px-1 rounded">
+                  {totalRecords.toLocaleString('pt-BR')}
+                </span>
               </Button>
             </div>
           </div>
@@ -776,24 +754,23 @@ const ServiceOrders = () => {
                           <TableCell className="text-foreground max-w-32 truncate" title={order.vehicle_model || ''}>
                             {order.vehicle_model || '-'}
                           </TableCell>
-                          <TableCell className="text-foreground max-w-48">
-                            <ClassifiedDefectText 
+                          <TableCell className="text-foreground max-w-80">
+                            <SimpleDefectCard 
                               order={order}
-                              classification={classifications.find(c => c.service_order_id === order.id)}
-                              maxLength={30}
+                              classification={order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null}
                             />
                           </TableCell>
                           <TableCell className="text-foreground max-w-32 truncate" title={order.responsible_mechanic || ''}>
                             {order.responsible_mechanic || '-'}
                           </TableCell>
                           <TableCell className="text-foreground font-semibold text-right">
-                            R$ {((order.original_parts_value || order.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {(order.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-foreground font-semibold text-right">
                             R$ {(order.labor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-foreground font-bold text-right bg-blue-50">
-                            R$ {(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {((order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -887,7 +864,7 @@ const ServiceOrders = () => {
                           >
                             {pageNumber}
                           </Button>
-                        );
+
                       }
                       return null;
                     })}
@@ -1181,14 +1158,27 @@ const ServiceOrders = () => {
               {/* Descrição do Defeito */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Descrição do Defeito</CardTitle>
+                  <CardTitle className="text-lg">Defeito Original (Excel)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {selectedOrder.raw_defect_description || 'Nenhuma descrição disponível'}
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-gray-700 whitespace-pre-wrap">
+                      {selectedOrder.original_defect_description || selectedOrder.raw_defect_description || 'Defeito não informado'}
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Classificação da IA */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Classificação de Defeitos (IA)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SimpleDefectCard 
+                    order={selectedOrder}
+                    classification={selectedOrder.defect_classifications && selectedOrder.defect_classifications.length > 0 ? selectedOrder.defect_classifications[0] : null}
+                  />
                 </CardContent>
               </Card>
 
@@ -1214,7 +1204,7 @@ const ServiceOrders = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-600">Total Peças:</span>
                       <span className="font-semibold">
-                        R$ {((selectedOrder.original_parts_value || selectedOrder.parts_total || 0) / 2).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        R$ {(selectedOrder.parts_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -1227,7 +1217,7 @@ const ServiceOrders = () => {
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-gray-900">TOTAL GERAL:</span>
                         <span className="text-xl font-bold text-blue-600">
-                          R$ {(((selectedOrder.original_parts_value || selectedOrder.parts_total || 0) / 2) + (selectedOrder.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          R$ {((selectedOrder.parts_total || 0) + (selectedOrder.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>
@@ -1254,7 +1244,7 @@ const ServiceOrders = () => {
         </DialogContent>
       </Dialog>
     </div>
-  );
+
 };
 
 export default ServiceOrders;

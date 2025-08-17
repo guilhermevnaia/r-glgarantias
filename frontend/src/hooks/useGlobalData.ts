@@ -47,26 +47,22 @@ export const useDataSync = () => {
   const queryClient = useQueryClient();
 
   const invalidateAllData = () => {
-    console.log('🔄 Invalidando cache global - sincronizando todas as abas');
-    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.SERVICE_ORDERS] });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MECHANICS] });
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DEFECTS] });
   };
 
   const invalidateDashboard = () => {
-    console.log('📊 Invalidando cache do dashboard');
-    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
   };
 
   const invalidateServiceOrders = () => {
-    console.log('📋 Invalidando cache das ordens de serviço');
-    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.SERVICE_ORDERS] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.SERVICE_ORDERS] });
   };
 
   const refreshAllData = async () => {
-    console.log('🔄 Forçando refresh completo de todos os dados');
-    await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
+        await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.DASHBOARD_STATS] });
     await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.SERVICE_ORDERS] });
   };
 
@@ -83,14 +79,12 @@ export const useUpdateServiceOrder = () => {
   const { invalidateAllData } = useDataSync();
   
   const updateServiceOrder = async (id: number, updateData: Partial<ServiceOrder>) => {
-    console.log('🔄 Atualizando OS com sincronização automática:', id);
-    
+        
     try {
       const result = await apiService.updateServiceOrder(id, updateData);
       
       // Invalidar cache para sincronizar todas as abas
-      console.log('✅ OS atualizada - sincronizando dados em todas as abas');
-      invalidateAllData();
+            invalidateAllData();
       
       return result;
     } catch (error) {
@@ -107,14 +101,12 @@ export const useUploadWithSync = () => {
   const { invalidateAllData } = useDataSync();
   
   const uploadWithSync = async (file: File) => {
-    console.log('🔄 Upload com sincronização automática');
-    
+        
     try {
       const result = await apiService.uploadExcel(file);
       
       // Invalidar cache para sincronizar todas as abas
-      console.log('✅ Upload concluído - sincronizando dados em todas as abas');
-      invalidateAllData();
+            invalidateAllData();
       
       return result;
     } catch (error) {
@@ -128,14 +120,12 @@ export const useUploadWithSync = () => {
 
 // Hook para buscar dados de mecânicos processados - SEMPRE TODOS OS DADOS
 export const useMechanicsData = () => {
-  console.log('🔧 Hook useMechanicsData ativado - buscando todos os dados');
-
+  
   return useQuery({
     // A chave de query agora inclui 'service-orders' para refletir a nova fonte de dados
     queryKey: [QUERY_KEYS.SERVICE_ORDERS, 'mechanics-processing'],
     queryFn: async () => {
-      console.log('📡 Iniciando busca completa de Ordens de Serviço para análise de mecânicos...');
-      
+            
       const allOrders: ServiceOrder[] = [];
       let page = 1;
       const limit = 1000; // Buscar em lotes grandes para eficiência
@@ -143,8 +133,7 @@ export const useMechanicsData = () => {
 
       // Loop para buscar todas as páginas de dados - SEM FILTROS DE DATA
       while (page <= totalPages) {
-        console.log(`📄 Buscando página ${page} de ${totalPages}...`);
-        const response = await apiService.getServiceOrders({
+                const response = await apiService.getServiceOrders({
           page,
           limit,
           // Removido: month, year - sempre todos os dados
@@ -160,19 +149,12 @@ export const useMechanicsData = () => {
         }
       }
       
-      console.log(`✅ Busca completa. Total de ${allOrders.length} ordens recebidas.`);
-      console.log('📦 Primeiras 3 ordens recebidas:', allOrders.slice(0, 3));
+            );
 
       // Agora, processar os dados completos com a função existente
-      console.log('🔄 Processando dados completos dos mecânicos...');
-      const processedData = processMechanicsData({ orders: allOrders });
+            const processedData = processMechanicsData({ orders: allOrders });
       
-      console.log('📊 Processamento concluído:', {
-        totalWarranties: processedData.totalWarranties,
-        mechanicsCount: processedData.mechanicsStats.length,
-        firstMechanic: processedData.mechanicsStats[0]
-      });
-
+      
       return processedData;
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
@@ -184,8 +166,7 @@ export const useMechanicsData = () => {
 // Função para processar dados dos mecânicos a partir de uma lista de ordens
 const processMechanicsData = (data: { orders: ServiceOrder[] }) => {
   if (!data.orders || !Array.isArray(data.orders)) {
-    console.warn('⚠️ processMechanicsData chamado com dados de ordens inválidos.');
-    return {
+        return {
       mechanicsStats: [],
       totalWarranties: 0,
       totalCost: 0,
@@ -216,7 +197,7 @@ const processMechanicsData = (data: { orders: ServiceOrder[] }) => {
     group.orders.push(order);
     group.totalWarranties++;
     
-    // Cálculo de custo para mecânicos - usar parts_total (valor já dividido por 2)
+    // Cálculo de custo para mecânicos - parts_total já está dividido por 2
     const partsCost = parseFloat(order.parts_total || 0);
     const laborCost = parseFloat(order.labor_total || 0);
     group.totalCost += partsCost + laborCost;
@@ -265,7 +246,7 @@ const processMechanicsData = (data: { orders: ServiceOrder[] }) => {
       acc[defect] = { defectType: defect, totalWarranties: 0, totalCost: 0 };
     }
     acc[defect].totalWarranties++;
-    acc[defect].totalCost += parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0);
+    acc[defect].totalCost += parseFloat(order.grand_total || 0);
     return acc;
   }, {});
 
@@ -289,7 +270,7 @@ const processMechanicsData = (data: { orders: ServiceOrder[] }) => {
       };
     }
     acc[manufacturer].totalWarranties++;
-    acc[manufacturer].totalCost += parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0);
+    acc[manufacturer].totalCost += parseFloat(order.grand_total || 0);
     if(order.responsible_mechanic) acc[manufacturer].mechanics.add(order.responsible_mechanic);
     if(order.raw_defect_description) acc[manufacturer].defectTypes.add(order.raw_defect_description);
     return acc;

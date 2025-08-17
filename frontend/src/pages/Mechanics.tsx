@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,7 +30,7 @@ import {
 } from "lucide-react";
 import { exportToExcel, formatServiceOrdersForExport } from '@/utils/exportExcel';
 import { useAI } from '@/hooks/useAI';
-import { ClassifiedDefect } from '@/components/ClassifiedDefect';
+import { SimpleDefectCard } from '@/components/SimpleDefectCard';
 import { AppleCard } from '@/components/AppleCard';
 import { ChartCard } from "@/components/ChartCard";
 import { useMechanicsData } from "@/hooks/useGlobalData";
@@ -51,13 +52,18 @@ import {
 
 const Mechanics = () => {
   // 🤖 DADOS DA IA
-  const { classifications } = useAI();
+  const { classifications, loading: aiLoading, error: aiError } = useAI();
+  
   // Estados para filtros com período padrão (desde 2019 até data atual)
   const [dateRange, setDateRange] = useState<{start: string, end: string}>(() => {
     const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+    const endDate = now.toISOString().split('T')[0];
     return {
-      start: '2019-01-01',
-      end: now.toISOString().split('T')[0]
+      start: startDate,
+      end: endDate
     };
   });
   const [selectedDefectType, setSelectedDefectType] = useState('all');
@@ -71,23 +77,14 @@ const Mechanics = () => {
   // Buscar dados reais com hook (sem filtros de mês/ano específicos para ter dados completos)
   const getMonthYearFromRange = () => {
     if (!dateRange.start || !dateRange.end) {
-      console.log('🔍 Sem range definido, usando dados completos');
       return { month: undefined, year: undefined };
     }
     
     const startDate = new Date(dateRange.start);
     const endDate = new Date(dateRange.end);
     
-    console.log('📅 Range selecionado:', {
-      start: dateRange.start,
-      end: dateRange.end,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString()
-    });
-    
     // Para aba Mecânicos, sempre buscar dados completos para depois filtrar no frontend
     // Isso garante que tenhamos todos os dados históricos dos mecânicos
-    console.log('📅 Usando dados completos para análise de mecânicos');
     return { month: undefined, year: undefined };
   };
   
@@ -148,17 +145,29 @@ const Mechanics = () => {
     // Recalcular estatísticas baseadas apenas nas ordens filtradas
     const totalWarranties = filteredOrders.length;
     const totalCost = filteredOrders.reduce((sum: number, order: any) => {
-      return sum + parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0);
+      return sum + parseFloat(order.grand_total || 0);
     }, 0);
     const avgCostPerWarranty = totalWarranties > 0 ? totalCost / totalWarranties : 0;
     
-    // 🤖 Recalcular tipos de defeitos usando classificações da IA
+    // 🤖 Recalcular tipos de defeitos usando classificações que vêm com as ordens
     const defectTypes = [...new Set(filteredOrders.map((order: any) => {
-      const classification = classifications.find(c => c.service_order_id === order.id);
-      if (classification && classification.defect_categories) {
+      // Usar a classificação que vem junto com a ordem (igual ao Dashboard)
+      const classification = order.defect_classifications && order.defect_classifications.length > 0 
+        ? order.defect_classifications[0] 
+        : null;
+      
+      // Verificar se existe classificação e tem categoria
+      if (classification && classification.defect_categories && classification.defect_categories.category_name) {
         return classification.defect_categories.category_name;
       }
-      return order.raw_defect_description || 'Não Classificado';
+      
+      // Fallback: se não há classificação da API, usar o hook useAI
+      const aiClassification = classifications.find(c => c.service_order_id === order.id);
+      if (aiClassification && aiClassification.defect_categories && aiClassification.defect_categories.category_name) {
+        return aiClassification.defect_categories.category_name;
+      }
+      
+      return null; // Não mostrar defeitos não classificados
     }).filter(Boolean))];
     const manufacturers = [...new Set(filteredOrders.map((order: any) => order.engine_manufacturer).filter(Boolean))];
     const models = [...new Set(filteredOrders.map((order: any) => order.engine_description).filter(Boolean))];
@@ -196,16 +205,6 @@ const Mechanics = () => {
     }
   });
 
-  // Debug logs para verificar dados
-  console.log('🔍 Dados filtrados:', {
-    totalMechanics: (mechanicsData as any)?.mechanicsStats?.length || 0,
-    filteredCount: filteredMechanics.length,
-    sortedCount: sortedMechanics.length,
-    dateRange,
-    searchTerm,
-    selectedDefectType,
-    selectedMotor
-  });
 
   // Função para formatar moeda
   const formatCurrency = (value: number) => {
@@ -272,13 +271,22 @@ const Mechanics = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold mb-3">Tipos de Defeitos</h3>
+                <h3 className="text-lg font-semibold mb-3">Tipos de Defeitos (Classificados por IA)</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {mechanic.defectTypes.map((defect: string, index: number) => (
-                    <div key={index} className="p-2 bg-red-50 rounded text-sm">
-                      {defect}
+                  {mechanic.defectTypes.length > 0 ? (
+                    mechanic.defectTypes.map((defect: string, index: number) => (
+                      <div key={index} className="p-2 bg-red-50 rounded text-sm flex items-center justify-between">
+                        <span>{defect}</span>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                          IA
+                        </Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded text-sm text-center text-gray-500">
+                      Nenhum defeito classificado pela IA encontrado
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
               
@@ -313,15 +321,14 @@ const Mechanics = () => {
                           <TableCell className="font-medium">{order.order_number}</TableCell>
                           <TableCell>{order.order_date.split('T')[0].split('-').reverse().join('/')}</TableCell>
                           <TableCell>
-                            <ClassifiedDefect 
+                            <SimpleDefectCard 
                               order={order}
-                              classification={classifications.find(c => c.service_order_id === order.id)}
-                              showIcon={false}
+                              classification={order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null}
                               className="text-xs"
                             />
                           </TableCell>
                           <TableCell className="text-red-600 font-semibold">
-                            {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
+                            {formatCurrency(parseFloat(order.grand_total || 0))}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -394,68 +401,299 @@ const Mechanics = () => {
         {/* Detalhes em Grid Responsivo */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           
-          {/* Tipos de Defeitos */}
+          {/* Gráfico de Pizza - Tipos de Defeitos Classificados pela IA */}
           <Card className="bg-white border-2 border-black shadow-md">
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <Wrench className="h-5 w-5 text-red-600" />
-                Tipos de Defeitos Causados
+                Tipos de Defeitos Causados (IA)
               </CardTitle>
+              <CardDescription className="text-gray-500">
+                Defeitos classificados automaticamente pela IA
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {selectedMechanic.defectTypes.slice(0, 5).map((defect: string, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <span className="font-medium text-gray-900 text-sm truncate flex-1 mr-2" title={defect}>
-                      {defect}
-                    </span>
-                    <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs flex-shrink-0">
-                      #{index + 1}
-                    </Badge>
+              {(() => {
+                // Criar dados para o gráfico de pizza baseado nas classificações da IA
+                const defectCounts = {};
+                selectedMechanic.orders.forEach((order: any) => {
+                  // Usar a classificação que vem junto com a ordem (igual ao Dashboard)
+                  const classification = order.defect_classifications && order.defect_classifications.length > 0 
+                    ? order.defect_classifications[0] 
+                    : null;
+                  
+                  // Verificar se existe classificação e categoria
+                  if (classification && classification.defect_categories && classification.defect_categories.category_name) {
+                    const categoryName = classification.defect_categories.category_name;
+                    defectCounts[categoryName] = (defectCounts[categoryName] || 0) + 1;
+                  } else {
+                    // Fallback: usar hook useAI
+                    const aiClassification = classifications.find(c => c.service_order_id === order.id);
+                    if (aiClassification && aiClassification.defect_categories && aiClassification.defect_categories.category_name) {
+                      const categoryName = aiClassification.defect_categories.category_name;
+                      defectCounts[categoryName] = (defectCounts[categoryName] || 0) + 1;
+                    }
+                  }
+                });
+
+                const pieData = Object.entries(defectCounts).map(([name, value], index) => ({
+                  name,
+                  value,
+                  color: [
+                    '#DC2626', '#EA580C', '#D97706', '#CA8A04', 
+                    '#059669', '#0891B2', '#1D4ED8', '#7C3AED'
+                  ][index % 8]
+                })).sort((a, b) => b.value - a.value);
+
+                const totalDefects = Object.values(defectCounts).reduce((sum: number, count: number) => sum + count, 0);
+
+                return pieData.length > 0 ? (
+                  <div>
+                    <div className="h-64 mb-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: any, name: string) => [
+                              `${value} defeitos (${((value / totalDefects) * 100).toFixed(1)}%)`,
+                              name
+                            ]}
+                            contentStyle={{ 
+                              backgroundColor: 'white', 
+                              border: '1px solid #E5E7EB',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend 
+                            verticalAlign="bottom" 
+                            height={36}
+                            formatter={(value) => `${value}`}
+                          />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    {/* Lista resumida abaixo do gráfico */}
+                    <div className="space-y-2">
+                      {pieData.slice(0, 3).map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="font-medium text-gray-900 text-sm">
+                              {item.name}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {item.value} ({((item.value / totalDefects) * 100).toFixed(1)}%)
+                          </div>
+                        </div>
+                      ))}
+                      {pieData.length > 3 && (
+                        <div className="text-center text-sm text-gray-500 pt-2">
+                          +{pieData.length - 3} outras categorias
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ))}
-                {selectedMechanic.defectTypes.length > 5 && (
-                  <div className="text-center text-sm text-gray-500 pt-2">
-                    +{selectedMechanic.defectTypes.length - 5} outros tipos
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Wrench className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>Nenhum defeito classificado encontrado</p>
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
-          {/* Modelos e Fabricantes */}
+          {/* Modelos, Fabricantes e Tipos de Motores */}
           <Card className="bg-white border-2 border-black shadow-md">
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
-                Modelos e Fabricantes
+                Modelos, Fabricantes e Tipos de Motores
               </CardTitle>
+              <CardDescription className="text-gray-500">
+                Análise completa dos equipamentos trabalhados
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Fabricantes - Seção Principal */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Modelos Trabalhados:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedMechanic.models.slice(0, 3).map((model: string, index: number) => (
-                      <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                        {model}
-                      </Badge>
-                    ))}
-                    {selectedMechanic.models.length > 3 && (
-                      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">
-                        +{selectedMechanic.models.length - 3} outros
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Fabricantes:</h4>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Fabricantes de Motores ({selectedMechanic.manufacturers.length})
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedMechanic.manufacturers.map((mfg: string, index: number) => (
-                      <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                      <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 text-sm font-medium">
                         {mfg}
                       </Badge>
                     ))}
+                    {selectedMechanic.manufacturers.length === 0 && (
+                      <span className="text-sm text-gray-500 italic">Nenhum fabricante identificado</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modelos - Seção Expandida */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    Modelos de Motores ({selectedMechanic.models.length})
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedMechanic.models.slice(0, 8).map((model: string, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <span className="font-medium text-blue-900 text-sm truncate flex-1" title={model}>
+                          {model}
+                        </span>
+                        <Badge variant="outline" className="bg-white text-blue-700 border-blue-300 text-xs ml-2">
+                          Motor
+                        </Badge>
+                      </div>
+                    ))}
+                    {selectedMechanic.models.length > 8 && (
+                      <div className="sm:col-span-2 text-center p-2 bg-gray-50 rounded-lg border border-gray-200">
+                        <span className="text-sm text-gray-600">
+                          +{selectedMechanic.models.length - 8} outros modelos
+                        </span>
+                      </div>
+                    )}
+                    {selectedMechanic.models.length === 0 && (
+                      <div className="sm:col-span-2 text-center p-4 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-500 italic">Nenhum modelo identificado</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tipos de Motores - Nova Seção */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                    Tipos de Motores por Aplicação
+                  </h4>
+                  {(() => {
+                    // Classificar modelos por tipo baseado em palavras-chave
+                    const motorTypes = {
+                      'Diesel': [],
+                      'Gasolina': [],
+                      'Flex': [],
+                      'Turbo': [],
+                      'Aspirado': [],
+                      'Industrial': [],
+                      'Marítimo': [],
+                      'Outros': []
+                    };
+
+                    selectedMechanic.models.forEach((model: string) => {
+                      const modelLower = model.toLowerCase();
+                      let classified = false;
+                      
+                      if (modelLower.includes('diesel') || modelLower.includes('tdi') || modelLower.includes('hdi')) {
+                        motorTypes['Diesel'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('gasolina') || modelLower.includes('gsi') || modelLower.includes('mpfi')) {
+                        motorTypes['Gasolina'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('flex') || modelLower.includes('total flex')) {
+                        motorTypes['Flex'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('turbo') || modelLower.includes('tsi') || modelLower.includes('tfsi')) {
+                        motorTypes['Turbo'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('aspirado') || modelLower.includes('16v') || modelLower.includes('8v')) {
+                        motorTypes['Aspirado'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('industrial') || modelLower.includes('máquina') || modelLower.includes('trator')) {
+                        motorTypes['Industrial'].push(model);
+                        classified = true;
+                      }
+                      if (modelLower.includes('marítimo') || modelLower.includes('lancha') || modelLower.includes('barco')) {
+                        motorTypes['Marítimo'].push(model);
+                        classified = true;
+                      }
+                      
+                      if (!classified) {
+                        motorTypes['Outros'].push(model);
+                      }
+                    });
+
+                    const activeTypes = Object.entries(motorTypes).filter(([type, models]) => models.length > 0);
+                    const typeColors = {
+                      'Diesel': 'bg-red-50 text-red-700 border-red-200',
+                      'Gasolina': 'bg-green-50 text-green-700 border-green-200', 
+                      'Flex': 'bg-blue-50 text-blue-700 border-blue-200',
+                      'Turbo': 'bg-purple-50 text-purple-700 border-purple-200',
+                      'Aspirado': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                      'Industrial': 'bg-orange-50 text-orange-700 border-orange-200',
+                      'Marítimo': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+                      'Outros': 'bg-gray-50 text-gray-700 border-gray-200'
+                    };
+
+                    return activeTypes.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {activeTypes.map(([type, models]) => (
+                          <div key={type} className="text-center">
+                            <Badge 
+                              variant="outline" 
+                              className={`${typeColors[type]} text-sm font-medium w-full justify-center mb-1`}
+                            >
+                              {type}
+                            </Badge>
+                            <div className="text-xs text-gray-600">
+                              {models.length} motor{models.length !== 1 ? 'es' : ''}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center p-4 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-500 italic">
+                          Tipos de motores serão identificados conforme os modelos forem classificados
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Resumo Estatístico */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-gray-900 mb-2">Resumo dos Equipamentos</h4>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-green-600">{selectedMechanic.manufacturers.length}</div>
+                      <div className="text-xs text-gray-600">Fabricantes</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-600">{selectedMechanic.models.length}</div>
+                      <div className="text-xs text-gray-600">Modelos</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-purple-600">{selectedMechanic.orders.length}</div>
+                      <div className="text-xs text-gray-600">Serviços</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -560,9 +798,9 @@ const Mechanics = () => {
                            {order.order_date.split('T')[0].split('-').reverse().join('/')}
                          </TableCell>
                          <TableCell className="hidden sm:table-cell">
-                           <ClassifiedDefect 
+                           <SimpleDefectCard 
                              order={order}
-                             classification={classifications.find(c => c.service_order_id === order.id)}
+                             classification={order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null}
                              className="text-xs"
                            />
                          </TableCell>
@@ -572,7 +810,7 @@ const Mechanics = () => {
                            </Badge>
                          </TableCell>
                          <TableCell className="text-red-600 font-semibold text-sm">
-                           {formatCurrency(parseFloat(order.parts_total || 0) + parseFloat(order.labor_total || 0))}
+                           {formatCurrency(parseFloat(order.grand_total || 0))}
                          </TableCell>
                          <TableCell className="hidden lg:table-cell">
                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
@@ -597,26 +835,32 @@ const Mechanics = () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8 p-4 sm:p-6 lg:p-8 bg-apple-gray-50 min-h-screen">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
-          <span className="hidden sm:inline">Análise de Mecânicos</span>
-          <span className="sm:hidden">Mecânicos</span>
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Análise detalhada do desempenho e atividades dos mecânicos
-        </p>
-      </div>
+      <h1 className="text-3xl font-bold tracking-tight text-foreground">Análise de Mecânicos</h1>
       
       {/* Tabs de Análise */}
       <Tabs defaultValue="ranking" className="w-full">
         <div className="flex justify-center">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
-            <TabsTrigger value="ranking">Ranking</TabsTrigger>
-            <TabsTrigger value="analytics">Análises</TabsTrigger>
-            <TabsTrigger value="comparison">Comparativo</TabsTrigger>
+          <TabsList className="inline-flex w-auto bg-black rounded-md p-1 mb-4 sm:mb-6 h-10">
+            <TabsTrigger 
+              value="ranking"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+            >
+              Ranking
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analytics"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+            >
+              Análises
+            </TabsTrigger>
+            <TabsTrigger 
+              value="comparison"
+              className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-3 sm:px-6"
+            >
+              Comparativo
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -630,36 +874,36 @@ const Mechanics = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 
                 {/* Filtro de Data Início */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Data Início</label>
+                <div className="flex flex-col justify-end">
+                  <Label className="text-xs font-normal text-gray-500 mb-1">Data Início</Label>
                   <Input
                     type="date"
                     value={dateRange.start}
                     onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full"
+                    className="w-full h-9"
                   />
                 </div>
 
                 {/* Filtro de Data Fim */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Data Fim</label>
+                <div className="flex flex-col justify-end">
+                  <Label className="text-xs font-normal text-gray-500 mb-1">Data Fim</Label>
                   <Input
                     type="date"
                     value={dateRange.end}
                     onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full"
+                    className="w-full h-9"
                   />
                 </div>
 
                 {/* Filtro de Motor */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Motor</label>
+                <div className="flex flex-col justify-end">
+                  <Label className="text-xs font-normal text-gray-500 mb-1">Motor</Label>
                   <Select value={selectedMotor} onValueChange={setSelectedMotor}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os motores" />
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
@@ -673,44 +917,17 @@ const Mechanics = () => {
                 </div>
                 
                 {/* Busca por Mecânico */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    <span className="hidden sm:inline">Buscar Mecânico</span>
-                    <span className="sm:hidden">Buscar</span>
-                  </label>
+                <div className="flex flex-col justify-end">
+                  <Label className="text-xs font-normal text-gray-500 mb-1">Buscar Mecânico</Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       placeholder="Nome do mecânico..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-full"
+                      className="pl-10 w-full h-9"
                     />
                   </div>
-                </div>
-              </div>
-              
-              {/* Segunda linha de filtros */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                {/* Filtro de Tipo de Defeito */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    <span className="hidden lg:inline">Tipo de Defeito</span>
-                    <span className="lg:hidden">Defeito</span>
-                  </label>
-                  <Select value={selectedDefectType} onValueChange={setSelectedDefectType}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Todos os defeitos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {[...new Set(filteredMechanics.flatMap(m => m.defectTypes))].slice(0, 10).map((defect: string) => (
-                        <SelectItem key={defect} value={defect}>
-                          {defect}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 
                 {/* Botão Reset Período */}
@@ -718,16 +935,17 @@ const Mechanics = () => {
                   <Button 
                     onClick={() => {
                       const now = new Date();
+                      const year = now.getFullYear();
                       setDateRange({
-                        start: '2019-01-01',
+                        start: `${year}-01-01`,
                         end: now.toISOString().split('T')[0]
                       });
                     }}
                     variant="outline" 
-                    className="w-full"
+                    className="w-full h-9"
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    Todos os Dados
+                    Este Ano
                   </Button>
                 </div>
               </div>
@@ -737,8 +955,9 @@ const Mechanics = () => {
                 <Button 
                   onClick={() => {
                     const now = new Date();
+                    const year = now.getFullYear();
                     setDateRange({
-                      start: '2019-01-01',
+                      start: `${year}-01-01`,
                       end: now.toISOString().split('T')[0]
                     });
                     setSelectedDefectType('all');
@@ -1110,230 +1329,181 @@ const Mechanics = () => {
               </ChartCard>
             </div>
 
-                                                   {/* Gráfico de Barras Temporal de Garantias por Mecânico */}
-              <Card className="bg-white border-2 border-black shadow-md">
-                <CardHeader className="border-b border-gray-100">
-                  <CardTitle className="text-xl font-semibold text-gray-900">
-                    Garantias por Período - Mecânicos Ativos
-                  </CardTitle>
-                  <CardDescription className="text-gray-500">
-                    Apenas mecânicos com OS no período - Linha tracejada representa a média
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={(() => {
-                      // Gerar dados temporais baseados nos filtros selecionados
-                      const generateTimeData = () => {
-                        const data = [];
-                        const now = new Date();
-                        let startDate, endDate, interval;
+              {/* Timeline dos Mecânicos por Ano */}
+              <ChartCard
+                title="Timeline dos Mecânicos por Ano"
+                description={`Evolução anual dos mecânicos mais ativos ${
+                  dateRange.start && dateRange.end 
+                    ? `- Período: ${new Date(dateRange.start).getFullYear()} a ${new Date(dateRange.end).getFullYear()}` 
+                    : '- Todos os anos disponíveis'
+                }`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={(() => {
+                    // Gerar dados anuais dos mecânicos com foco no período selecionado
+                    const generateYearlyData = () => {
+                      const data = [];
+                      let startYear = 2019;
+                      let endYear = new Date().getFullYear();
+                      
+                      // 🔍 ADAPTAR PERÍODO BASEADO NO FILTRO SELECIONADO
+                      if (dateRange.start && dateRange.end) {
+                        const filterStartYear = new Date(dateRange.start).getFullYear();
+                        const filterEndYear = new Date(dateRange.end).getFullYear();
                         
-                        // Determinar período baseado no dateRange
-                        if (dateRange.start && dateRange.end) {
-                          startDate = new Date(dateRange.start);
-                          endDate = new Date(dateRange.end);
-                          
-                          // Calcular diferença em dias para determinar o intervalo
-                          const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                          
-                          if (diffDays <= 31) {
-                            // Mês ou menos - mostrar por semana
-                            interval = 'week';
-                          } else if (diffDays <= 365) {
-                            // Até 1 ano - mostrar por mês
-                            interval = 'month';
-                          } else {
-                            // Mais de 1 ano - mostrar por mês
-                            interval = 'month';
-                          }
-                        } else {
-                          // Últimos 12 meses (padrão)
-                          startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-                          endDate = now;
-                          interval = 'month';
+                        // Expandir ligeiramente o range para contexto (1 ano antes e depois se possível)
+                        startYear = Math.max(2019, filterStartYear - 1);
+                        endYear = Math.min(new Date().getFullYear(), filterEndYear + 1);
+                        
+                        // Se o período filtrado é muito específico (1-2 anos), manter exato
+                        if (filterEndYear - filterStartYear <= 1) {
+                          startYear = filterStartYear;
+                          endYear = filterEndYear;
                         }
+                      }
+                      
+                      
+                      // Para cada ano no período adaptado
+                      for (let year = startYear; year <= endYear; year++) {
+                        const yearData: any = {
+                          year: year.toString(),
+                          total: 0
+                        };
                         
-                        const current = new Date(startDate);
-                        const activeMechanics: string[] = [];
-                        
-                        while (current <= endDate) {
-                          const timePoint: any = {
-                            date: interval === 'week' 
-                              ? `Semana ${Math.ceil((current.getDate() + current.getDay()) / 7)}`
-                              : current.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-                            fullDate: new Date(current),
-                            total: 0
-                          };
+                        // Para os top 5 mecânicos mais ativos
+                        filteredMechanics.slice(0, 5).forEach((mechanic: any) => {
+                          let yearlyWarranties = 0;
                           
-                          // Adicionar dados reais baseados nas ordens de serviço
-                          filteredMechanics.slice(0, 8).forEach((mechanic: any) => {
-                            let warrantyCount = 0;
-                            
-                            // Contar ordens reais do mecânico no período atual
-                            if (mechanic.orders) {
-                              warrantyCount = mechanic.orders.filter((order: any) => {
-                                if (!order.order_date) return false;
-                                const orderDate = new Date(order.order_date);
-                                
-                                if (interval === 'week') {
-                                  // Para semanas, calcular se a data está na semana atual
-                                  const weekStart = new Date(current);
-                                  const weekEnd = new Date(current);
-                                  weekEnd.setDate(weekEnd.getDate() + 6);
-                                  return orderDate >= weekStart && orderDate <= weekEnd;
-                                } else {
-                                  // Para meses, verificar se é o mesmo mês/ano
-                                  return orderDate.getMonth() === current.getMonth() && 
-                                         orderDate.getFullYear() === current.getFullYear();
-                                }
-                              }).length;
-                            }
-                            
-                            // Só adicionar se teve garantias no período
-                            if (warrantyCount > 0) {
-                              timePoint[mechanic.name] = warrantyCount;
-                              timePoint.total += warrantyCount;
-                              if (!activeMechanics.includes(mechanic.name)) {
-                                activeMechanics.push(mechanic.name);
-                              }
-                            }
-                          });
-                          
-                          // Calcular média para o período
-                          const activeCount = Object.keys(timePoint).filter(key => 
-                            key !== 'date' && key !== 'fullDate' && key !== 'total'
-                          ).length;
-                          timePoint.average = activeCount > 0 ? Math.round(timePoint.total / activeCount) : 0;
-                          
-                          data.push(timePoint);
-                          
-                          if (interval === 'week') {
-                            current.setDate(current.getDate() + 7);
-                          } else {
-                            current.setMonth(current.getMonth() + 1);
+                          // Contar garantias do mecânico neste ano
+                          if (mechanic.orders) {
+                            yearlyWarranties = mechanic.orders.filter((order: any) => {
+                              if (!order.order_date) return false;
+                              const orderYear = new Date(order.order_date).getFullYear();
+                              return orderYear === year;
+                            }).length;
                           }
-                        }
+                          
+                          yearData[mechanic.name] = yearlyWarranties;
+                          yearData.total += yearlyWarranties;
+                        });
                         
-                        return data;
-                      };
+                        data.push(yearData);
+                      }
                       
-                      return generateTimeData();
-                    })()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis 
-                        dataKey="date" 
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12, fill: '#6B7280' }}
-                        label={{ value: 'Quantidade de Garantias', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-                      />
-                      <Tooltip 
-                        formatter={(value: any, name: string) => [
-                          name === 'average' ? `${value} (média)` : value, 
-                          name === 'average' ? 'Média' : name
-                        ]}
-                        labelFormatter={(label) => `Período: ${label}`}
-                        labelStyle={{ color: '#374151' }}
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #E5E7EB',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
+                      return data;
+                    };
+                    
+                    return generateYearlyData();
+                  })()} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="year" 
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                      label={{ value: 'Garantias', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                    />
+                    <Tooltip 
+                      formatter={(value: any, name: string) => [
+                        `${value} garantias`,
+                        name === 'total' ? 'Total Geral' : name
+                      ]}
+                      labelFormatter={(label) => `Ano: ${label}`}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                    
+                    {/* Linha para cada mecânico (Top 5) */}
+                    {filteredMechanics.slice(0, 5).map((mechanic: any, index: number) => {
+                      const colors = [
+                        '#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6'
+                      ];
                       
-                      {/* Barras para cada mecânico ativo */}
-                      {filteredMechanics.slice(0, 8).map((mechanic: any, index: number) => {
-                        const colors = [
-                          '#EF4444', '#F97316', '#EAB308', '#22C55E', 
-                          '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4'
-                        ];
-                        
-                        return (
-                          <Bar
-                            key={mechanic.name}
-                            dataKey={mechanic.name}
-                            fill={colors[index % colors.length]}
-                            radius={[4, 4, 0, 0]}
-                            stackId="a"
-                          />
-                        );
-                      })}
-                      
-                      {/* Linha tracejada da média */}
-                      <Line
-                        type="monotone"
-                        dataKey="average"
-                        stroke="#374151"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={{ fill: '#374151', strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: '#374151', strokeWidth: 2 }}
-                        name="Média"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  
-                  {/* Legenda dos Mecânicos Ativos */}
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Mecânicos com Atividade no Período:</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {filteredMechanics.slice(0, 8).map((mechanic: any, index: number) => {
-                        const colors = [
-                          '#EF4444', '#F97316', '#EAB308', '#22C55E', 
-                          '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4'
-                        ];
-                        
-                        return (
-                          <div key={mechanic.name} className="flex items-center gap-2 text-sm">
-                            <div 
-                              className="w-3 h-3 rounded flex-shrink-0"
-                              style={{ backgroundColor: colors[index % colors.length] }}
-                            />
-                            <span className="truncate" title={mechanic.name}>
-                              {mechanic.name}
-                            </span>
-                            <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700 border-gray-200">
-                              {mechanic.totalWarranties}
-                            </Badge>
-                          </div>
-                        );
-                      })}
+                      return (
+                        <Line
+                          key={mechanic.name}
+                          type="monotone"
+                          dataKey={mechanic.name}
+                          stroke={colors[index]}
+                          strokeWidth={3}
+                          dot={{ fill: colors[index], strokeWidth: 2, r: 5 }}
+                          activeDot={{ r: 7, stroke: colors[index], strokeWidth: 2 }}
+                          name={mechanic.name}
+                        />
+                      );
+                    })}
+                    
+                    {/* Linha total em cinza tracejado */}
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      stroke="#6B7280"
+                      strokeWidth={2}
+                      strokeDasharray="8 8"
+                      dot={{ fill: '#6B7280', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#6B7280', strokeWidth: 2 }}
+                      name="Total Geral"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                
+                {/* Informações do Período com Zoom Aplicado */}
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900 mb-1 flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        Visualização Adaptada
+                      </h4>
+                      <p className="text-sm text-blue-700">
+                        {(() => {
+                          if (!dateRange.start || !dateRange.end) {
+                            return "Exibindo todos os anos disponíveis (2019-2025)";
+                          }
+                          
+                          const filterStartYear = new Date(dateRange.start).getFullYear();
+                          const filterEndYear = new Date(dateRange.end).getFullYear();
+                          const yearSpan = filterEndYear - filterStartYear + 1;
+                          
+                          if (yearSpan === 1) {
+                            return `🔍 Zoom aplicado: Focando apenas no ano ${filterStartYear}`;
+                          } else if (yearSpan <= 2) {
+                            return `🔍 Zoom aplicado: Focando no período ${filterStartYear}-${filterEndYear}`;
+                          } else {
+                            return `📊 Período ampliado: ${filterStartYear}-${filterEndYear} com contexto adicional`;
+                          }
+                        })()}
+                      </p>
                     </div>
-                  </div>
-                  
-                  {/* Informações do Período */}
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          Período Analisado:
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {dateRange.start && dateRange.end
-                            ? `${dateRange.start.split('T')[0].split('-').reverse().join('/')} - ${dateRange.end.split('T')[0].split('-').reverse().join('/')}`
-                            : 'Período atual'
-                          }
-                        </p>
+                    
+                    <div className="flex flex-col items-end">
+                      <div className="text-sm font-medium text-blue-900">
+                        Mecânicos Ativos:
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          Mecânicos Ativos:
-                        </p>
-                        <p className="text-sm text-blue-600 font-semibold">
-                          {filteredMechanics.slice(0, 8).length} de {(mechanicsData?.mechanicsStats || []).length}
-                        </p>
+                      <div className="flex items-center gap-2 text-sm text-blue-700">
+                        <span className="font-semibold">{filteredMechanics.slice(0, 5).length}</span>
+                        <span>de</span>
+                        <span>{filteredMechanics.length} total</span>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  {/* Dica Visual */}
+                  {dateRange.start && dateRange.end && (
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        💡 Dica: O gráfico se adapta automaticamente ao período selecionado nos filtros para melhor visualização
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </ChartCard>
           </TabsContent>
         </Tabs>
       
@@ -1347,7 +1517,7 @@ const Mechanics = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">
-                  Defeitos - {showDefectsModal.mechanic}
+                  Defeitos Classificados por IA - {showDefectsModal.mechanic}
                 </h2>
                 <Button
                   variant="outline"
@@ -1363,16 +1533,21 @@ const Mechanics = () => {
                   <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-200">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-900">{defect}</span>
-                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs">
-                        #{index + 1}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                          IA
+                        </Badge>
+                        <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs">
+                          #{index + 1}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
               
               <div className="mt-4 text-center text-sm text-gray-500">
-                Total: {showDefectsModal.defects.length} tipos de defeitos
+                Total: {showDefectsModal.defects.length} tipos de defeitos classificados por IA
               </div>
             </div>
           </div>

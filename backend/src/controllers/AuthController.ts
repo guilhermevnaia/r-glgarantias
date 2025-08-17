@@ -366,4 +366,171 @@ export class AuthController {
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
       .withMessage('Nova senha deve conter: 8+ caracteres, maiúscula, minúscula, número e símbolo')
   ];
+
+  /**
+   * CHECK FIRST LOGIN - Verificar se usuário precisa definir senha
+   */
+  async checkFirstLogin(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email é obrigatório'
+        });
+      }
+
+      // Buscar usuário
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, email, name, login_count, is_active')
+        .eq('email', email.toLowerCase())
+        .eq('is_active', true)
+        .single();
+
+      if (error || !user) {
+        return res.status(404).json({
+          success: false,
+          error: 'Usuário não encontrado',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          requiresPasswordSetup: (user.login_count || 0) === 0, // Primeiro acesso se nunca fez login
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Erro ao verificar primeiro login:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  }
+
+  /**
+   * SET FIRST PASSWORD - Definir primeira senha do usuário
+   */
+  async setFirstPassword(req: Request, res: Response) {
+    try {
+      const { email, password } = req.body;
+
+      // Validações básicas
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email e senha são obrigatórios'
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: 'Senha deve ter pelo menos 6 caracteres'
+        });
+      }
+
+      // Buscar usuário
+      const { data: user, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .eq('is_active', true)
+        .single();
+
+      if (fetchError || !user) {
+        return res.status(400).json({
+          success: false,
+          error: 'Usuário não encontrado'
+        });
+      }
+
+      // Verificar se é primeiro acesso (login_count = 0)
+      if ((user.login_count || 0) !== 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Usuário já possui senha definida'
+        });
+      }
+
+      // Criptografar senha
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      // Atualizar usuário
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({
+          password_hash: passwordHash,
+          updated_at: new Date().toISOString(),
+          last_login: new Date().toISOString(),
+          login_count: 1
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Erro ao definir primeira senha:', updateError);
+        return res.status(500).json({
+          success: false,
+          error: 'Erro ao definir senha'
+        });
+      }
+
+      // Gerar JWT para login automático
+      const token = jwt.sign(
+        { 
+          userId: user.id, 
+          email: user.email, 
+          role: user.role 
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
+      );
+
+      res.json({
+        success: true,
+        message: 'Senha definida com sucesso. Login realizado automaticamente.',
+        data: {
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            permissions: user.permissions || [],
+            last_login: new Date().toISOString()
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Erro ao definir primeira senha:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor'
+      });
+    }
+  }
+
+  static setFirstPasswordValidation = [
+    body('email')
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Email inválido'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('Senha deve ter pelo menos 6 caracteres')
+  ];
 }

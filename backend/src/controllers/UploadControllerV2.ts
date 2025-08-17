@@ -4,7 +4,7 @@ import EditProtectionService from '../services/EditProtectionService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
-import { GroqAIService } from '../services/GroqAIService';
+import { SimpleAIService } from '../services/SimpleAIService';
 
 dotenv.config();
 
@@ -15,12 +15,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 class UploadControllerV2 {
   private pythonService: PythonExcelService;
   private editProtectionService: EditProtectionService;
-  private aiService: GroqAIService;
+  private aiService: SimpleAIService;
 
   constructor() {
     this.pythonService = new PythonExcelService();
     this.editProtectionService = new EditProtectionService();
-    this.aiService = GroqAIService.getInstance();
+    this.aiService = SimpleAIService.getInstance();
   }
 
   /**
@@ -471,20 +471,31 @@ class UploadControllerV2 {
     try {
       console.log('🤖 Buscando defeitos não classificados...');
       
+      // Primeiro, buscar IDs já classificados
+      const { data: classifiedIds } = await supabase
+        .from('defect_classifications')
+        .select('service_order_id');
+
+      const classifiedSet = new Set((classifiedIds || []).map(c => c.service_order_id));
+      
       // Buscar OS que ainda não foram classificadas
-      const { data: unclassifiedOrders, error } = await supabase
+      const { data: allOrders, error } = await supabase
         .from('service_orders')
         .select('id, raw_defect_description')
         .not('raw_defect_description', 'is', null)
         .not('raw_defect_description', 'eq', '')
-        .not('id', 'in', `(SELECT service_order_id FROM defect_classifications WHERE service_order_id IS NOT NULL)`)
         .order('created_at', { ascending: false })
-        .limit(50); // Processar até 50 por vez para não sobrecarregar
+        .limit(200); // Buscar mais para filtrar depois
 
       if (error) {
-        console.error('❌ Erro ao buscar ordens não classificadas:', error);
+        console.error('❌ Erro ao buscar ordens:', error);
         return;
       }
+
+      // Filtrar apenas os não classificados
+      const unclassifiedOrders = (allOrders || [])
+        .filter(order => !classifiedSet.has(order.id))
+        .slice(0, 50); // Limitar a 50 para processamento
 
       if (!unclassifiedOrders || unclassifiedOrders.length === 0) {
         console.log('✅ Nenhum defeito novo para classificar');

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3009';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3008';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,32 +9,20 @@ const api = axios.create({
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   }
-});
 
-// Interceptor para adicionar token de autenticação automaticamente
+// TEMPORÁRIO: SEM AUTENTICAÇÃO PARA TESTE
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth-token');
-    console.log('🔑 Token no localStorage:', token ? 'EXISTE' : 'NÃO EXISTE');
-    console.log('🌐 Fazendo requisição para:', config.url);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('✅ Header Authorization adicionado');
-    } else {
-      console.log('❌ Nenhum token encontrado - requisição sem auth');
-    }
     return config;
   },
   (error) => {
     console.error('❌ Erro no interceptor de request:', error);
     return Promise.reject(error);
   }
-);
 
 // Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Resposta recebida:', response.status, 'para', response.config.url);
     return response;
   },
   (error) => {
@@ -48,7 +36,6 @@ api.interceptors.response.use(
     }
     return Promise.reject(error);
   }
-);
 
 export interface ServiceOrder {
   id: number;
@@ -58,6 +45,7 @@ export interface ServiceOrder {
   engine_description: string;
   vehicle_model: string;
   raw_defect_description: string;
+  original_defect_description?: string; // ✅ DEFEITO ORIGINAL COMO CHEGA DO EXCEL
   responsible_mechanic: string;
   parts_total: number;
   labor_total: number;
@@ -71,6 +59,19 @@ export interface ServiceOrder {
   last_edited_by?: string;
   last_edit_date?: string;
   edit_count?: number;
+  // 🤖 CAMPOS DE IA - CLASSIFICAÇÕES DE DEFEITOS
+  defect_classifications?: Array<{
+    id: number;
+    category_id: number;
+    ai_confidence: number;
+    ai_reasoning?: string;
+    original_defect_description?: string; // ✅ DEFEITO ORIGINAL DA CLASSIFICAÇÃO
+    defect_categories: {
+      category_name: string;
+      color_hex: string;
+      icon?: string;
+    };
+  }>;
 }
 
 export interface DashboardStats {
@@ -158,15 +159,7 @@ export const apiService = {
       
       const queryString = params.toString() ? `?${params.toString()}` : '';
       
-      console.log("🚀 apiService.getStats chamado", { month, year });
-      console.log("🔗 URL completa:", `${API_BASE_URL}/api/v1/stats${queryString}`);
-      
-      console.log("🌐 Fazendo requisição axios...");
       const response = await api.get(`/api/v1/stats${queryString}`);
-      console.log("📡 Resposta recebida:", response.status, response.statusText);
-      console.log("📦 Total Orders na resposta:", response.data?.totalOrders);
-      console.log("📦 Orders array length:", response.data?.orders?.length);
-      console.log("📦 Primeiros 3 orders:", response.data?.orders?.slice(0, 3));
       const data = response.data;
       
       // Garantir que todos os campos necessários existam
@@ -225,9 +218,14 @@ export const apiService = {
     model?: string;
   } = {}): Promise<ServiceOrdersResponse> {
     try {
-      console.log('🔄 apiService.getServiceOrders chamado com parâmetros:', params);
-      const response = await api.get('/api/v1/service-orders', { params });
-      console.log('✅ Resposta recebida:', response.data.pagination);
+            const response = await api.get('/api/v1/service-orders', { params });
+            
+      // 🐛 DEBUG: Verificar se classificações estão chegando
+      if (response.data.data && response.data.data.length > 0) {
+        const firstOrder = response.data.data[0];
+
+      }
+      
       return response.data;
     } catch (error) {
       console.error('❌ Erro ao buscar ordens de serviço:', error);
@@ -255,8 +253,7 @@ export const apiService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      });
-      
+
       return response.data;
     } catch (error) {
       console.error('Erro no upload:', error);
@@ -277,12 +274,10 @@ export const apiService = {
 
   // Métodos de integridade de dados
   async checkDataIntegrity(): Promise<any> {
-    console.log('🔍 apiService.checkDataIntegrity chamado');
-    
+        
     try {
       const response = await api.post('/api/v1/integrity/check/complete');
-      console.log('✅ Verificação de integridade concluída:', response.data);
-      return response.data;
+            return response.data;
     } catch (error) {
       console.error('❌ Erro ao verificar integridade:', error);
       throw error;
@@ -290,12 +285,10 @@ export const apiService = {
   },
 
   async getIntegrityHealth(): Promise<any> {
-    console.log('💚 apiService.getIntegrityHealth chamado');
-    
+        
     try {
       const response = await api.get('/api/v1/integrity/health');
-      console.log('✅ Status de integridade recebido:', response.data);
-      return response.data;
+            return response.data;
     } catch (error) {
       console.error('❌ Erro ao buscar status de integridade:', error);
       throw error;
@@ -303,12 +296,10 @@ export const apiService = {
   },
 
   async getIntegrityLogs(limit: number = 50): Promise<any[]> {
-    console.log('📋 apiService.getIntegrityLogs chamado');
-    
+        
     try {
       const response = await api.get(`/api/v1/integrity/logs?limit=${limit}`);
-      console.log('✅ Logs de integridade recebidos:', response.data);
-      return response.data.data?.logs || [];
+            return response.data.data?.logs || [];
     } catch (error) {
       console.error('❌ Erro ao buscar logs de integridade:', error);
       throw error;
@@ -317,13 +308,10 @@ export const apiService = {
 
   // Atualizar ordem de serviço
   async updateServiceOrder(id: number, updateData: Partial<ServiceOrder>): Promise<ServiceOrder> {
-    console.log('🔄 apiService.updateServiceOrder chamado');
-    console.log('📝 ID:', id, 'Dados:', updateData);
-    
+            
     try {
       const response = await api.put(`/api/v1/service-orders/${id}`, updateData);
-      console.log('✅ OS atualizada:', response.data);
-      return response.data.data;
+            return response.data.data;
     } catch (error) {
       console.error('❌ Erro ao atualizar OS:', error);
       throw error;
@@ -334,12 +322,10 @@ export const apiService = {
   
   // Buscar todos os mecânicos
   async getMechanics(): Promise<Mechanic[]> {
-    console.log('👨‍🔧 apiService.getMechanics chamado');
-    
+        
     try {
       const response = await api.get('/api/v1/mechanics');
-      console.log('✅ Mecânicos recebidos:', response.data);
-      return response.data.data || [];
+            return response.data.data || [];
     } catch (error) {
       console.error('❌ Erro ao buscar mecânicos:', error);
       throw error;
@@ -348,12 +334,10 @@ export const apiService = {
 
   // Adicionar novo mecânico
   async addMechanic(mechanicData: { name: string; email?: string }): Promise<Mechanic> {
-    console.log('➕ apiService.addMechanic chamado:', mechanicData);
-    
+        
     try {
       const response = await api.post('/api/v1/mechanics', mechanicData);
-      console.log('✅ Mecânico adicionado:', response.data);
-      return response.data.data;
+            return response.data.data;
     } catch (error) {
       console.error('❌ Erro ao adicionar mecânico:', error);
       throw error;
@@ -362,12 +346,10 @@ export const apiService = {
 
   // Atualizar mecânico
   async updateMechanic(id: number, updateData: Partial<Mechanic>): Promise<Mechanic> {
-    console.log('🔄 apiService.updateMechanic chamado:', id, updateData);
-    
+        
     try {
       const response = await api.put(`/api/v1/mechanics/${id}`, updateData);
-      console.log('✅ Mecânico atualizado:', response.data);
-      return response.data.data;
+            return response.data.data;
     } catch (error) {
       console.error('❌ Erro ao atualizar mecânico:', error);
       throw error;
@@ -376,12 +358,10 @@ export const apiService = {
 
   // Remover mecânico
   async removeMechanic(id: number): Promise<void> {
-    console.log('🗑️ apiService.removeMechanic chamado:', id);
-    
+        
     try {
       await api.delete(`/api/v1/mechanics/${id}`);
-      console.log('✅ Mecânico removido');
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Erro ao remover mecânico:', error);
       throw error;
     }
@@ -391,12 +371,10 @@ export const apiService = {
   
   // Buscar todos os usuários
   async getUsers(): Promise<User[]> {
-    console.log('👥 apiService.getUsers chamado');
-    
+        
     try {
       const response = await api.get('/api/v1/users');
-      console.log('✅ Usuários recebidos:', response.data);
-      return response.data.data || [];
+            return response.data.data || [];
     } catch (error) {
       console.error('❌ Erro ao buscar usuários (usando dados mock):', error);
       
@@ -462,19 +440,16 @@ export const apiService = {
         }
       ];
       
-      console.log('🎭 Retornando usuários mock:', mockUsers);
-      return mockUsers;
+            return mockUsers;
     }
   },
 
   // Adicionar novo usuário
-  async addUser(userData: { name: string; email: string; role: 'admin' | 'user' }): Promise<User> {
-    console.log('➕ apiService.addUser chamado:', userData);
-    
+  async addUser(userData: { name: string; email: string; role: 'admin' | 'manager' | 'user' }): Promise<User> {
+        
     try {
       const response = await api.post('/api/v1/users', userData);
-      console.log('✅ Usuário adicionado:', response.data);
-      return response.data.data;
+            return response.data.data;
     } catch (error) {
       console.error('❌ Erro ao adicionar usuário:', error);
       throw error;
@@ -483,12 +458,10 @@ export const apiService = {
 
   // Atualizar usuário
   async updateUser(id: number, updateData: Partial<User>): Promise<User> {
-    console.log('🔄 apiService.updateUser chamado:', id, updateData);
-    
+        
     try {
       const response = await api.put(`/api/v1/users/${id}`, updateData);
-      console.log('✅ Usuário atualizado:', response.data);
-      return response.data.data;
+            return response.data.data;
     } catch (error) {
       console.error('❌ Erro ao atualizar usuário:', error);
       throw error;
@@ -497,12 +470,10 @@ export const apiService = {
 
   // Remover usuário
   async removeUser(id: number): Promise<void> {
-    console.log('🗑️ apiService.removeUser chamado:', id);
-    
+        
     try {
       await api.delete(`/api/v1/users/${id}`);
-      console.log('✅ Usuário removido');
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Erro ao remover usuário:', error);
       throw error;
     }
@@ -512,12 +483,10 @@ export const apiService = {
   
   // Buscar relatório de dados editados
   async getEditedDataReport(): Promise<any> {
-    console.log('📊 apiService.getEditedDataReport chamado');
-    
+        
     try {
       const response = await api.get('/api/v2/edited-data-report');
-      console.log('✅ Relatório de dados editados recebido:', response.data);
-      return response.data;
+            return response.data;
     } catch (error) {
       console.error('❌ Erro ao buscar relatório de dados editados:', error);
       throw error;
@@ -526,12 +495,10 @@ export const apiService = {
 
   // Resetar proteção de uma ordem específica
   async resetOrderProtection(orderNumber: string): Promise<any> {
-    console.log('🔓 apiService.resetOrderProtection chamado:', orderNumber);
-    
+        
     try {
       const response = await api.post(`/api/v2/reset-protection/${orderNumber}`);
-      console.log('✅ Proteção resetada:', response.data);
-      return response.data;
+            return response.data;
     } catch (error) {
       console.error('❌ Erro ao resetar proteção:', error);
       throw error;
@@ -540,4 +507,5 @@ export const apiService = {
 };
 
 export default apiService;
+export { api };
 

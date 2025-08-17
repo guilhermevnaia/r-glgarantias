@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { CleanDataProcessor } from '../services/CleanDataProcessor';
+import { SimpleAIService } from '../services/SimpleAIService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,9 +13,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 class UploadController {
   private processor: CleanDataProcessor;
+  private aiService: SimpleAIService;
 
   constructor() {
     this.processor = new CleanDataProcessor();
+    this.aiService = SimpleAIService.getInstance();
   }
 
   async uploadExcel(req: Request, res: Response): Promise<void> {
@@ -128,9 +131,36 @@ class UploadController {
         console.log(`   Novos registros inseridos: ${insertedCount}`);
         console.log(`   Erros: ${errorCount}`);
         console.log(`   Total esperado no banco: ${skippedCount + insertedCount}`);
+
+        // 5. CLASSIFICAR AUTOMATICAMENTE COM IA (NOVOS REGISTROS)
+        if (insertedCount > 0) {
+          console.log(`🤖 Iniciando classificação automática de ${insertedCount} novos registros...`);
+          try {
+            // Usar EnhancedLocalAI para maior confiabilidade
+            // Usar SimpleAIService como fallback
+            const fallbackAI = this.aiService;
+            
+            // Executar em background para não travar o upload (apenas novos defeitos)
+            fallbackAI.classifyUnclassifiedDefects().then(() => {
+              console.log(`✅ Classificação automática de novos registros concluída com sucesso`);
+            }).catch((error: any) => {
+              console.error('❌ Erro na classificação automática pós-upload:', error);
+            });
+            
+            console.log(`✅ Classificação automática iniciada em background (EnhancedLocalAI)`);
+          } catch (aiError) {
+            console.error('❌ Erro ao iniciar classificação automática:', aiError);
+          }
+        }
       }
 
-      // 4. REGISTRAR LOG
+      // 6. AGUARDAR TEMPO PARA CLASSIFICAÇÃO INICIAR
+      if (insertedCount > 0) {
+        console.log('⏳ Aguardando 2 segundos para classificação iniciar...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      // 7. REGISTRAR LOG
       const processingTime = Date.now() - startTime;
       const summary = {
         fileName: req.file.originalname,

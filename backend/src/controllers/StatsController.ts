@@ -223,6 +223,47 @@ export class StatsController {
           return yearA - yearB || monthA - monthB;
         });
 
+      // Buscar classificações para as ordens que serão retornadas
+      const ordersToReturn = orders.slice(0, 50);
+      const orderIds = ordersToReturn.map(order => order.id);
+      
+      // Buscar classificações para esses IDs
+      const { data: classifications } = await supabase
+        .from('defect_classifications')
+        .select(`
+          service_order_id,
+          id,
+          category_id,
+          ai_confidence,
+          ai_reasoning,
+          is_reviewed,
+          defect_categories (
+            category_name,
+            color_hex,
+            icon
+          )
+        `)
+        .in('service_order_id', orderIds);
+      
+      // Mapear classificações por service_order_id
+      const classificationsMap = new Map();
+      if (classifications) {
+        classifications.forEach(classification => {
+          if (!classificationsMap.has(classification.service_order_id)) {
+            classificationsMap.set(classification.service_order_id, []);
+          }
+          classificationsMap.get(classification.service_order_id).push(classification);
+        });
+      }
+      
+      // Adicionar classificações aos dados das ordens
+      const ordersWithClassifications = ordersToReturn.map(order => ({
+        ...order,
+        defect_classifications: classificationsMap.get(order.id) || []
+      }));
+      
+      console.log(`🤖 Adicionadas classificações para ${classificationsMap.size} ordens de ${ordersToReturn.length}`);
+
       const stats = {
         totalOrders: orders.length,
         statusDistribution,
@@ -237,7 +278,7 @@ export class StatsController {
         monthlyTrend,
         mechanicsCount: uniqueMechanics.size,
         defectsCount: uniqueDefects.size,
-        orders: orders.slice(0, 50)
+        orders: ordersWithClassifications
       };
 
       console.log(`✅ Estatísticas calculadas: ${stats.totalOrders} ordens`);
@@ -269,11 +310,27 @@ export class StatsController {
         page, limit, search, status, month, year, manufacturer, mechanic, model 
       });
 
-      // Construir query com filtros
+      // Construir query com filtros INCLUINDO CLASSIFICAÇÕES DE IA
+      console.log('🔍 Construindo query com classificações...');
       let query = supabase
         .from('service_orders')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          defect_classifications (
+            id,
+            category_id,
+            ai_confidence,
+            ai_reasoning,
+            defect_categories (
+              category_name,
+              color_hex,
+              icon
+            )
+          )
+        `, { count: 'exact' })
         .order('order_date', { ascending: false });
+      
+      console.log('✅ Query construída com sucesso');
 
       // Aplicar filtros de data
       if (year) {
@@ -366,6 +423,7 @@ export class StatsController {
       }
 
       // Buscar contagem e dados em paralelo
+      console.log('🚀 Executando queries em paralelo...');
       const [countResult, dataResult] = await Promise.all([
         countQuery,
         query.range(offset, offset + limit - 1)
@@ -378,11 +436,30 @@ export class StatsController {
 
       if (dataResult.error) {
         console.error('❌ Erro ao buscar ordens:', dataResult.error);
+        console.error('   Detalhes do erro:', dataResult.error.details);
+        console.error('   Código:', dataResult.error.code);
         return res.status(500).json({ error: 'Erro ao buscar ordens' });
       }
 
+      console.log('✅ Queries executadas com sucesso');
       const filteredCount = countResult.count || 0;
       const orders = dataResult.data;
+      
+      console.log('📊 Resultado da query de dados:', {
+        ordersLength: orders?.length,
+        firstOrderKeys: orders?.[0] ? Object.keys(orders[0]) : 'nenhum',
+        firstOrderHasClassifications: orders?.[0] ? !!orders[0].defect_classifications : false
+      });
+
+      // 🐛 DEBUG: Verificar se classificações estão sendo enviadas
+      if (orders && orders.length > 0) {
+        console.log('🔍 PRIMEIRO REGISTRO NO CONTROLLER:', {
+          orderNumber: orders[0].order_number,
+          hasDefectClassifications: !!orders[0].defect_classifications,
+          classificationsLength: orders[0].defect_classifications?.length,
+          allKeys: Object.keys(orders[0])
+        });
+      }
 
       const totalCount = filteredCount || 0;
       const totalPages = Math.ceil(totalCount / limit);

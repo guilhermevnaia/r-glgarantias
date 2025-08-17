@@ -249,9 +249,33 @@ export class SettingsController {
           {
             id: 1,
             name: 'Admin Master',
-            email: 'admin@company.com',
+            email: 'admin@glgarantias.com',
             role: 'admin',
+            permissions: ['*'],
             is_active: true,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z'
+          },
+          {
+            id: 2,
+            name: 'Gerente',
+            email: 'manager@glgarantias.com',
+            role: 'manager',
+            permissions: ['view_dashboard', 'view_reports', 'manage_service_orders', 'manage_mechanics', 'export_data'],
+            is_active: true,
+            email_verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z'
+          },
+          {
+            id: 3,
+            name: 'Usuário',
+            email: 'user@glgarantias.com',
+            role: 'user',
+            permissions: ['view_dashboard', 'view_reports', 'view_service_orders'],
+            is_active: true,
+            email_verified: true,
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z'
           }
@@ -293,8 +317,8 @@ export class SettingsController {
         return res.status(400).json({ error: 'Email do usuário é obrigatório' });
       }
 
-      if (!role || !['admin', 'user'].includes(role)) {
-        return res.status(400).json({ error: 'Função deve ser admin ou user' });
+      if (!role || !['admin', 'user', 'manager'].includes(role)) {
+        return res.status(400).json({ error: 'Função deve ser admin, manager ou user' });
       }
 
       // Verificar se o email já existe
@@ -308,18 +332,20 @@ export class SettingsController {
         return res.status(400).json({ error: 'Usuário com este email já existe' });
       }
 
-      // Criar usuário com senha padrão
-      const bcrypt = require('bcryptjs');
-      const saltRounds = 12;
-      const defaultPassword = '123456'; // Senha padrão
-      const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
-
+      // Criar usuário com senha temporária (será alterada no primeiro login)
       const userData = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        password_hash: passwordHash,
+        password_hash: '$2b$12$temporary.hash.for.first.login', // Hash temporário
         role: role,
+        permissions: role === 'admin' 
+          ? ['*'] 
+          : role === 'manager'
+            ? ['view_dashboard', 'view_reports', 'manage_service_orders', 'manage_mechanics', 'export_data']
+            : ['view_dashboard', 'view_reports', 'view_service_orders'],
         is_active: true,
+        email_verified: false,
+        login_count: 0, // Para indicar que é primeiro acesso
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -332,13 +358,21 @@ export class SettingsController {
 
       if (error) {
         console.error('❌ Erro ao criar usuário:', error);
-        return res.status(500).json({ error: 'Erro ao criar usuário' });
+        
+        // Se a tabela não existir, retornar erro específico
+        if (error.code === 'PGRST116') {
+          return res.status(500).json({ 
+            error: 'Tabela de usuários não existe. Execute o script de setup do banco de dados.' 
+          });
+        }
+        
+        return res.status(500).json({ error: 'Erro ao criar usuário no banco de dados' });
       }
 
       console.log('✅ Usuário criado:', newUser);
       res.status(201).json({
         success: true,
-        message: 'Usuário adicionado com sucesso (senha padrão: 123456)',
+        message: 'Usuário adicionado com sucesso. O usuário deve definir sua senha no primeiro acesso.',
         data: newUser
       });
 
@@ -378,10 +412,19 @@ export class SettingsController {
       }
 
       if (updateData.role !== undefined) {
-        if (!['admin', 'user'].includes(updateData.role)) {
-          return res.status(400).json({ error: 'Função deve ser admin ou user' });
+        if (!['admin', 'user', 'manager'].includes(updateData.role)) {
+          return res.status(400).json({ error: 'Função deve ser admin, manager ou user' });
         }
         processedData.role = updateData.role;
+        
+        // Atualizar permissões baseado no role
+        if (updateData.role === 'admin') {
+          processedData.permissions = ['*'];
+        } else if (updateData.role === 'manager') {
+          processedData.permissions = ['view_dashboard', 'view_reports', 'manage_service_orders', 'manage_mechanics', 'export_data'];
+        } else {
+          processedData.permissions = ['view_dashboard', 'view_reports', 'view_service_orders'];
+        }
       }
 
       if (updateData.is_active !== undefined) {
@@ -397,7 +440,12 @@ export class SettingsController {
         .eq('id', id)
         .single();
 
-      if (fetchError || !existingUser) {
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Tabela não existe, retornar erro específico
+        return res.status(500).json({ 
+          error: 'Tabela de usuários não existe. Execute o script de setup do banco de dados.' 
+        });
+      } else if (fetchError || !existingUser) {
         return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 
@@ -445,7 +493,12 @@ export class SettingsController {
         .eq('id', id)
         .single();
 
-      if (fetchError || !existingUser) {
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // Tabela não existe, retornar erro específico
+        return res.status(500).json({ 
+          error: 'Tabela de usuários não existe. Execute o script de setup do banco de dados.' 
+        });
+      } else if (fetchError || !existingUser) {
         return res.status(404).json({ error: 'Usuário não encontrado' });
       }
 

@@ -31,7 +31,7 @@ import { DashboardStats } from "@/services/api";
 import { useDashboardStats } from "@/hooks/useGlobalData";
 import { exportToExcel, formatServiceOrdersForExport } from '@/utils/exportExcel';
 import { useAI } from '@/hooks/useAI';
-import { ClassifiedDefectText } from '@/components/ClassifiedDefect';
+import { SimpleDefectCard } from '@/components/SimpleDefectCard';
 import { 
   BarChart, 
   Bar, 
@@ -86,12 +86,7 @@ const Dashboard = () => {
   // Dados sempre todos os períodos (sem filtro para tendências)
   const { data: yearTrendStats } = useDashboardStats();
 
-  console.log("📊 Dashboard usando dados sincronizados:", { 
-    loading, 
-    stats: !!stats,
-    filters: { month: selectedMonth, year: selectedYear }
-  });
-
+  
   // 📅 FUNÇÕES DOS FILTROS - ANOS DE 2019 ATÉ ATUAL
   const currentYear = new Date().getFullYear();
   const startYear = 2019;
@@ -117,14 +112,28 @@ const Dashboard = () => {
     setSelectedYear(null);
   };
 
+  // Função para formatar o título da tabela baseado nos filtros
+  const getTableTitle = () => {
+    if (selectedMonth && selectedYear) {
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label;
+      return `Ordens de Serviço - ${monthLabel} de ${selectedYear}`;
+    } else if (selectedYear) {
+      return `Ordens de Serviço - ${selectedYear}`;
+    } else if (selectedMonth) {
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label;
+      return `Ordens de Serviço - ${monthLabel}`;
+    } else {
+      return "Ordens de Serviço - Todos os períodos";
+    }
+  };
+
   // Carregar dados da IA
   useEffect(() => {
     const loadAIStats = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          console.warn('⚠️ Token não encontrado, pulando carregamento da IA');
-          return;
+                    return;
         }
 
         const response = await fetch('/api/v1/ai/stats', {
@@ -135,8 +144,7 @@ const Dashboard = () => {
         });
         
         if (response.status === 401) {
-          console.warn('⚠️ Token inválido para IA, pulando carregamento');
-          return;
+                    return;
         }
 
         const data = await response.json();
@@ -144,8 +152,7 @@ const Dashboard = () => {
           setAiStats(data.data);
         }
       } catch (error) {
-        console.warn('⚠️ Não foi possível carregar estatísticas da IA:', error);
-      }
+              }
     };
 
     loadAIStats();
@@ -194,8 +201,7 @@ const Dashboard = () => {
     year,
     count
   }));
-  console.log("Dados do ano:", yearData);
-
+  
   const manufacturerData = (stats as DashboardStats)?.topManufacturers?.slice(0, 5) || [];
 
   return (
@@ -216,19 +222,13 @@ const Dashboard = () => {
               >
                 Análise Comparativa
               </TabsTrigger>
-              <TabsTrigger 
-                value="evaluation" 
-                className="data-[state=active]:bg-white data-[state=active]:text-black text-white font-medium rounded-sm text-sm h-8 px-6"
-              >
-                Avaliação IA
-              </TabsTrigger>
             </TabsList>
           </div>
 
           {/* Visão Geral */}
           <TabsContent value="overview" className="space-y-6 mt-6">
             {/* Cards de Estatísticas */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <AppleCard
                 title="Total de OS"
                 value={(stats as DashboardStats)?.totalOrders?.toString() || '0'}
@@ -284,16 +284,6 @@ const Dashboard = () => {
                 icon={Wrench}
                 gradient="red"
               />
-              <AppleCard
-                title="IA Classificações"
-                value={aiStats ? `${aiStats.totalClassified}/${aiStats.totalDefects}` : '0/0'}
-                icon={Brain}
-                gradient="green"
-                trend={{
-                  value: aiStats ? `${((aiStats.classificationRate || 0) * 100).toFixed(1)}% taxa de classificação` : '0% taxa',
-                  isPositive: true,
-                }}
-              />
             </div>
 
             {/* Tabela de Ordens de Serviço */}
@@ -302,7 +292,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-xl font-semibold text-foreground">
-                      Ordens de Serviço - Todos os períodos
+                      {getTableTitle()}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground">
                       Lista completa das ordens de serviço
@@ -361,8 +351,7 @@ const Dashboard = () => {
                         const success = exportToExcel(exportData, fileName, 'Dashboard');
                         
                         if (success) {
-                          console.log('✅ Dados do dashboard exportados para Excel com sucesso');
-                        } else {
+                                                  } else {
                           console.error('❌ Erro ao exportar dados do dashboard para Excel');
                         }
                       }}
@@ -409,17 +398,17 @@ const Dashboard = () => {
                               {order.vehicle_model || '-'}
                             </TableCell>
                             <TableCell className="text-foreground">
-                              <ClassifiedDefectText 
+                              <SimpleDefectCard 
                                 order={order}
-                                classification={classifications.find(c => c.service_order_id === (order as any).id)}
-                                maxLength={40}
+                                classification={order.defect_classifications && order.defect_classifications.length > 0 ? order.defect_classifications[0] : null}
+                                className="text-xs"
                               />
                             </TableCell>
                             <TableCell className="text-foreground">
                               {order.responsible_mechanic || '-'}
                             </TableCell>
                             <TableCell className="font-semibold text-foreground">
-                              R$ {(((order.original_parts_value || order.parts_total || 0) / 2) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              R$ {((order.parts_total || 0) + (order.labor_total || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                           </TableRow>
                         ))
@@ -743,24 +732,6 @@ const Dashboard = () => {
                   </TableBody>
                 </Table>
               </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Avaliação IA */}
-          <TabsContent value="evaluation" className="space-y-6 mt-6">
-            <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 shadow-sm">
-              <CardHeader className="text-center py-16">
-                <div className="mx-auto w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center mb-6">
-                  <Activity className="h-12 w-12 text-white" />
-                </div>
-                <CardTitle className="text-3xl font-bold text-purple-900 mb-4">
-                  Relatório de Avaliação Inteligente
-                </CardTitle>
-                <CardDescription className="text-purple-700 text-lg max-w-2xl mx-auto">
-                  Este espaço será preenchido automaticamente por uma IA que analisará todos os dados do período de{' '}
-                  <strong>todo o período histórico</strong>
-                </CardDescription>
-              </CardHeader>
             </Card>
           </TabsContent>
         </Tabs>

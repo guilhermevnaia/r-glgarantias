@@ -40,20 +40,19 @@ const Upload = () => {
     const excelFile = files.find(file => 
       file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       file.type === 'application/vnd.ms-excel'
-    );
 
     if (excelFile) {
       setUploadedFile(excelFile);
       toast({
         title: "Arquivo carregado com sucesso!",
         description: `${excelFile.name} está pronto para processamento.`,
-      });
+
     } else {
       toast({
         title: "Formato inválido",
         description: "Por favor, selecione apenas arquivos Excel (.xlsx ou .xls)",
         variant: "destructive",
-      });
+
     }
   }, [toast]);
 
@@ -64,7 +63,7 @@ const Upload = () => {
       toast({
         title: "Arquivo selecionado!",
         description: `${file.name} está pronto para processamento.`,
-      });
+
     }
   }, [toast]);
 
@@ -74,7 +73,7 @@ const Upload = () => {
         title: "❌ Nenhum arquivo selecionado",
         description: "Por favor, selecione um arquivo Excel antes de processar.",
         variant: "destructive",
-      });
+
       return;
     }
 
@@ -90,7 +89,7 @@ const Upload = () => {
           title: "❌ Formato inválido",
           description: "Por favor, selecione apenas arquivos Excel (.xlsx ou .xls).",
           variant: "destructive",
-        });
+
         return;
       }
 
@@ -101,14 +100,11 @@ const Upload = () => {
           title: "❌ Arquivo muito grande",
           description: "O arquivo deve ter no máximo 100MB.",
           variant: "destructive",
-        });
+
         return;
       }
 
       setUploadStatus({ status: 'uploading', message: 'Enviando arquivo...', progress: 0 });
-
-      console.log('📤 Iniciando upload do arquivo:', uploadedFile.name);
-      console.log('📁 Tamanho:', (uploadedFile.size / 1024 / 1024).toFixed(2), 'MB');
       
       // Progresso realista baseado no tempo
       const progressInterval = setInterval(() => {
@@ -121,13 +117,11 @@ const Upload = () => {
       const result = await uploadWithSync(uploadedFile);
       
       clearInterval(progressInterval);
-      console.log('✅ Upload concluído:', result);
-      
+            
       setUploadStatus({ 
         status: 'processing', 
         message: 'Processando dados...',
         progress: 90 
-      });
 
       // Aguardar processamento baseado no resultado
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -137,19 +131,18 @@ const Upload = () => {
         message: 'Upload concluído com sucesso!',
         progress: 100,
         details: result
-      });
 
       // Toast com detalhes do resultado
       if (result.summary) {
         toast({
           title: "✅ Upload realizado com sucesso!",
           description: `${result.summary.rowsProcessed || 0} registros processados de ${result.summary.totalRowsInExcel || 0} linhas do Excel.`,
-        });
+
       } else {
         toast({
           title: "✅ Upload realizado com sucesso!",
           description: `${uploadedFile.name} foi processado e os dados foram atualizados.`,
-        });
+
       }
 
       // Verificar integridade após upload
@@ -182,13 +175,12 @@ const Upload = () => {
         status: 'error', 
         message: errorMessage,
         details: errorDetails || errorMessage
-      });
 
       toast({
         title: "❌ Erro no upload",
         description: errorDetails || errorMessage,
         variant: "destructive",
-      });
+
     }
   };
 
@@ -578,7 +570,7 @@ const Upload = () => {
         </CardContent>
       </Card>
     </div>
-  );
+
 };
 
 export default Upload;
