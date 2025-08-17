@@ -142,7 +142,8 @@
       "Bash(for i in {1..10})",
       "Bash(do echo \"=== EXECUÇÃO $i ===\")",
       "Bash(done)",
-      "Bash(for i in {1..20})"
+      "Bash(for i in {1..20})",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

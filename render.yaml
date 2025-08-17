@@ -1,37 +1,30 @@
+# Render Deploy Configuration
 services:
   - type: web
     name: gl-garantias-backend
     env: node
-    region: oregon
+    region: ohio
     plan: free
-    buildCommand: npm install && npm run build:production
-    startCommand: npm start
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
+        value: 10000
+      - key: JWT_SECRET
+        value: gl-garantias-jwt-super-secret-2025
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 1000
+      - key: MAX_FILE_SIZE
+        value: 104857600
+      # Database variables (set these in Render dashboard)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: SUPABASE_ANON_KEY
+      - key: CORS_ORIGIN
         sync: false
-      - key: JWT_SECRET
-        generateValue: true
-      - key: REDIS_URL
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
-      - key: PRODUCTION_URL
-        sync: false
-
-  - type: static
-    name: gl-garantias-frontend
-    buildCommand: cd frontend && npm install && npm run build
-    publishPath: ./frontend/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
