@@ -216,7 +216,7 @@ app.get('/api/v1/ai/stats', authenticateToken, (req, res) => {
 });
 
 app.get('/api/v1/ai/classifications', authenticateToken, (req, res) => {
-  aiController.getClassificationStats(req, res);
+  aiController.getDefectClassifications(req, res);
 });
 
 app.get('/api/v1/ai/categories', authenticateToken, (req, res) => {
