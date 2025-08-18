@@ -1,5 +1,6 @@
-// --- TESTE DE DEPLOY v2 ---
-console.log('--- INICIANDO A VERSÃO MAIS RECENTE DO CÓDIGO (v2) ---');
+// --- TESTE DE DEPLOY v3 - FORÇAR REDEPLOY COMPLETO ---
+console.log('--- INICIANDO A VERSÃO MAIS RECENTE DO CÓDIGO (v3) ---');
+console.log('--- FORÇANDO NOVO DEPLOY PARA CORRIGIR PROBLEMAS DE AUTH ---');
 // --- FIM DO TESTE DE DEPLOY ---
 
 import express from 'express';

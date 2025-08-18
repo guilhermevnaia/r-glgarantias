@@ -144,7 +144,8 @@
       "Bash(done)",
       "Bash(for i in {1..20})",
       "Bash(touch:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(PORT=3007 timeout 5 npm start)"
     ],
     "deny": []
   }
