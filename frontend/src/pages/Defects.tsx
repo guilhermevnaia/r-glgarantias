@@ -179,34 +179,61 @@ const Defects = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-            
-      // Carregar dados em paralelo usando o apiService
-      const [statsResponse, categoriesResponse, classificationsResponse, ordersResponse] = await Promise.all([
-        api.get('/api/v1/ai/stats').catch(() => ({ data: { success: false } })),
-        api.get('/api/v1/ai/categories').catch(() => ({ data: { success: false } })),
-        api.get('/api/v1/ai/classifications?limit=10000').catch(() => ({ data: { success: false } })),
-        apiService.getServiceOrders({ limit: 10000 }).catch(() => ({ data: [], pagination: { total: 0 } }))
-      ]);
-
-      if (statsResponse.data?.success) {
-        setAiStats(statsResponse.data.data);
-              }
-
-      if (categoriesResponse.data?.success) {
-        setCategories(categoriesResponse.data.data);
-              }
-
-      if (classificationsResponse.data?.success) {
-        setClassifications(classificationsResponse.data.data || []);
-              }
-
+      const token = localStorage.getItem('auth-token');
+      console.log('🔍 Token disponível:', token ? 'SIM' : 'NÃO');
+      
+      // Sempre carregar dados básicos (não precisam de auth)
+      const ordersResponse = await apiService.getServiceOrders({ limit: 10000 }).catch(() => ({ data: [], pagination: { total: 0 } }));
+      
       if (ordersResponse.data && ordersResponse.data.length > 0) {
         setServiceOrders(ordersResponse.data || []);
-        
-        // Processar estatísticas de motores
         processEngineStats(ordersResponse.data || []);
+      }
+      
+      // Tentar carregar dados de IA apenas se tiver token
+      if (token) {
+        try {
+          const [statsResponse, categoriesResponse, classificationsResponse] = await Promise.all([
+            api.get('/api/v1/ai/stats').catch((err) => {
+              console.warn('⚠️ Falha ao carregar stats de IA:', err.message);
+              return { data: { success: false } };
+            }),
+            api.get('/api/v1/ai/categories').catch((err) => {
+              console.warn('⚠️ Falha ao carregar categorias:', err.message);
+              return { data: { success: false } };
+            }),
+            api.get('/api/v1/ai/classifications?limit=10000').catch((err) => {
+              console.warn('⚠️ Falha ao carregar classificações:', err.message);
+              return { data: { success: false } };
+            })
+          ]);
+
+          if (statsResponse.data?.success) {
+            setAiStats(statsResponse.data.data);
+          }
+
+          if (categoriesResponse.data?.success) {
+            setCategories(categoriesResponse.data.data);
+          }
+
+          if (classificationsResponse.data?.success) {
+            setClassifications(classificationsResponse.data.data || []);
+          }
+        } catch (error) {
+          console.warn('⚠️ Alguns dados de IA não puderam ser carregados:', error);
+        }
       } else {
-              }
+        console.warn('⚠️ Sem token - dados de IA não carregados');
+        // Definir dados mock/vazios para IA
+        setAiStats({
+          categories: [],
+          totalClassified: 0,
+          totalDefects: 0,
+          classificationRate: 0
+        });
+        setCategories([]);
+        setClassifications([]);
+      }
 
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);

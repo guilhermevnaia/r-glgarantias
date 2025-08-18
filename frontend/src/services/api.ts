@@ -11,9 +11,13 @@ const api = axios.create({
   }
 });
 
-// TEMPORÁRIO: SEM AUTENTICAÇÃO PARA TESTE
+// Interceptor para adicionar token de autenticação
 api.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem('auth-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -30,11 +34,16 @@ api.interceptors.response.use(
   (error) => {
     console.error('❌ Erro na resposta:', error.response?.status, error.response?.data);
     if (error.response?.status === 401) {
-      console.error('🔒 Token expirado ou inválido - redirecionando para login');
+      console.error('🔒 Token expirado ou inválido');
       // Token expirado ou inválido
       localStorage.removeItem('auth-token');
       localStorage.removeItem('user');
-      window.location.href = '/';
+      
+      // Só redireciona se não estiver já na tela de login
+      if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
+        console.warn('🔄 Redirecionando para login devido a erro 401');
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }
