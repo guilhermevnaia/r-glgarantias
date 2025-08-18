@@ -146,7 +146,7 @@ const ServiceOrders = () => {
       const matchesModel = modelFilter === "all" || order.vehicle_model === modelFilter;
 
       return matchesYear && matchesMonth && matchesManufacturer && matchesMechanic && matchesModel;
-
+    });
   }, [serviceOrders, yearFilter, monthFilter, manufacturerFilter, mechanicFilter, modelFilter]);
 
   const clearFilters = () => {
@@ -1246,7 +1246,7 @@ const ServiceOrders = () => {
         </DialogContent>
       </Dialog>
     </div>
-
+  );
 };
 
 export default ServiceOrders;

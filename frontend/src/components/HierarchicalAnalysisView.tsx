@@ -494,6 +494,7 @@ const HierarchicalAnalysisView: React.FC = () => {
           <div className="h-96 bg-gray-200 rounded"></div>
         </div>
       </div>
+    );
   }
 
   if (!data) {

@@ -162,6 +162,7 @@ const Defects = () => {
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = now.toISOString().split('T')[0];
     return { start: startDate, end: endDate };
+  });
 
   const [manufacturerFilter, setManufacturerFilter] = useState<string>('all');
   const [modelFilter, setModelFilter] = useState<string>('all');

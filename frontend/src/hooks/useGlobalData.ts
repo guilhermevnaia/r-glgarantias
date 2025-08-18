@@ -148,8 +148,6 @@ export const useMechanicsData = () => {
           break;
         }
       }
-      
-            );
 
       // Agora, processar os dados completos com a função existente
             const processedData = processMechanicsData({ orders: allOrders });
