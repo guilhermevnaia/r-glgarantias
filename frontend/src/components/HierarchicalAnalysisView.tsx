@@ -510,6 +510,7 @@ const HierarchicalAnalysisView: React.FC = () => {
           Tentar novamente
         </Button>
       </div>
+    );
   }
 
   const filteredData = getFilteredData();
@@ -883,6 +884,7 @@ const HierarchicalAnalysisView: React.FC = () => {
         </TabsContent>
       </Tabs>
     </div>
+  );
 };
 
 export default HierarchicalAnalysisView;
