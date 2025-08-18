@@ -275,7 +275,7 @@ const Defects = () => {
         'Content-Type': 'application/json'
       };
       
-      const response = await fetch('http://localhost:3009/api/v1/ai/classify-all', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1/ai/classify-all`, {
         method: 'POST',
         headers: authHeaders
       });
@@ -306,7 +306,7 @@ const Defects = () => {
     setClassifyResult(null);
     
     try {
-      const response = await fetch('http://localhost:3009/api/v1/ai/classify-defect', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1/ai/classify-defect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

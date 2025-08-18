@@ -1,6 +1,6 @@
 // Serviço para requisições autenticadas
 class AuthService {
-  private baseURL = 'http://localhost:3009/api/v1';
+  private baseURL = `${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1`;
 
   private getAuthHeaders() {
     const token = localStorage.getItem('auth-token');
