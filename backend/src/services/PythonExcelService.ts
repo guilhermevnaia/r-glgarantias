@@ -34,7 +34,7 @@ class PythonExcelService {
 
   constructor() {
     // CAMINHO RELATIVO PARA FUNCIONAR EM DESENVOLVIMENTO E PRODUÇÃO
-    this.pythonScriptPath = path.resolve(__dirname, '../../../python/excel_processor.py');
+    this.pythonScriptPath = path.resolve(__dirname, '../../python/excel_processor.py');
     this.tempDir = os.tmpdir();
     console.log('🐍 Caminho do script Python:', this.pythonScriptPath);
     console.log('🐍 Diretório do service:', __dirname);
@@ -223,7 +223,7 @@ class PythonExcelService {
    * INSTALAR DEPENDÊNCIAS PYTHON
    */
   async installPythonDependencies(): Promise<{ success: boolean; error?: string }> {
-    const requirementsPath = path.resolve(__dirname, '../../../python/requirements.txt');
+    const requirementsPath = path.resolve(__dirname, '../../python/requirements.txt');
 
     return new Promise((resolve) => {
       console.log('📦 Instalando dependências Python...');
