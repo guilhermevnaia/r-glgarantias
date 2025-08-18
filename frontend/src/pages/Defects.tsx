@@ -226,15 +226,22 @@ const Defects = () => {
         console.warn('⚠️ Sem token - dados de IA não carregados, calculando baseado nos service orders');
         // Calcular estatísticas baseadas nos dados reais disponíveis
         const totalDefects = ordersResponse.data?.length || 0;
-        const classifiedDefects = ordersResponse.data?.filter((order: ServiceOrder) => 
+        
+        // Contar ordens ÚNICAS que têm pelo menos uma classificação (não contar classificações múltiplas)
+        const ordersWithClassifications = ordersResponse.data?.filter((order: ServiceOrder) => 
           order.defect_classifications && order.defect_classifications.length > 0
         ).length || 0;
         
+        // Total de classificações individuais (para informação adicional)
+        const totalClassificationRecords = ordersResponse.data?.reduce((total: number, order: ServiceOrder) => {
+          return total + (order.defect_classifications?.length || 0);
+        }, 0) || 0;
+        
         setAiStats({
           categories: [],
-          totalClassified: classifiedDefects,
+          totalClassified: ordersWithClassifications, // Ordens únicas classificadas
           totalDefects: totalDefects,
-          classificationRate: totalDefects > 0 ? classifiedDefects / totalDefects : 0
+          classificationRate: totalDefects > 0 ? ordersWithClassifications / totalDefects : 0
         });
         setCategories([]);
         setClassifications([]);
@@ -709,10 +716,14 @@ const Defects = () => {
                   gradient="purple"
                 />
                 <AppleCard
-                  title="Classificados pela IA"
+                  title="Ordens Classificadas"
                   value={aiStats?.totalClassified?.toLocaleString() || '0'}
                   icon={CheckCircle2}
                   gradient="green"
+                  trend={{
+                    value: "Ordens com classificação IA",
+                    isPositive: true
+                  }}
                 />
                 <AppleCard
                   title="Taxa de Classificação"
@@ -720,7 +731,7 @@ const Defects = () => {
                   icon={TrendingUp}
                   gradient="blue"
                   trend={{
-                    value: `${aiStats?.totalClassified || 0} de ${aiStats?.totalDefects || 0} defeitos`,
+                    value: `${aiStats?.totalClassified || 0} de ${aiStats?.totalDefects || 0} ordens`,
                     isPositive: true
                   }}
                 />
