@@ -193,7 +193,7 @@ const ServiceOrders = () => {
           title: "Nenhum dado para exportar",
           description: "Não há dados para exportar com os filtros aplicados.",
           variant: "destructive",
-
+        });
         return;
       }
 
@@ -268,6 +268,7 @@ const ServiceOrders = () => {
       toast({
         title: "Exportação concluída!",
         description: `${dataToExport.length} registros exportados com sucesso.`,
+      });
 
     } catch (error) {
       console.error("❌ Erro durante exportação:", error);
@@ -275,8 +276,8 @@ const ServiceOrders = () => {
         title: "Erro na exportação",
         description: "Ocorreu um erro ao exportar os dados. Tente novamente.",
         variant: "destructive",
-
-    } finally {
+        });
+      } finally {
       setIsExporting(false);
     }
   };
@@ -402,7 +403,7 @@ const ServiceOrders = () => {
           title: "❌ Erro de validação",
           description: "Número da OS é obrigatório.",
           variant: "destructive",
-
+        });
         return;
       }
 
@@ -411,7 +412,7 @@ const ServiceOrders = () => {
           title: "❌ Erro de validação", 
           description: "Status é obrigatório.",
           variant: "destructive",
-
+        });
         return;
       }
 
@@ -451,8 +452,8 @@ const ServiceOrders = () => {
         title: "❌ Erro ao atualizar OS",
         description: errorMessage,
         variant: "destructive",
-
-    } finally {
+        });
+      } finally {
       setIsUpdating(false);
     }
   };

@@ -231,7 +231,7 @@ const Defects = () => {
           classifiedDefects: 0,
           topDefects: [],
           averageCost: 0,
-          lastDefectDate: order.created_at // Adicionado para o novo gráfico de linha
+          lastDefectDate: order.created_at
         });
       }
       
