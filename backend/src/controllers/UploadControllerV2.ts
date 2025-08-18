@@ -49,7 +49,8 @@ class UploadControllerV2 {
       console.log(`📁 Arquivo: ${req.file.originalname}`);
       console.log(`📊 Tamanho: ${(req.file.buffer.length / 1024 / 1024).toFixed(2)} MB`);
 
-      // 2. VALIDAR AMBIENTE PYTHON
+      // 2. VERIFICAR AMBIENTE PYTHON
+      console.log('🔍 Verificando ambiente Python...');
       const pythonValidation = await this.pythonService.validatePythonEnvironment();
       if (!pythonValidation.valid) {
         console.error('❌ Ambiente Python não configurado:', pythonValidation.error);
@@ -59,13 +60,6 @@ class UploadControllerV2 {
           suggestion: 'Instale Python 3.x e as dependências: pip install pandas openpyxl numpy'
         });
         return;
-      }
-
-      // 3. VERIFICAR AMBIENTE PYTHON
-      console.log('🔍 Verificando ambiente Python...');
-      const pythonValidation = await this.pythonService.validatePythonEnvironment();
-      if (!pythonValidation.valid) {
-        throw new Error(`Ambiente Python inválido: ${pythonValidation.error}`);
       }
       console.log('✅ Ambiente Python validado');
 
