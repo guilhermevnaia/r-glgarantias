@@ -137,7 +137,7 @@ class AIService {
         
     // Log das primeiras 3 para debug
     const sample = classifications.slice(0, 3);
-    ));
+    console.log('🔍 Sample classifications cached:', sample);
   }
 
   /**
