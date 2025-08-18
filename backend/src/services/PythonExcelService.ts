@@ -180,11 +180,12 @@ class PythonExcelService {
         reject(new Error(`Erro ao executar Python: ${error.message}`));
       });
 
-      // Timeout de segurança (10 minutos)
-      setTimeout(() => {
-        pythonProcess.kill();
-        reject(new Error('Timeout: Processamento Python demorou mais de 10 minutos'));
-      }, 10 * 60 * 1000);
+      // Timeout de segurança (2 minutos para arquivos grandes)
+      const timeout = setTimeout(() => {
+        console.error('⏰ TIMEOUT: Matando processo Python após 2 minutos');
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('Timeout: Processamento Python demorou mais de 2 minutos'));
+      }, 2 * 60 * 1000);
     });
   }
 

@@ -28,6 +28,10 @@ import argparse
 import logging
 from dataclasses import dataclass, asdict
 
+# LOG IMEDIATO PARA DEBUG
+print(f"🐍 [PYTHON] Script iniciado em {datetime.now()}", file=sys.stderr, flush=True)
+print(f"🐍 [PYTHON] Argumentos recebidos: {sys.argv}", file=sys.stderr, flush=True)
+
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
