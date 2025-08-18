@@ -357,7 +357,9 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`🐍 Upload v2 (Python): http://localhost:${port}/api/v2/upload`);
   console.log(`🔍 Python health: http://localhost:${port}/api/v2/health`);
   console.log(`🔍 Integridade: http://localhost:${port}/api/v1/integrity/health`);
-  console.log(`\n⚡ SISTEMA DEFINITIVO PYTHON DISPONÍVEL!`);
+  console.log(`
+⚡ SISTEMA DEFINITIVO PYTHON DISPONÍVEL!
+`);
   
   // 🤖 INICIAR SISTEMA DE CONTINGÊNCIA DE IA
   console.log('\n🤖 Iniciando sistema de contingência de IA...');
@@ -390,4 +392,3 @@ app.listen(port, '0.0.0.0', () => {
 });
 
 export default app;
-
