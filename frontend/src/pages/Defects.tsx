@@ -232,7 +232,7 @@ const Defects = () => {
           topDefects: [],
           averageCost: 0,
           lastDefectDate: order.created_at // Adicionado para o novo gráfico de linha
-
+        });
       }
       
       const stats = statsMap.get(key)!;
