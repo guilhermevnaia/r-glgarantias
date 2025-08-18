@@ -594,4 +594,81 @@ export class AIController {
       });
     }
   }
+
+  /**
+   * GET /api/v1/ai/stats
+   * Retorna estatísticas de classificação de IA
+   */
+  async getAIStats(req: Request, res: Response) {
+    try {
+      console.log('🤖 Buscando estatísticas de IA...');
+      
+      // Buscar total de ordens
+      const { count: totalDefects, error: totalError } = await supabase
+        .from('service_orders')
+        .select('*', { count: 'exact', head: true });
+      
+      if (totalError) {
+        console.error('❌ Erro ao contar total de ordens:', totalError);
+        return res.status(500).json({ success: false, error: 'Erro ao buscar estatísticas' });
+      }
+      
+      // Buscar ordens com classificações
+      const { data: classifiedOrders, error: classifiedError } = await supabase
+        .from('service_orders')
+        .select('id, defect_classifications')
+        .not('defect_classifications', 'is', null);
+      
+      if (classifiedError) {
+        console.error('❌ Erro ao buscar ordens classificadas:', classifiedError);
+        return res.status(500).json({ success: false, error: 'Erro ao buscar classificações' });
+      }
+      
+      const totalClassified = classifiedOrders?.length || 0;
+      const classificationRate = totalDefects > 0 ? totalClassified / totalDefects : 0;
+      
+      // Buscar categorias ativas (mock por enquanto)
+      const categories = [];
+      
+      const stats = {
+        totalDefects: totalDefects || 0,
+        totalClassified,
+        classificationRate,
+        categories
+      };
+      
+      console.log('✅ Estatísticas de IA calculadas:', stats);
+      
+      res.json({
+        success: true,
+        data: stats
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro interno ao buscar estatísticas de IA:', error);
+      res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+    }
+  }
+
+  /**
+   * GET /api/v1/ai/categories
+   * Retorna categorias de defeitos
+   */
+  async getAICategories(req: Request, res: Response) {
+    try {
+      console.log('🤖 Buscando categorias de IA...');
+      
+      // Por enquanto retornar array vazio (pode ser implementado futuramente)
+      const categories = [];
+      
+      res.json({
+        success: true,
+        data: categories
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro interno ao buscar categorias:', error);
+      res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+    }
+  }
 }

@@ -14,6 +14,7 @@ import { CachedStatsController } from './controllers/CachedStatsController';
 import { IntegrityController } from './controllers/IntegrityController';
 import { SettingsController } from './controllers/SettingsController';
 import { AuthController } from './controllers/AuthController';
+import { AIController } from './controllers/AIController';
 import { AIContingencyController } from './controllers/AIContingencyController';
 import { ContingencyController } from './controllers/ContingencyController';
 import { continuousMonitoring } from './services/ContinuousMonitoringService';
@@ -136,6 +137,7 @@ const statsController = new StatsController();
 const integrityController = new IntegrityController();
 const settingsController = new SettingsController();
 const authController = new AuthController();
+const aiController = new AIController();
 const aiContingencyController = new AIContingencyController();
 const contingencyController = new ContingencyController();
 
@@ -206,6 +208,19 @@ app.get('/api/v1/test', (req, res) => {
 // TEMPORÁRIO: SEM AUTENTICAÇÃO PARA TESTE
 app.get('/api/v1/stats', (req, res) => {
   statsController.getStats(req, res);
+});
+
+// 🤖 ROTAS DE IA (COM AUTENTICAÇÃO)
+app.get('/api/v1/ai/stats', authenticateToken, (req, res) => {
+  aiController.getAIStats(req, res);
+});
+
+app.get('/api/v1/ai/classifications', authenticateToken, (req, res) => {
+  aiController.getClassificationsPaginated(req, res);
+});
+
+app.get('/api/v1/ai/categories', authenticateToken, (req, res) => {
+  aiController.getAICategories(req, res);
 });
 
 app.get('/api/v1/service-orders', (req, res) => {

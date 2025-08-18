@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import * as fsSync from 'fs';
 
 interface PythonProcessingResult {
   success: boolean;
@@ -32,11 +33,12 @@ class PythonExcelService {
   private tempDir: string;
 
   constructor() {
-    // CAMINHO ABSOLUTO HARDCODED - USANDO BARRAS NORMAIS PARA EVITAR ESCAPING
-    this.pythonScriptPath = 'S:/comp-glgarantias/r-glgarantias/backend/python/excel_processor.py';
+    // CAMINHO RELATIVO PARA FUNCIONAR EM DESENVOLVIMENTO E PRODUÇÃO
+    this.pythonScriptPath = path.resolve(__dirname, '../../../python/excel_processor.py');
     this.tempDir = os.tmpdir();
     console.log('🐍 Caminho do script Python:', this.pythonScriptPath);
     console.log('🐍 Diretório do service:', __dirname);
+    console.log('🐍 Verificando se arquivo Python existe:', fsSync.existsSync(this.pythonScriptPath));
     console.log('🐍 Diretório atual:', process.cwd());
   }
 
@@ -221,7 +223,7 @@ class PythonExcelService {
    * INSTALAR DEPENDÊNCIAS PYTHON
    */
   async installPythonDependencies(): Promise<{ success: boolean; error?: string }> {
-    const requirementsPath = 'S:/comp-glgarantias/r-glgarantias/backend/python/requirements.txt';
+    const requirementsPath = path.resolve(__dirname, '../../../python/requirements.txt');
 
     return new Promise((resolve) => {
       console.log('📦 Instalando dependências Python...');
