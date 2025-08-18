@@ -15,6 +15,22 @@ router.post('/login', AuthController.loginValidation, (req: Request, res: Respon
   authController.login(req, res)
 );
 
+/**
+ * POST /auth/check-first-login
+ * Verificar se é o primeiro login do usuário
+ */
+router.post('/check-first-login', (req: Request, res: Response) => {
+  authController.checkFirstLogin(req, res);
+});
+
+/**
+ * POST /auth/set-first-password
+ * Definir senha do primeiro acesso
+ */
+router.post('/set-first-password', AuthController.setFirstPasswordValidation, (req: Request, res: Response) => {
+  authController.setFirstPassword(req, res);
+});
+
 // 🔒 ROTAS PROTEGIDAS (requer autenticação)
 
 /**

@@ -24,25 +24,28 @@ export const corsOptions = {
       'http://127.0.0.1:5176',
       process.env.FRONTEND_URL,
       process.env.PRODUCTION_URL,
-      // URLs de produção gratuitas
-      'https://*.vercel.app',
-      'https://*.netlify.app',
-      'https://*.railway.app',
-      'https://*.render.com',
-      'https://r-glgarantias-2qfa.vercel.app'
+      // URLs específicas de produção
+      'https://r-glgarantias-2qfa.vercel.app',
+      'https://gl-garantias-backend.onrender.com'
     ].filter(Boolean); // Remove valores undefined/null
+    
+    // Domínios permitidos para wildcards
+    const allowedWildcardDomains = [
+      'vercel.app',
+      'netlify.app', 
+      'railway.app',
+      'render.com'
+    ];
 
     // Permitir requisições sem origin (mobile apps, Postman, etc.) e origin 'null' (arquivos locais)
     if (!origin || origin === 'null') return callback(null, true);
     
-    // Verificar se a origin está na lista permitida ou corresponde a um padrão
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (allowedOrigin.startsWith('https://*.')) {
-        const domain = allowedOrigin.substring(9); // Remove 'https://*.'
-        return origin && origin.endsWith(`.${domain}`) && origin.startsWith('https://');
-      }
-      return origin === allowedOrigin;
-    });
+    // Verificar se a origin está na lista permitida ou corresponde a um padrão wildcard
+    const isAllowed = allowedOrigins.includes(origin) || 
+      allowedWildcardDomains.some(domain => 
+        origin && origin.startsWith('https://') && 
+        (origin.endsWith(`.${domain}`) || origin === `https://${domain}`)
+      );
 
     if (isAllowed) {
       return callback(null, true);

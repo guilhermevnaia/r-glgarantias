@@ -1,3 +1,7 @@
+// --- TESTE DE DEPLOY v2 ---
+console.log('--- INICIANDO A VERSÃO MAIS RECENTE DO CÓDIGO (v2) ---');
+// --- FIM DO TESTE DE DEPLOY ---
+
 import express from 'express';
 import multer from 'multer';
 import * as dotenv from 'dotenv';
@@ -281,14 +285,6 @@ app.delete('/api/v1/users/:id', (req, res) => {
 
 // 🔐 ROTAS DE AUTENTICAÇÃO (PÚBLICAS)
 app.use('/api/v1/auth', authRoutes);
-
-// 🔑 ROTAS DE PRIMEIRO ACESSO (PÚBLICAS)
-app.post('/api/v1/auth/check-first-login', (req, res) => {
-  authController.checkFirstLogin(req, res);
-});
-app.post('/api/v1/auth/set-first-password', AuthController.setFirstPasswordValidation, (req: express.Request, res: express.Response) => {
-  authController.setFirstPassword(req, res);
-});
 
 // 🧪 TESTE DE AUTH
 app.post('/api/v1/test-auth', async (req, res) => {
