@@ -267,20 +267,20 @@ app.delete('/api/v1/mechanics/:id', (req, res) => {
   settingsController.removeMechanic(req, res);
 });
 
-// Rotas de configurações - Usuários
-app.get('/api/v1/users', (req, res) => {
+// Rotas de configurações - Usuários (PROTEGIDAS)
+app.get('/api/v1/users', authenticateToken, (req, res) => {
   settingsController.getUsers(req, res);
 });
 
-app.post('/api/v1/users', (req, res) => {
+app.post('/api/v1/users', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin']), (req, res) => {
   settingsController.addUser(req, res);
 });
 
-app.put('/api/v1/users/:id', (req, res) => {
+app.put('/api/v1/users/:id', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin']), (req, res) => {
   settingsController.updateUser(req, res);
 });
 
-app.delete('/api/v1/users/:id', (req, res) => {
+app.delete('/api/v1/users/:id', authenticateToken, require('./middleware/authMiddleware').requireRole(['admin']), (req, res) => {
   settingsController.removeUser(req, res);
 });
 

@@ -1,6 +1,6 @@
 // Serviço para requisições autenticadas
 class AuthService {
-  private baseURL = `${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1`;
+  private baseURL = `${import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com'}/api/v1`;
 
   private getAuthHeaders() {
     const token = localStorage.getItem('auth-token');

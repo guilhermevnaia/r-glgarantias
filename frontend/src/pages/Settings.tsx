@@ -54,6 +54,9 @@ const Settings = () => {
         }),
         apiService.getUsers().catch(error => {
           console.error('❌ Erro ao carregar usuários:', error);
+          if (error.response?.status === 401) {
+            showAlert('error', 'Erro de autenticação - Faça login novamente');
+          }
           return [];
         })
       ]);

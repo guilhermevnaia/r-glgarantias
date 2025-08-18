@@ -145,7 +145,8 @@ const Mechanics = () => {
     // Recalcular estatísticas baseadas apenas nas ordens filtradas
     const totalWarranties = filteredOrders.length;
     const totalCost = filteredOrders.reduce((sum: number, order: any) => {
-      return sum + parseFloat(order.grand_total || 0);
+      // ✅ APLICAR DIVISÃO POR 2 para dados de produção (conforme regra de negócio)
+      return sum + (parseFloat(order.grand_total || 0) / 2);
     }, 0);
     const avgCostPerWarranty = totalWarranties > 0 ? totalCost / totalWarranties : 0;
     
@@ -328,7 +329,7 @@ const Mechanics = () => {
                             />
                           </TableCell>
                           <TableCell className="text-red-600 font-semibold">
-                            {formatCurrency(parseFloat(order.grand_total || 0))}
+                            {formatCurrency(parseFloat(order.grand_total || 0) / 2)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -810,7 +811,7 @@ const Mechanics = () => {
                            </Badge>
                          </TableCell>
                          <TableCell className="text-red-600 font-semibold text-sm">
-                           {formatCurrency(parseFloat(order.grand_total || 0))}
+                           {formatCurrency(parseFloat(order.grand_total || 0) / 2)}
                          </TableCell>
                          <TableCell className="hidden lg:table-cell">
                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">

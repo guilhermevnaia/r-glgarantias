@@ -223,13 +223,18 @@ const Defects = () => {
           console.warn('⚠️ Alguns dados de IA não puderam ser carregados:', error);
         }
       } else {
-        console.warn('⚠️ Sem token - dados de IA não carregados');
-        // Definir dados mock/vazios para IA
+        console.warn('⚠️ Sem token - dados de IA não carregados, calculando baseado nos service orders');
+        // Calcular estatísticas baseadas nos dados reais disponíveis
+        const totalDefects = ordersResponse.data?.length || 0;
+        const classifiedDefects = ordersResponse.data?.filter((order: ServiceOrder) => 
+          order.defect_classifications && order.defect_classifications.length > 0
+        ).length || 0;
+        
         setAiStats({
           categories: [],
-          totalClassified: 0,
-          totalDefects: 0,
-          classificationRate: 0
+          totalClassified: classifiedDefects,
+          totalDefects: totalDefects,
+          classificationRate: totalDefects > 0 ? classifiedDefects / totalDefects : 0
         });
         setCategories([]);
         setClassifications([]);
@@ -302,7 +307,7 @@ const Defects = () => {
         'Content-Type': 'application/json'
       };
       
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1/ai/classify-all`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com'}/api/v1/ai/classify-all`, {
         method: 'POST',
         headers: authHeaders
       });
@@ -333,7 +338,7 @@ const Defects = () => {
     setClassifyResult(null);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3008'}/api/v1/ai/classify-defect`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com'}/api/v1/ai/classify-defect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
