@@ -252,7 +252,9 @@ const Defects = () => {
       
       // Log a cada 100 ordens processadas
       if ((index + 1) % 100 === 0) {
-              }
+        console.log(`Processadas ${index + 1} ordens`);
+      }
+    });
 
     // Calcular médias e limitar top defeitos
     const processedStats = Array.from(statsMap.values()).map(stats => ({
@@ -260,8 +262,6 @@ const Defects = () => {
       averageCost: stats.totalDefects > 0 ? stats.averageCost / stats.totalDefects : 0,
       topDefects: stats.topDefects.slice(0, 5) // Top 5 defeitos
     }));
-
-      sampleStats: processedStats.slice(0, 3)
 
     setEngineStats(processedStats);
   };
@@ -277,6 +277,7 @@ const Defects = () => {
       const response = await fetch('http://localhost:3009/api/v1/ai/classify-all', {
         method: 'POST',
         headers: authHeaders
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -312,6 +313,7 @@ const Defects = () => {
         body: JSON.stringify({
           defectDescription: classifyInput.trim()
         })
+      });
 
       const data = await response.json();
       
@@ -359,6 +361,7 @@ const Defects = () => {
       (reviewedFilter === 'pending' && !classification.is_reviewed);
 
     return matchesSearch && matchesCategory && matchesConfidence && matchesReviewed;
+  });
 
   if (loading) {
     return (
@@ -373,7 +376,7 @@ const Defects = () => {
           <div className="h-96 bg-white rounded-lg"></div>
         </div>
       </div>
-
+    );
   }
 
   const chartData = categories
@@ -392,7 +395,7 @@ const Defects = () => {
       const hasDefects = stat.totalDefects > 0;
       
       return matchesManufacturer && matchesModel && hasDefects;
-
+    });
   };
 
   const getFilteredServiceOrders = () => {
@@ -406,7 +409,7 @@ const Defects = () => {
       const matchesModel = modelFilter === 'all' || (order.engine_model === modelFilter || order.vehicle_model === modelFilter);
       
       return matchesDate && matchesManufacturer && matchesModel;
-
+    });
   };
 
   const engineChartData = getFilteredEngineStats()
@@ -419,10 +422,11 @@ const Defects = () => {
     }));
 
   // 🔍 DEBUG: Logs para investigar dados do gráfico
-
+  console.log('🔍 DEBUG Engine Chart Data:', {
     chartDataLength: engineChartData.length,
     sampleEngineStats: engineStats.slice(0, 3),
     sampleChartData: engineChartData.slice(0, 3)
+  });
 
   return (
     <div className="space-y-6">
@@ -917,7 +921,7 @@ const Defects = () => {
         </TabsContent>
       </Tabs>
     </div>
-
+  );
 };
 
 export default Defects;

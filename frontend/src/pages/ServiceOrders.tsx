@@ -309,7 +309,7 @@ const ServiceOrders = () => {
       labor_total: order.labor_total || 0,
       grand_total: order.grand_total || 0,
       order_status: order.order_status
-
+    });
     setShowEditDialog(true);
   };
 
@@ -388,7 +388,7 @@ const ServiceOrders = () => {
       toast({
         title: "OS enviada para impressão",
         description: `Ordem de serviço ${order.order_number} preparada para impressão.`,
-
+      });
     }
   };
 
@@ -432,6 +432,7 @@ const ServiceOrders = () => {
       toast({
         title: "✅ OS atualizada com sucesso!",
         description: `Ordem de serviço ${editFormData.order_number} foi atualizada. Todas as análises e dashboards foram atualizados automaticamente.`,
+      });
 
       // Verificar integridade após atualização
       setTimeout(() => {
@@ -495,7 +496,7 @@ const ServiceOrders = () => {
     toast({
       title: "OS exportada",
       description: `Ordem de serviço ${order.order_number} exportada com sucesso.`,
-
+    });
   };
 
   return (
@@ -865,7 +866,7 @@ const ServiceOrders = () => {
                           >
                             {pageNumber}
                           </Button>
-
+                        );
                       }
                       return null;
                     })}
