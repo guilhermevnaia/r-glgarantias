@@ -45,6 +45,16 @@ import { authenticateToken, optionalAuth } from './middleware/authMiddleware';
 
 dotenv.config();
 
+// --- INÍCIO DO LOG DE DEPURAÇÃO DE VARIÁVEIS DE AMBIENTE ---
+console.log('--- Verificando Variáveis de Ambiente na Inicialização ---');
+console.log(`[ENV] NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`[ENV] PORT: ${process.env.PORT}`);
+console.log(`[ENV] SUPABASE_URL: ${process.env.SUPABASE_URL ? 'Carregada (oculta por segurança)' : 'NÃO ENCONTRADA'}`);
+console.log(`[ENV] SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Carregada (oculta por segurança)' : 'NÃO ENCONTRADA'}`);
+console.log(`[ENV] JWT_SECRET: ${process.env.JWT_SECRET ? 'Carregada' : 'NÃO ENCONTRADA'}`);
+console.log('----------------------------------------------------------');
+
+
 const app = express();
 const port = parseInt(process.env.PORT || '3009', 10);
 
