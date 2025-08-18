@@ -43,6 +43,14 @@ class PythonExcelService {
   }
 
   /**
+   * Detecta qual comando Python usar (python ou python3)
+   */
+  private getPythonCommand(): string {
+    // No Render.com e muitos ambientes Linux, pode ser python3
+    return process.platform === 'win32' ? 'python' : 'python3';
+  }
+
+  /**
    * PROCESSAMENTO DEFINITIVO DE EXCEL COM PYTHON
    * 
    * Este método substitui completamente o CleanDataProcessor.ts
@@ -105,11 +113,12 @@ class PythonExcelService {
    */
   private async executePythonProcessor(filePath: string): Promise<PythonProcessingResult> {
     return new Promise((resolve, reject) => {
+      const pythonCmd = this.getPythonCommand();
       console.log(`🚀 DEBUG: pythonScriptPath = "${this.pythonScriptPath}"`);
       console.log(`🚀 DEBUG: filePath = "${filePath}"`);
-      console.log(`🚀 Executando: python ${this.pythonScriptPath} "${filePath}"`);
+      console.log(`🚀 Executando: ${pythonCmd} ${this.pythonScriptPath} "${filePath}"`);
 
-      const pythonProcess = spawn('python', [this.pythonScriptPath, filePath], {
+      const pythonProcess = spawn(pythonCmd, [this.pythonScriptPath, filePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         shell: true
       });
@@ -197,7 +206,8 @@ class PythonExcelService {
    */
   async validatePythonEnvironment(): Promise<{ valid: boolean; error?: string }> {
     return new Promise((resolve) => {
-      const pythonProcess = spawn('python', ['--version'], { stdio: 'pipe' });
+      const pythonCmd = this.getPythonCommand();
+      const pythonProcess = spawn(pythonCmd, ['--version'], { stdio: 'pipe' });
 
       pythonProcess.on('close', (code) => {
         if (code === 0) {
@@ -228,7 +238,8 @@ class PythonExcelService {
     return new Promise((resolve) => {
       console.log('📦 Instalando dependências Python...');
       
-      const pipProcess = spawn('pip', ['install', '-r', requirementsPath], {
+      const pythonCmd = this.getPythonCommand();
+      const pipProcess = spawn(pythonCmd, ['-m', 'pip', 'install', '-r', requirementsPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         shell: true
       });
