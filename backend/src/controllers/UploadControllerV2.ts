@@ -61,9 +61,15 @@ class UploadControllerV2 {
         return;
       }
 
+      // 3. VERIFICAR AMBIENTE PYTHON
+      console.log('🔍 Verificando ambiente Python...');
+      const pythonValidation = await this.pythonService.validatePythonEnvironment();
+      if (!pythonValidation.valid) {
+        throw new Error(`Ambiente Python inválido: ${pythonValidation.error}`);
+      }
       console.log('✅ Ambiente Python validado');
 
-      // 3. PROCESSAR COM PYTHON PANDAS (DEFINITIVO)
+      // 4. PROCESSAR COM PYTHON PANDAS (DEFINITIVO)
       console.log('🐍 Iniciando processamento definitivo com Python pandas...');
       const processingResult = await this.pythonService.processExcelBuffer(
         req.file.buffer, 

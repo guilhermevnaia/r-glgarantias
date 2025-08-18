@@ -116,11 +116,17 @@ class PythonExcelService {
       const pythonCmd = this.getPythonCommand();
       console.log(`🚀 DEBUG: pythonScriptPath = "${this.pythonScriptPath}"`);
       console.log(`🚀 DEBUG: filePath = "${filePath}"`);
+      console.log(`🚀 DEBUG: pythonCmd = "${pythonCmd}"`);
+      console.log(`🚀 DEBUG: script exists = ${fsSync.existsSync(this.pythonScriptPath)}`);
       console.log(`🚀 Executando: ${pythonCmd} ${this.pythonScriptPath} "${filePath}"`);
+
+      // Testar se Python funciona antes de executar o script
+      console.log(`🔍 Testando comando Python: ${pythonCmd} --version`);
 
       const pythonProcess = spawn(pythonCmd, [this.pythonScriptPath, filePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true
+        shell: true,
+        env: { ...process.env, PYTHONUNBUFFERED: '1' }
       });
 
       let stdout = '';
