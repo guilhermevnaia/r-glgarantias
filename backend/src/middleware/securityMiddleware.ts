@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const corsOptions = {
   origin: function (origin: any, callback: any) {
+    console.log('Checking CORS for origin:', origin); // Log para depuração
     // Lista de origens permitidas
     const allowedOrigins = [
       'http://localhost:3000',
@@ -27,14 +28,23 @@ export const corsOptions = {
       'https://*.vercel.app',
       'https://*.netlify.app',
       'https://*.railway.app',
-      'https://*.render.com'
+      'https://*.render.com',
+      'https://r-glgarantias-2qfa.vercel.app'
     ].filter(Boolean); // Remove valores undefined/null
 
     // Permitir requisições sem origin (mobile apps, Postman, etc.) e origin 'null' (arquivos locais)
     if (!origin || origin === 'null') return callback(null, true);
     
-    // Verificar se a origin está na lista permitida
-    if (allowedOrigins.includes(origin)) {
+    // Verificar se a origin está na lista permitida ou corresponde a um padrão
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin.startsWith('https://*.')) {
+        const domain = allowedOrigin.substring(9); // Remove 'https://*.'
+        return origin && origin.endsWith(`.${domain}`) && origin.startsWith('https://');
+      }
+      return origin === allowedOrigin;
+    });
+
+    if (isAllowed) {
       return callback(null, true);
     }
     
