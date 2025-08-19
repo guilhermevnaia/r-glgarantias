@@ -613,26 +613,24 @@ export class AIController {
         return res.status(500).json({ success: false, error: 'Erro ao buscar estatísticas' });
       }
       
-      // Buscar ordens com classificações
-      const { data: classifiedOrders, error: classifiedError } = await supabase
-        .from('service_orders')
-        .select('id, defect_classifications')
-        .not('defect_classifications', 'is', null);
+      // Buscar classificações da tabela defect_classifications
+      const { count: totalClassified, error: classifiedError } = await supabase
+        .from('defect_classifications')
+        .select('*', { count: 'exact', head: true });
       
       if (classifiedError) {
-        console.error('❌ Erro ao buscar ordens classificadas:', classifiedError);
+        console.error('❌ Erro ao buscar classificações:', classifiedError);
         return res.status(500).json({ success: false, error: 'Erro ao buscar classificações' });
       }
       
-      const totalClassified = classifiedOrders?.length || 0;
-      const classificationRate = totalDefects > 0 ? totalClassified / totalDefects : 0;
+      const classificationRate = totalDefects > 0 ? (totalClassified || 0) / totalDefects : 0;
       
       // Buscar categorias ativas (mock por enquanto)
       const categories = [];
       
       const stats = {
         totalDefects: totalDefects || 0,
-        totalClassified,
+        totalClassified: totalClassified || 0,
         classificationRate,
         categories
       };
@@ -658,12 +656,20 @@ export class AIController {
     try {
       console.log('🤖 Buscando categorias de IA...');
       
-      // Por enquanto retornar array vazio (pode ser implementado futuramente)
-      const categories = [];
+      // Buscar categorias da tabela defect_categories
+      const { data: categories, error } = await supabase
+        .from('defect_categories')
+        .select('*')
+        .order('category_name');
+      
+      if (error) {
+        console.error('❌ Erro ao buscar categorias:', error);
+        return res.status(500).json({ success: false, error: 'Erro ao buscar categorias' });
+      }
       
       res.json({
         success: true,
-        data: categories
+        data: categories || []
       });
       
     } catch (error) {
