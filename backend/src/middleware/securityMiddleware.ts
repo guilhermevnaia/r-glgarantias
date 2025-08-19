@@ -26,6 +26,7 @@ export const corsOptions = {
       process.env.PRODUCTION_URL,
       // URLs específicas de produção
       'https://r-glgarantias-2qfa.vercel.app',
+      'https://r-glgarantias-frontend.vercel.app',
       'https://gl-garantias-backend.onrender.com'
     ].filter(Boolean); // Remove valores undefined/null
     
