@@ -38,7 +38,8 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
   const checkHealthStatus = useCallback(async (): Promise<void> => {
     try {
       setError(null);
-      const response = await fetch('/api/v1/integrity/health');
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+      const response = await fetch(`${API_BASE}/api/v1/integrity/health`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -73,7 +74,8 @@ export const useDataIntegrity = (): UseDataIntegrityReturn => {
 
     try {
             
-      const response = await fetch('/api/v1/integrity/check/complete', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+      const response = await fetch(`${API_BASE}/api/v1/integrity/check/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -163,7 +165,8 @@ export const useRecordCountVerification = (expectedCount: number) => {
     setIsChecking(true);
     
     try {
-      const response = await fetch('/api/v1/integrity/check/total-records', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+      const response = await fetch(`${API_BASE}/api/v1/integrity/check/total-records`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

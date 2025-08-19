@@ -136,7 +136,8 @@ const Dashboard = () => {
                     return;
         }
 
-        const response = await fetch('/api/v1/ai/stats', {
+        const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+        const response = await fetch(`${API_BASE}/api/v1/ai/stats`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

@@ -30,7 +30,7 @@ interface AIStats {
 }
 
 class AIService {
-  private baseUrl = '/api/v1/ai';
+  private baseUrl = `${import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com'}/api/v1/ai`;
   private classificationsCache = new Map<number, DefectClassification>();
   private lastCacheUpdate = 0;
   private cacheExpiry = 60000; // 1 minuto para atualização mais rápida do novo sistema

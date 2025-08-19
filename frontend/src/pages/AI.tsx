@@ -48,7 +48,8 @@ const AI = () => {
     
     setIsClassifying(true);
     try {
-      const response = await fetch('/api/v1/ai/classify-defect', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+      const response = await fetch(`${API_BASE}/api/v1/ai/classify-defect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +76,8 @@ const AI = () => {
   // Função para iniciar classificação em massa
   const handleMassClassification = async () => {
     try {
-      const response = await fetch('/api/v1/ai/classify-all', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+      const response = await fetch(`${API_BASE}/api/v1/ai/classify-all`, {
         method: 'POST'
       });
       
