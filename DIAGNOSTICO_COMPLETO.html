@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico Completo - GL Garantias</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; overflow: auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico Completo do Sistema</h1>
+    
+    <div>
+        <button onclick="runFullDiagnostic()">🚀 EXECUTAR DIAGNÓSTICO COMPLETO</button>
+        <button onclick="clearResults()">🗑️ Limpar</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const BACKEND_URL = 'https://gl-garantias-backend.onrender.com';
+        const FRONTEND_URL = 'https://r-glgarantias-frontend.vercel.app';
+        
+        let results = [];
+
+        async function testEndpoint(name, url, options = {}) {
+            const startTime = Date.now();
+            try {
+                console.log(`🧪 Testando: ${name} - ${url}`);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    ...options
+                });
+                
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                let responseData;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    responseData = await response.json();
+                } else {
+                    responseData = await response.text();
+                }
+                
+                const result = {
+                    name,
+                    url,
+                    status: response.status,
+                    statusText: response.statusText,
+                    responseTime: `${responseTime}ms`,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    data: responseData,
+                    success: response.ok
+                };
+                
+                results.push(result);
+                logTest(result);
+                return result;
+                
+            } catch (error) {
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                const result = {
+                    name,
+                    url,
+                    status: 'ERROR',
+                    statusText: error.message,
+                    responseTime: `${responseTime}ms`,
+                    error: error.toString(),
+                    success: false
+                };
+                
+                results.push(result);
+                logTest(result);
+                return result;
+            }
+        }
+
+        function logTest(result) {
+            const div = document.createElement('div');
+            div.className = `test ${result.success ? 'success' : 'error'}`;
+            
+            div.innerHTML = `
+                <h3>${result.success ? '✅' : '❌'} ${result.name}</h3>
+                <p><strong>URL:</strong> ${result.url}</p>
+                <p><strong>Status:</strong> ${result.status} ${result.statusText}</p>
+                <p><strong>Tempo:</strong> ${result.responseTime}</p>
+                <details>
+                    <summary>Ver detalhes</summary>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                </details>
+            `;
+            
+            document.getElementById('results').appendChild(div);
+        }
+
+        function logInfo(message) {
+            const div = document.createElement('div');
+            div.className = 'test info';
+            div.innerHTML = `<h3>ℹ️ ${message}</h3>`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function runFullDiagnostic() {
+            clearResults();
+            results = [];
+            
+            logInfo('Iniciando diagnóstico completo...');
+            
+            // 1. Testar conectividade básica
+            logInfo('Fase 1: Conectividade básica');
+            await testEndpoint('Backend Health Check', `${BACKEND_URL}/health`);
+            await testEndpoint('Backend Root', `${BACKEND_URL}/`);
+            
+            // 2. Testar rotas de IA
+            logInfo('Fase 2: Rotas de IA');
+            await testEndpoint('AI Stats', `${BACKEND_URL}/api/v1/ai/stats`);
+            await testEndpoint('AI Classifications', `${BACKEND_URL}/api/v1/ai/classifications`);
+            await testEndpoint('AI Categories', `${BACKEND_URL}/api/v1/ai/categories`);
+            
+            // 3. Testar rotas de integridade
+            logInfo('Fase 3: Rotas de integridade');
+            await testEndpoint('Integrity Health', `${BACKEND_URL}/api/v1/integrity/health`);
+            
+            // 4. Testar rotas principais
+            logInfo('Fase 4: Rotas principais');
+            await testEndpoint('Service Orders', `${BACKEND_URL}/api/v1/service-orders`);
+            await testEndpoint('Stats', `${BACKEND_URL}/api/v1/stats`);
+            
+            // 5. Testar upload
+            logInfo('Fase 5: Upload endpoints');
+            await testEndpoint('Upload v1', `${BACKEND_URL}/api/v1/upload`, { method: 'POST' });
+            await testEndpoint('Upload v2', `${BACKEND_URL}/api/v2/upload`, { method: 'POST' });
+            await testEndpoint('Upload v2 Health', `${BACKEND_URL}/api/v2/health`);
+            
+            // 6. Testar CORS do frontend
+            logInfo('Fase 6: Teste de CORS do Frontend');
+            try {
+                // Simular requisição do frontend
+                const corsTest = await fetch(`${BACKEND_URL}/api/v1/ai/stats`, {
+                    method: 'GET',
+                    headers: {
+                        'Origin': FRONTEND_URL,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                logTest({
+                    name: 'CORS Test (simulando frontend)',
+                    url: `${BACKEND_URL}/api/v1/ai/stats`,
+                    status: corsTest.status,
+                    statusText: corsTest.statusText,
+                    success: corsTest.ok,
+                    headers: Object.fromEntries(corsTest.headers.entries())
+                });
+            } catch (error) {
+                logTest({
+                    name: 'CORS Test (simulando frontend)',
+                    url: `${BACKEND_URL}/api/v1/ai/stats`,
+                    status: 'ERROR',
+                    statusText: error.message,
+                    success: false,
+                    error: error.toString()
+                });
+            }
+            
+            // 7. Resumo final
+            logInfo('Fase 7: Resumo');
+            const successful = results.filter(r => r.success).length;
+            const total = results.length;
+            
+            const summary = document.createElement('div');
+            summary.className = `test ${successful === total ? 'success' : 'error'}`;
+            summary.innerHTML = `
+                <h2>📊 RESUMO FINAL</h2>
+                <p><strong>Testes bem-sucedidos:</strong> ${successful}/${total}</p>
+                <p><strong>Taxa de sucesso:</strong> ${((successful/total)*100).toFixed(1)}%</p>
+                <details>
+                    <summary>Ver todos os resultados</summary>
+                    <pre>${JSON.stringify(results, null, 2)}</pre>
+                </details>
+            `;
+            
+            document.getElementById('results').appendChild(summary);
+            
+            // 8. Recomendações
+            const recommendations = document.createElement('div');
+            recommendations.className = 'test info';
+            
+            let recText = '<h2>🎯 RECOMENDAÇÕES</h2>';
+            
+            const failedTests = results.filter(r => !r.success);
+            if (failedTests.length > 0) {
+                recText += '<h3>❌ Problemas encontrados:</h3><ul>';
+                failedTests.forEach(test => {
+                    recText += `<li><strong>${test.name}:</strong> ${test.statusText}</li>`;
+                });
+                recText += '</ul>';
+            }
+            
+            const slowTests = results.filter(r => r.responseTime && parseInt(r.responseTime) > 5000);
+            if (slowTests.length > 0) {
+                recText += '<h3>🐌 Testes lentos (>5s):</h3><ul>';
+                slowTests.forEach(test => {
+                    recText += `<li><strong>${test.name}:</strong> ${test.responseTime}</li>`;
+                });
+                recText += '</ul>';
+            }
+            
+            recommendations.innerHTML = recText;
+            document.getElementById('results').appendChild(recommendations);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            results = [];
+        }
+
+        // Executar diagnóstico básico ao carregar
+        window.onload = () => {
+            logInfo('Página carregada. Clique em "EXECUTAR DIAGNÓSTICO COMPLETO" para começar.');
+        };
+    </script>
+</body>
+</html>
