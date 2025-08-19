@@ -15,6 +15,7 @@ import { IntegrityController } from './controllers/IntegrityController';
 import { SettingsController } from './controllers/SettingsController';
 import { AuthController } from './controllers/AuthController';
 import { AIController } from './controllers/AIController';
+import { AIControllerSimple } from './controllers/AIControllerSimple';
 import { AIContingencyController } from './controllers/AIContingencyController';
 import { ContingencyController } from './controllers/ContingencyController';
 import { continuousMonitoring } from './services/ContinuousMonitoringService';
@@ -138,6 +139,7 @@ const integrityController = new IntegrityController();
 const settingsController = new SettingsController();
 const authController = new AuthController();
 const aiController = new AIController();
+const aiControllerSimple = new AIControllerSimple();
 const aiContingencyController = new AIContingencyController();
 const contingencyController = new ContingencyController();
 
@@ -210,17 +212,22 @@ app.get('/api/v1/stats', (req, res) => {
   statsController.getStats(req, res);
 });
 
-// 🤖 ROTAS DE IA SIMPLIFICADAS (TEMPORARIAMENTE SEM AUTENTICAÇÃO PARA DEBUG)
+// 🤖 ROTAS DE IA ULTRA-SIMPLIFICADAS (ESTÁVEIS PARA DEPLOY)
 app.get('/api/v1/ai/stats', (req, res) => {
-  aiController.getAIStats(req, res);
+  aiControllerSimple.getAIStats(req, res);
 });
 
 app.get('/api/v1/ai/classifications', (req, res) => {
-  aiController.getDefectClassifications(req, res);
+  aiControllerSimple.getDefectClassifications(req, res);
 });
 
 app.get('/api/v1/ai/categories', (req, res) => {
-  aiController.getAICategories(req, res);
+  aiControllerSimple.getAICategories(req, res);
+});
+
+// Rota de teste de conectividade
+app.get('/api/v1/ai/test', (req, res) => {
+  aiControllerSimple.testConnection(req, res);
 });
 
 app.get('/api/v1/service-orders', (req, res) => {
