@@ -175,9 +175,9 @@ app.post('/api/v1/upload', upload.single('file'), (req, res) => {
   uploadController.uploadExcel(req, res);
 });
 
-// TEMPORÁRIO: UPLOAD SEM AUTENTICAÇÃO PARA TESTE
+// UPLOAD SIMPLIFICADO (EMERGÊNCIA - SEM PYTHON)
 app.post('/api/v2/upload', upload.single('file'), (req, res) => {
-  uploadControllerV2.uploadExcelDefinitive(req, res);
+  uploadController.uploadExcel(req, res);
 });
 
 // Health check do sistema Python (PÚBLICO)
