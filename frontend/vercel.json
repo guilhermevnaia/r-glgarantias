@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "env": {
-    "VITE_API_URL": "https://gl-garantias-backend.onrender.com"
+    "VITE_API_URL": "https://api.glgarantias.com.br"
   },
   "headers": [
     {
@@ -23,7 +23,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://gl-garantias-backend.onrender.com/api/$1"
+      "destination": "https://api.glgarantias.com.br/api/$1"
     }
   ]
 }

@@ -27,7 +27,11 @@ export const corsOptions = {
       // URLs específicas de produção
       'https://r-glgarantias-2qfa.vercel.app',
       'https://r-glgarantias-frontend.vercel.app',
-      'https://gl-garantias-backend.onrender.com'
+      'https://gl-garantias-backend.onrender.com',
+      // Domínio personalizado
+      'https://glgarantias.com.br',
+      'https://www.glgarantias.com.br',
+      'https://api.glgarantias.com.br'
     ].filter(Boolean); // Remove valores undefined/null
     
     // Domínios permitidos para wildcards
@@ -35,7 +39,8 @@ export const corsOptions = {
       'vercel.app',
       'netlify.app', 
       'railway.app',
-      'render.com'
+      'render.com',
+      'glgarantias.com.br'
     ];
 
     // Permitir requisições sem origin (mobile apps, Postman, etc.) e origin 'null' (arquivos locais)
