@@ -27,4 +27,4 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: CORS_ORIGIN
-        value: https://glgarantias.com.br,https://www.glgarantias.com.br
+        value: https://www.glgarantias.com.br,https://glgarantias.com.br

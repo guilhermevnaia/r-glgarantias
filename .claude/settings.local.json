@@ -147,7 +147,8 @@
       "Bash(rg:*)",
       "Bash(PORT=3007 timeout 5 npm start)",
       "Bash(start \"S:\\comp-glgarantias\\r-glgarantias\\DIAGNOSTICO_COMPLETO.html\")",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(nslookup:*)"
     ],
     "deny": []
   }
