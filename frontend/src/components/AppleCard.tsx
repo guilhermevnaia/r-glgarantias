@@ -63,28 +63,28 @@ export const AppleCard: React.FC<AppleCardProps> = ({
       border-2
       ${className}
     `}>
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className={`text-sm font-medium ${textClasses[gradient]} mb-1`}>
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs sm:text-sm font-medium ${textClasses[gradient]} mb-1 truncate`}>
               {title}
             </p>
-            <div className={`text-3xl font-bold ${valueClasses[gradient]} mb-2`}>
+            <div className={`text-xl sm:text-3xl font-bold ${valueClasses[gradient]} mb-2 break-words`}>
               {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
             </div>
             {trend && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 font-medium">
+                <span className="text-xs text-gray-500 font-medium truncate">
                   {trend.value}
                 </span>
               </div>
             )}
           </div>
           <div className={`
-            p-3 rounded-xl ${iconClasses[gradient]}
-            shadow-sm
+            p-2 sm:p-3 rounded-xl ${iconClasses[gradient]}
+            shadow-sm flex-shrink-0 ml-2
           `}>
-            <Icon className="h-6 w-6" />
+            <Icon className="h-4 w-4 sm:h-6 sm:w-6" />
           </div>
         </div>
       </CardContent>
