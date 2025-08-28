@@ -114,12 +114,14 @@ const Upload = () => {
       setUploadStatus({ status: 'uploading', message: 'Enviando arquivo...', progress: 0 });
       
       // Progresso realista baseado no tempo
+      let progressValue = 0;
       const progressInterval = setInterval(() => {
+        progressValue = Math.min(progressValue + Math.random() * 10 + 5, 95);
         setUploadStatus(prev => ({
           ...prev,
-          progress: Math.min((prev.progress || 0) + Math.random() * 15, 85)
+          progress: progressValue
         }));
-      }, 300);
+      }, 500);
 
       const result = await uploadWithSync(uploadedFile);
       

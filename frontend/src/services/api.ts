@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3010';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 120000, // 2 minutes for large files
+  timeout: 300000, // 5 minutes for large files
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -260,8 +260,8 @@ export const apiService = {
       const formData = new FormData();
       formData.append('file', file);
       
-      // 🏆 USAR SISTEMA DEFINITIVO PYTHON v2
-      const response = await api.post('/api/v2/upload', formData, {
+      // 🏆 USAR SISTEMA DEFINITIVO Node.js v1
+      const response = await api.post('/api/v1/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

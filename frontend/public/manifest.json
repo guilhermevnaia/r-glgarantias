@@ -12,38 +12,16 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/images/logo compacta.png",
+      "src": "/images/logo.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     },
     {
-      "src": "/images/logo compacta.png", 
+      "src": "/images/logo.png", 
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
-    },
-    {
-      "src": "/images/logo.png",
-      "sizes": "any",
-      "type": "image/png",
-      "purpose": "any"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/images/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Dashboard principal do sistema"
-    },
-    {
-      "src": "/images/screenshot-narrow.png", 
-      "sizes": "375x667",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Interface mobile responsiva"
     }
   ],
   "shortcuts": [
@@ -52,21 +30,21 @@
       "short_name": "Dashboard",
       "description": "Acesso rápido ao dashboard principal",
       "url": "/",
-      "icons": [{ "src": "/images/logo compacta.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/images/logo.png", "sizes": "96x96" }]
     },
     {
       "name": "Upload Excel",
       "short_name": "Upload",
       "description": "Upload de planilhas Excel",
       "url": "/upload", 
-      "icons": [{ "src": "/images/logo compacta.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/images/logo.png", "sizes": "96x96" }]
     },
     {
       "name": "Relatórios",
       "short_name": "Relatórios",
       "description": "Geração de relatórios",
       "url": "/reports",
-      "icons": [{ "src": "/images/logo compacta.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/images/logo.png", "sizes": "96x96" }]
     }
   ]
 }

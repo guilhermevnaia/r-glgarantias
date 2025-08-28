@@ -1,93 +1,83 @@
-// Service Worker for GL Garantias PWA
-const CACHE_NAME = 'gl-garantias-v1.0.0';
-const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/images/logo.png',
-  '/images/logo compacta.png',
-  '/manifest.json'
-];
+// Service Worker for GL Garantias PWA - Auto-cleanup version
+const CACHE_NAME = 'gl-garantias-v1.3.0-cleanup';
 
-// Install event
+// Immediately unregister this service worker and clean up
 self.addEventListener('install', (event) => {
+  console.log('SW: Auto-cleanup mode - removing all caches and unregistering');
+  
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        return fetch(event.request).then(
-          (response) => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        );
-      })
-  );
-});
-
-// Activate event
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-
-  event.waitUntil(
+    // Delete all caches
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
+          console.log('SW: Deleting cache:', cacheName);
+          return caches.delete(cacheName);
         })
       );
+    }).then(() => {
+      // Skip waiting to activate immediately
+      return self.skipWaiting();
     })
   );
 });
 
-// Background sync for offline functionality
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'background-sync') {
-    event.waitUntil(
-      // Add background sync logic here
-      console.log('Background sync triggered')
-    );
+// Activate and immediately unregister
+self.addEventListener('activate', (event) => {
+  console.log('SW: Activated - now unregistering self');
+  
+  event.waitUntil(
+    // Clean up all caches again
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
+      );
+    }).then(() => {
+      // Take control of all pages
+      return self.clients.claim();
+    }).then(() => {
+      // Get all clients (open tabs/windows)
+      return self.clients.matchAll();
+    }).then((clients) => {
+      // Send message to all clients to unregister this SW
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'UNREGISTER_SW',
+          message: 'Service Worker cleaning up and unregistering'
+        });
+      });
+      
+      // Auto-unregister this service worker
+      return self.registration.unregister();
+    })
+  );
+});
+
+// Don't intercept any fetch requests - let them pass through
+self.addEventListener('fetch', (event) => {
+  // Do nothing - let all requests pass through normally
+  console.log('SW: Letting request pass through:', event.request.url);
+  return;
+});
+
+// Handle messages from main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'FORCE_CLEANUP') {
+    console.log('SW: Force cleanup requested');
+    
+    // Delete all caches
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
+      );
+    }).then(() => {
+      // Unregister self
+      return self.registration.unregister();
+    });
   }
 });
 
-// Push notifications (for future use)
-self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data ? event.data.text() : 'Nova notificação GL Garantias',
-    icon: '/images/logo compacta.png',
-    badge: '/images/logo compacta.png'
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('GL Garantias', options)
-  );
-});
+console.log('SW: Cleanup service worker loaded - will auto-clean and unregister');

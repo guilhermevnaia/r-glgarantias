@@ -15,10 +15,10 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 };
 
 const API_URLS = [
-  import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com',
-  'https://gl-garantias-backend.onrender.com',
+  import.meta.env.VITE_API_URL || 'http://localhost:3010',
+  'http://localhost:3010',
   // Fallback para desenvolvimento
-  'http://localhost:3009',
+  'http://localhost:3010',
   'http://localhost:3007',
   'http://localhost:3005'
 ];
