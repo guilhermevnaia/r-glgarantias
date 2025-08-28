@@ -136,7 +136,7 @@ const Dashboard = () => {
                     return;
         }
 
-        const API_BASE = import.meta.env.VITE_API_URL || 'https://gl-garantias-backend.onrender.com';
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3010';
         const response = await fetch(`${API_BASE}/api/v1/ai/stats`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -239,7 +239,10 @@ const Dashboard = () => {
               <AppleCard
                 title="Valor Total"
                 value={(() => {
-                  const totalValue = (stats as DashboardStats)?.financialSummary?.totalValue || 0;
+                  // CORREÇÃO: Ajustar total considerando parts_total corrigido
+                  const partsTotal = ((stats as DashboardStats)?.financialSummary?.partsTotal || 0) * 2;
+                  const laborTotal = (stats as DashboardStats)?.financialSummary?.laborTotal || 0;
+                  const totalValue = partsTotal + laborTotal;
                   if (totalValue >= 1000000) {
                     return `R$ ${(totalValue / 1000000).toFixed(1)}M`;
                   } else if (totalValue >= 1000) {
@@ -252,7 +255,8 @@ const Dashboard = () => {
                 gradient="purple"
                 trend={{
                   value: `Prod: R$ ${(() => {
-                    const partsTotal = (stats as DashboardStats)?.financialSummary?.partsTotal || 0;
+                    // CORREÇÃO: Multiplicar por 2 para corrigir dados antigos divididos incorretamente
+                    const partsTotal = ((stats as DashboardStats)?.financialSummary?.partsTotal || 0) * 2;
                     if (partsTotal >= 1000000) {
                       return `${(partsTotal / 1000000).toFixed(1)}M`;
                     } else if (partsTotal >= 1000) {
