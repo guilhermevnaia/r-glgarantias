@@ -67,8 +67,8 @@ const port = parseInt(process.env.PORT || '3009', 10);
 
 // 🛡️ APLICAR MIDDLEWARES DE SEGURANÇA (ORDEM IMPORTANTE!)
 
-// 1. Timeout para requisições (2 minutos para uploads grandes)
-app.use(requestTimeout(120000)); // 2 minutos
+// 1. Timeout para requisições (10 minutos para uploads grandes)
+app.use(requestTimeout(600000)); // 10 minutos
 
 // 2. Headers de segurança
 app.use(helmetConfig);

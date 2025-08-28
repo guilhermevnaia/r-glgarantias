@@ -230,9 +230,8 @@ export class DataIntegrityService {
         if (isNaN(partsValue) || isNaN(laborValue)) {
           calculationErrors++;
         } else {
-          // Aplicar correção: peças divididas por 2
-          const correctedPartsValue = partsValue / 2;
-          totalCalculatedValue += correctedPartsValue + laborValue;
+          // Não dividir mais por 2 - usar valor original
+          totalCalculatedValue += partsValue + laborValue;
         }
       });
 

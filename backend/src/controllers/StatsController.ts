@@ -15,9 +15,11 @@ export class StatsController {
 
       console.log('📊 Carregando estatísticas com filtros:', { month, year, search, status, manufacturer, mechanic, model });
 
-      let query = supabase.from('service_orders').select('*');
-
-      // Aplicar filtros de data
+      // OTIMIZAÇÃO: Usar consultas separadas e mais eficientes
+      let baseQuery = supabase.from('service_orders');
+      
+      // Construir filtros base
+      const filters: any[] = [];
       if (year) {
         const yearNum = parseInt(year as string);
         if (yearNum < 2019 || yearNum > 2025) {
@@ -32,54 +34,58 @@ export class StatsController {
         const lastDayOfMonth = monthNum ? new Date(yearNum, monthNum, 0).getDate() : 31;
         const endDate = monthNum ? `${yearNum}-${String(monthNum).padStart(2, '0')}-${lastDayOfMonth}` : `${yearNum}-12-31`;
         
-        query = query.gte('order_date', startDate).lte('order_date', endDate);
-        console.log(`📅 Filtro de data: ${startDate} até ${endDate}`);
+        filters.push(['order_date', 'gte', startDate]);
+        filters.push(['order_date', 'lte', endDate]);
       } else {
-        // Filtrar sempre por range válido (2019-2025)
-        query = query.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
+        filters.push(['order_date', 'gte', '2019-01-01']);
+        filters.push(['order_date', 'lte', '2025-12-31']);
       }
 
-      // Filtro por status
-      if (status && status !== 'all') {
-        query = query.eq('order_status', status as string);
-        console.log(`🏷️ Filtro de status: ${status}`);
-      }
+      // Aplicar outros filtros
+      if (status && status !== 'all') filters.push(['order_status', 'eq', status as string]);
+      if (manufacturer && manufacturer !== 'all') filters.push(['engine_manufacturer', 'eq', manufacturer as string]);
+      if (mechanic && mechanic !== 'all') filters.push(['responsible_mechanic', 'eq', mechanic as string]);
+      if (model && model !== 'all') filters.push(['vehicle_model', 'eq', model as string]);
 
-      // Filtro por fabricante
-      if (manufacturer && manufacturer !== 'all') {
-        query = query.eq('engine_manufacturer', manufacturer as string);
-        console.log(`🏭 Filtro de fabricante: ${manufacturer}`);
+      // CONSULTA 1: Contar total e distribuição por status (mais eficiente)
+      let countQuery = baseQuery.select('order_status', { count: 'exact', head: true });
+      for (const [field, op, value] of filters) {
+        countQuery = (countQuery as any)[op](field, value);
       }
-
-      // Filtro por mecânico
-      if (mechanic && mechanic !== 'all') {
-        query = query.eq('responsible_mechanic', mechanic as string);
-        console.log(`👨‍🔧 Filtro de mecânico: ${mechanic}`);
-      }
-
-      // Filtro por modelo
-      if (model && model !== 'all') {
-        query = query.eq('vehicle_model', model as string);
-        console.log(`🚗 Filtro de modelo: ${model}`);
-      }
-
-      // Filtro de busca textual
+      
       if (search && (search as string).trim()) {
         const searchQuery = search as string;
-        query = query.or(`order_number.ilike.%${searchQuery}%,engine_manufacturer.ilike.%${searchQuery}%,engine_description.ilike.%${searchQuery}%,vehicle_model.ilike.%${searchQuery}%,raw_defect_description.ilike.%${searchQuery}%,responsible_mechanic.ilike.%${searchQuery}%`);
-        console.log(`🔍 Filtro de busca: ${search}`);
+        countQuery = countQuery.or(`order_number.ilike.%${searchQuery}%,engine_manufacturer.ilike.%${searchQuery}%,engine_description.ilike.%${searchQuery}%,vehicle_model.ilike.%${searchQuery}%,raw_defect_description.ilike.%${searchQuery}%,responsible_mechanic.ilike.%${searchQuery}%`);
       }
 
-      const { data: orders, error } = await query;
+      // CONSULTA 2: Buscar apenas os campos necessários para os dados completos
+      let dataQuery = baseQuery.select('id, order_number, order_date, order_status, engine_manufacturer, responsible_mechanic, vehicle_model, parts_total, labor_total, raw_defect_description, grand_total');
+      for (const [field, op, value] of filters) {
+        dataQuery = (dataQuery as any)[op](field, value);
+      }
+      
+      if (search && (search as string).trim()) {
+        const searchQuery = search as string;
+        dataQuery = dataQuery.or(`order_number.ilike.%${searchQuery}%,engine_manufacturer.ilike.%${searchQuery}%,engine_description.ilike.%${searchQuery}%,vehicle_model.ilike.%${searchQuery}%,raw_defect_description.ilike.%${searchQuery}%,responsible_mechanic.ilike.%${searchQuery}%`);
+      }
 
-      if (error) {
-        console.error('❌ Erro ao buscar dados:', error);
+      // Executar ambas consultas em paralelo
+      const [countResult, dataResult] = await Promise.all([
+        countQuery,
+        dataQuery.limit(1000) // Limitar para não trazer muitos dados
+      ]);
+
+      if (countResult.error || dataResult.error) {
+        console.error('❌ Erro ao buscar dados:', countResult.error || dataResult.error);
         return res.status(500).json({ error: 'Erro ao buscar dados' });
       }
 
-      console.log(`✅ Total de registros encontrados: ${orders.length}`);
+      const totalCount = countResult.count || 0;
+      const orders = dataResult.data || [];
 
-      if (orders.length === 0) {
+      console.log(`✅ Total de registros encontrados: ${orders.length} (de ${totalCount} total)`);
+
+      if (totalCount === 0) {
         console.log('⚠️ Nenhum dado encontrado');
         return res.json({
           totalOrders: 0,
@@ -142,7 +148,7 @@ export class StatsController {
           }
           
           monthlyData[monthKey].count++;
-          // Usar parts_total que já está dividido por 2 + labor_total
+          // Usar parts_total + labor_total
           const parts = parseFloat(order.parts_total || 0);
           const labor = parseFloat(order.labor_total || 0);
           monthlyData[monthKey].value += parts + labor;
@@ -159,25 +165,33 @@ export class StatsController {
 
       // Buscar classificações para as ordens que serão retornadas
       const ordersToReturn = orders.slice(0, 50);
-      const orderIds = ordersToReturn.map(order => order.id);
+      const orderIds = ordersToReturn.map(order => order.id).filter(id => id && !isNaN(id));
       
-      // Buscar classificações para esses IDs
-      const { data: classifications } = await supabase
-        .from('defect_classifications')
-        .select(`
-          service_order_id,
-          id,
-          category_id,
-          ai_confidence,
-          ai_reasoning,
-          is_reviewed,
-          defect_categories (
-            category_name,
-            color_hex,
-            icon
-          )
-        `)
-        .in('service_order_id', orderIds);
+      console.log(`🔍 Buscando classificações para ${orderIds.length} ordens:`, orderIds.slice(0, 5));
+      
+      let classifications = [];
+      if (orderIds.length > 0) {
+        // Buscar classificações para esses IDs
+        const result = await supabase
+          .from('defect_classifications')
+          .select(`
+            service_order_id,
+            id,
+            category_id,
+            ai_confidence,
+            ai_reasoning,
+            is_reviewed,
+            defect_categories (
+              category_name,
+              color_hex,
+              icon
+            )
+          `)
+          .in('service_order_id', orderIds);
+          
+        classifications = result.data || [];
+        console.log(`✅ Encontradas ${classifications.length} classificações`);
+      }
       
       // Mapear classificações por service_order_id
       const classificationsMap = new Map();
@@ -199,7 +213,8 @@ export class StatsController {
       console.log(`🤖 Adicionadas classificações para ${classificationsMap.size} ordens de ${ordersToReturn.length}`);
 
       const stats = {
-        totalOrders: orders.length,
+        totalOrders: totalCount, // Usar o count total da base de dados
+        totalShown: orders.length, // Quantos registros estão sendo mostrados
         statusDistribution,
         yearDistribution,
         topManufacturers,
@@ -215,7 +230,7 @@ export class StatsController {
         orders: ordersWithClassifications
       };
 
-      console.log(`✅ Estatísticas calculadas: ${stats.totalOrders} ordens`);
+      console.log(`✅ Estatísticas calculadas: ${stats.totalOrders} ordens total, ${stats.totalShown} mostradas`);
       res.json(stats);
 
     } catch (error) {
@@ -244,117 +259,49 @@ export class StatsController {
         page, limit, search, status, month, year, manufacturer, mechanic, model 
       });
 
-      // Construir query com filtros INCLUINDO CLASSIFICAÇÕES DE IA
-      console.log('🔍 Construindo query com classificações...');
+      // OTIMIZAÇÃO: Usar consultas mais eficientes
+      console.log('🔍 Construindo query otimizada...');
       let query = supabase
         .from('service_orders')
-        .select(`
-          *,
-          defect_classifications (
-            id,
-            category_id,
-            ai_confidence,
-            ai_reasoning,
-            defect_categories (
-              category_name,
-              color_hex,
-              icon
-            )
-          )
-        `, { count: 'exact' })
+        .select('id, order_number, order_date, order_status, engine_manufacturer, responsible_mechanic, vehicle_model, parts_total, labor_total, raw_defect_description, grand_total, engine_description')
         .order('order_date', { ascending: false });
       
       console.log('✅ Query construída com sucesso');
 
-      // Aplicar filtros de data
-      if (year) {
-        const startDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-01`
-          : `${year}-01-01`;
-        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês
-        const lastDayOfMonth = month ? new Date(year, month, 0).getDate() : 31;
-        const endDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`
-          : `${year}-12-31`;
-        
-        query = query.gte('order_date', startDate).lte('order_date', endDate);
-        console.log(`📅 Filtro de data: ${startDate} até ${endDate}`);
-      } else {
-        // Filtrar sempre por range válido (2019-2025)
-        query = query.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
-      }
 
-      // Filtro por status
-      if (status && status !== 'all') {
-        query = query.eq('order_status', status);
-        console.log(`🏷️ Filtro de status: ${status}`);
-      }
+      // Aplicar todos os filtros usando um helper function
+      const applyFilters = (q: any) => {
+        if (year) {
+          const startDate = month 
+            ? `${year}-${month.toString().padStart(2, '0')}-01`
+            : `${year}-01-01`;
+          const lastDayOfMonth = month ? new Date(year, month, 0).getDate() : 31;
+          const endDate = month 
+            ? `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`
+            : `${year}-12-31`;
+          q = q.gte('order_date', startDate).lte('order_date', endDate);
+        } else {
+          q = q.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
+        }
 
-      // Filtro por fabricante
-      if (manufacturer && manufacturer !== 'all') {
-        query = query.eq('engine_manufacturer', manufacturer);
-        console.log(`🏭 Filtro de fabricante: ${manufacturer}`);
-      }
+        if (status && status !== 'all') q = q.eq('order_status', status);
+        if (manufacturer && manufacturer !== 'all') q = q.eq('engine_manufacturer', manufacturer);
+        if (mechanic && mechanic !== 'all') q = q.eq('responsible_mechanic', mechanic);
+        if (model && model !== 'all') q = q.eq('vehicle_model', model);
+        if (search && search.trim()) {
+          q = q.or(`order_number.ilike.%${search}%,engine_manufacturer.ilike.%${search}%,engine_description.ilike.%${search}%,vehicle_model.ilike.%${search}%,raw_defect_description.ilike.%${search}%,responsible_mechanic.ilike.%${search}%`);
+        }
+        return q;
+      };
 
-      // Filtro por mecânico
-      if (mechanic && mechanic !== 'all') {
-        query = query.eq('responsible_mechanic', mechanic);
-        console.log(`👨‍🔧 Filtro de mecânico: ${mechanic}`);
-      }
+      // Aplicar filtros à query principal
+      query = applyFilters(query);
 
-      // Filtro por modelo
-      if (model && model !== 'all') {
-        query = query.eq('vehicle_model', model);
-        console.log(`🚗 Filtro de modelo: ${model}`);
-      }
-
-      // Filtro de busca textual
-      if (search && search.trim()) {
-        query = query.or(`order_number.ilike.%${search}%,engine_manufacturer.ilike.%${search}%,engine_description.ilike.%${search}%,vehicle_model.ilike.%${search}%,raw_defect_description.ilike.%${search}%,responsible_mechanic.ilike.%${search}%`);
-        console.log(`🔍 Filtro de busca: ${search}`);
-      }
-
-      // Criar query separada para contagem
+      // Criar query de contagem mais eficiente
       let countQuery = supabase
         .from('service_orders')
-        .select('*', { count: 'exact', head: true })
-        .order('order_date', { ascending: false });
-
-      // Aplicar os mesmos filtros para contagem
-      if (year) {
-        const startDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-01`
-          : `${year}-01-01`;
-        // ✅ CORREÇÃO: Calcular corretamente o último dia do mês
-        const lastDayOfMonth = month ? new Date(year, month, 0).getDate() : 31;
-        const endDate = month 
-          ? `${year}-${month.toString().padStart(2, '0')}-${lastDayOfMonth}`
-          : `${year}-12-31`;
-        
-        countQuery = countQuery.gte('order_date', startDate).lte('order_date', endDate);
-      } else {
-        countQuery = countQuery.gte('order_date', '2019-01-01').lte('order_date', '2025-12-31');
-      }
-
-      if (status && status !== 'all') {
-        countQuery = countQuery.eq('order_status', status);
-      }
-
-      if (manufacturer && manufacturer !== 'all') {
-        countQuery = countQuery.eq('engine_manufacturer', manufacturer);
-      }
-
-      if (mechanic && mechanic !== 'all') {
-        countQuery = countQuery.eq('responsible_mechanic', mechanic);
-      }
-
-      if (model && model !== 'all') {
-        countQuery = countQuery.eq('vehicle_model', model);
-      }
-
-      if (search && search.trim()) {
-        countQuery = countQuery.or(`order_number.ilike.%${search}%,engine_manufacturer.ilike.%${search}%,engine_description.ilike.%${search}%,vehicle_model.ilike.%${search}%,raw_defect_description.ilike.%${search}%,responsible_mechanic.ilike.%${search}%`);
-      }
+        .select('*', { count: 'exact', head: true });
+      countQuery = applyFilters(countQuery);
 
       // Buscar contagem e dados em paralelo
       console.log('🚀 Executando queries em paralelo...');
@@ -377,31 +324,63 @@ export class StatsController {
 
       console.log('✅ Queries executadas com sucesso');
       const filteredCount = countResult.count || 0;
-      const orders = dataResult.data;
-      
-      console.log('📊 Resultado da query de dados:', {
-        ordersLength: orders?.length,
-        firstOrderKeys: orders?.[0] ? Object.keys(orders[0]) : 'nenhum',
-        firstOrderHasClassifications: orders?.[0] ? !!orders[0].defect_classifications : false
-      });
+      const orders = dataResult.data || [];
 
-      // 🐛 DEBUG: Verificar se classificações estão sendo enviadas
-      if (orders && orders.length > 0) {
-        console.log('🔍 PRIMEIRO REGISTRO NO CONTROLLER:', {
-          orderNumber: orders[0].order_number,
-          hasDefectClassifications: !!orders[0].defect_classifications,
-          classificationsLength: orders[0].defect_classifications?.length,
-          allKeys: Object.keys(orders[0])
-        });
+      // Buscar classificações apenas para os registros retornados
+      let ordersWithClassifications = orders;
+      if (orders.length > 0) {
+        const orderIds = orders.map(order => order.id).filter(id => id && !isNaN(id));
+        
+        console.log(`🔍 Service Orders - Buscando classificações para ${orderIds.length} ordens:`, orderIds.slice(0, 3));
+        
+        let classifications = [];
+        if (orderIds.length > 0) {
+          const result = await supabase
+            .from('defect_classifications')
+            .select(`
+              service_order_id,
+              id,
+              category_id,
+              ai_confidence,
+              ai_reasoning,
+              is_reviewed,
+              defect_categories (
+                category_name,
+                color_hex,
+                icon
+              )
+            `)
+            .in('service_order_id', orderIds);
+            
+          classifications = result.data || [];
+          console.log(`✅ Service Orders - Encontradas ${classifications.length} classificações`);
+        }
+        
+        // Mapear classificações por service_order_id
+        const classificationsMap = new Map();
+        if (classifications) {
+          classifications.forEach(classification => {
+            if (!classificationsMap.has(classification.service_order_id)) {
+              classificationsMap.set(classification.service_order_id, []);
+            }
+            classificationsMap.get(classification.service_order_id).push(classification);
+          });
+        }
+        
+        // Adicionar classificações aos dados das ordens
+        ordersWithClassifications = orders.map(order => ({
+          ...order,
+          defect_classifications: classificationsMap.get(order.id) || []
+        }));
       }
 
       const totalCount = filteredCount || 0;
       const totalPages = Math.ceil(totalCount / limit);
 
-      console.log(`✅ Encontradas ${totalCount} ordens filtradas, retornando página ${page} com ${orders?.length || 0} registros`);
+      console.log(`✅ Encontradas ${totalCount} ordens filtradas, retornando página ${page} com ${ordersWithClassifications.length} registros`);
 
       res.json({
-        data: orders || [],
+        data: ordersWithClassifications,
         total: totalCount,
         page: page,
         limit: limit,
